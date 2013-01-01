@@ -165,7 +165,7 @@ class FramesWidget(QtGui.QWidget):
         if qimg:
             img = Canvas(qimg.copy(0, 0, SIZE[0], SIZE[1]))
         else:
-            img = Canvas(SIZE[0], SIZE[1], QtGui.QImage.Format_ARGB32)
+            img = Canvas(SIZE[0], SIZE[1])
             
         item = Item(img)
         item.setText('frame')
@@ -408,33 +408,56 @@ class Palette(QtGui.QWidget):
 
 class Canvas(QtGui.QImage):
     """ Canvas for drawing"""
-    def __init__(self, w, h=None, deph=None):
+    def __init__(self, w, h=None):
         if h is None:
             QtGui.QImage.__init__(self, w)
         else:
-            QtGui.QImage.__init__(self, w, h, deph)
-            self.fill(QtGui.QColor(0, 0, 0, 0))
-        self.lastPoint = False
+            QtGui.QImage.__init__(self, w, h, QtGui.QImage.Format_Indexed8)
+            self.setColor(0, QtGui.qRgba(0, 0, 0, 0))
+            self.setColor(1, QtGui.qRgb(0, 0, 0))
+        
+            self.fill(0)
+        self.lastPoint = QtCore.QPoint(0,0)
         
     def clear(self):
-        self.fill(QtGui.QColor(0, 0, 0, 0))
-        
-    def paintEvent(self, ev= '', fig=None, point=False):
-        p = QtGui.QPainter(self)
-        p.setPen(QtGui.QPen(COLOR, PEN, QtCore.Qt.SolidLine))
+        self.fill(0)
+            
+    def draw(self, fig, p2):
         if MODE == 'erase':
-            p.setCompositionMode (QtGui.QPainter.CompositionMode_DestinationOut)
-        if fig == 'point' or not self.lastPoint:
-            p.drawPoints(point)
-        elif fig == 'line':
-            p.drawLine(self.lastPoint, point)
+            color = 0
+        else:
+            color = 1
+        if fig == 'point':
+            self.setPixel (p2, color)
+        else:
+        # http://fr.wikipedia.org/wiki/Algorithme_de_trac%C3%A9_de_segment_de_Bresenham
+            p1 = self.lastPoint
+            if abs(p2.x()-p1.x()) > abs(p2.y()-p1.y()):
+                for i in xrange(abs(p1.x()-p2.x())):
+                    if p1.x()-p2.x() < 0:
+                        x = p1.x() + i
+                    else:
+                        x = p1.x() - i
+                    y = int( (p2.y()-p1.y()) / (p2.x() - p1.x()) * (x - p1.x()) + p1.y() + 0.5)
+                    self.setPixel(QtCore.QPoint(x, y), color)
+                self.setPixel(p2, color)
+            else:
+                for i in xrange(abs(p1.y()-p2.y())):
+                    if p1.y()-p2.y() < 0:
+                        y = p1.y() + i
+                    else:
+                        y = p1.y() - i
+                    x = int( (p2.x()-p1.x()) / (p2.y() - p1.y()) * (y - p1.y()) + p1.x() + 0.5)
+                    self.setPixel(QtCore.QPoint(x, y), color)
+                self.setPixel(p2, color)
+            
 
     def clic(self, mouseX, mouseY):
-        self.paintEvent('', 'point', QtCore.QPoint(mouseX, mouseY))
+        self.draw('point', QtCore.QPoint(mouseX, mouseY))
         self.lastPoint = QtCore.QPoint(mouseX, mouseY)
 
     def move(self, mouseX, mouseY):
-        self.paintEvent('', 'line', QtCore.QPoint(mouseX, mouseY))
+        self.draw('line', QtCore.QPoint(mouseX, mouseY))
         self.lastPoint = QtCore.QPoint(mouseX, mouseY)
         
         
