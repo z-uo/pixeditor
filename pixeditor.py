@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 from __future__ import division
 import sys
@@ -17,19 +17,21 @@ from PyQt4 import Qt
 # DONE duplicate frame (make a still frame drawable)
 # DONE clear frame (create new on a still frame)
 # add new canvas / resize / import / export
-# add onionskin
-# ALMOST DONE add palette
+# DONE add palette
 # DONE add palette: change color on doubleclic
-# add indexed color
-# add copy paste move frame
+# DONE add indexed color
 # add move frame content
 # add custom brushes
-# add layers
+# gerer thread if we add or remove images
 
+# later 
+# add copy paste move frame
+# add onionskin
+# add layers
 
 ### global ###
 # drawing color
-COLOR = QtGui.QColor(0, 0, 0, 255)
+COLOR = 1
 # drawing brush
 PEN = 1
 # mode draw/erase
@@ -42,26 +44,22 @@ class Item(QtGui.QStandardItem):
     """ a QStandartItem that contain a Canvas """
     def __init__(self, image=None):
         QtGui.QStandardItem.__init__(self)
-        self.image = image
-        if self.image:
-            self.isStill = False
-        else:
-            self.isStill = True
+        self.set_image(image)
             
     def set_image(self, image=None):
         self.image = image
-        if self.image:
-            self.isStill = False
+        if image:
+            self.setText('frame')
         else:
-            self.isStill = True
+            self.setText('   -')
     def get_image(self):
         return self.image
         
         
 class FramesWidget(QtGui.QWidget):
     """ manages the frames """
-    frameChanged = QtCore.pyqtSignal(object)
-    def __init__(self, parent=None):
+    #~ frameChanged = QtCore.pyqtSignal(object)
+    def __init__(self, parent):
         QtGui.QWidget.__init__(self, parent)
         self.parent = parent
         
@@ -73,12 +71,12 @@ class FramesWidget(QtGui.QWidget):
         self.framesList.setModel(self.modFramesList)
         self.framesList.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
         self.framesList.selectionModel().selectionChanged.connect(self.change_frame)
-        
-        # try to make an icon
-        self.framesList.setIconSize(QtCore.QSize(32, 32))
-        # try to move frame by drag drop
-        self.framesList.setDefaultDropAction(QtCore.Qt.MoveAction)
-        self.framesList.setDragDropMode(QtGui.QAbstractItemView.InternalMove)
+        #
+        #~ # try to make an icon
+        #~ self.framesList.setIconSize(QtCore.QSize(32, 32))
+        #~ # try to move frame by drag drop
+        #~ self.framesList.setDefaultDropAction(QtCore.Qt.MoveAction)
+        #~ self.framesList.setDragDropMode(QtGui.QAbstractItemView.InternalMove)
         
         ### adding and deleting images ###
         self.addFrameW = QtGui.QPushButton('add')
@@ -124,15 +122,29 @@ class FramesWidget(QtGui.QWidget):
         self.layout.addWidget(self.framesList)
         self.layout.addLayout(toolBox)
         self.layout.addLayout(toolBox2)
-    
-    def select_frame(self, frame):
+        
+    def init_new_anim(self, color, frames):
+        for i in xrange(self.modFramesList.rowCount()):
+            self.modFramesList.removeRow(0)
+        for i in frames:
+            if i:
+                img = Canvas(SIZE[0], SIZE[1])
+                img.setColorTable(color)
+                img.load_from_list(i)
+                item = Item(img)
+            else:
+                item = Item(None)
+            self.insert_item(item)
+        self.select_frame(0)
+                
+    def select_frame(self, row):
         """ select a frame which call self.change_frame() """
         self.framesList.selectionModel().clear()
-        sel = self.modFramesList.createIndex(frame,0)
+        sel = self.modFramesList.createIndex(row,0)
         self.framesList.selectionModel().select(sel, QtGui.QItemSelectionModel.Select)
         
     def insert_item(self, item):
-        # insert it after the selection or in the end
+        """ insert an item after the selection or in the end """
         sel = self.framesList.selectionModel().selectedIndexes()
         if sel:
             row = sel[0].row()+1
@@ -143,39 +155,52 @@ class FramesWidget(QtGui.QWidget):
         
     def change_frame(self):
         """ send the selected canvas to the viewer """
+        canvas = self.get_canvas()
+        if canvas:
+            self.parent.currentFrameChanged.emit(canvas)
+                    
+    def get_canvas(self):
         sel = self.framesList.selectionModel().selectedIndexes()
         if sel:
             item = self.modFramesList.itemFromIndex(sel[0])
-            if item:
-                img = item.get_image()
+            img = item.get_image()
+            if not img:
+                i = sel[0].row()
+                while not img and i >= 0:
+                    item = self.modFramesList.item(i,0)
+                    img = item.get_image()
+                    i -= 1
+            return img
+                
+    def get_all_canvas(self, still=False):
+        """ return a list containing all non still canvas """
+        l = []
+        for i in xrange(self.modFramesList.rowCount()):
+            item = self.modFramesList.item(i,0)
+            img = item.get_image()
+            if still:
+                l.append(img)
+            else:
                 if img:
-                    self.frameChanged.emit(img)
-                else:
-                    sel = sel[0]
-                    i = 1
-                    while not img and sel.row()-i >= 0:
-                        item = self.modFramesList.item(sel.row()-i,0)
-                        img = item.get_image()
-                        i = i + 1
-                    self.frameChanged.emit(img)
-                    
+                    l.append(img)
+        return l
+                
     def add_frame_clicked(self, qimg=None):
         """ create a new row and a canvas inside """
         # create the canvas and the item haning it on FramesWidget
         if qimg:
             img = Canvas(qimg.copy(0, 0, SIZE[0], SIZE[1]))
         else:
+            eximg = self.get_canvas()
             img = Canvas(SIZE[0], SIZE[1])
+            if eximg:
+                img.setColorTable(eximg.colorTable())
             
-        item = Item(img)
-        item.setText('frame')
-        self.insert_item(item)
+        self.insert_item(Item(img))
         
     def still_frame_clicked(self):
         """ add a still frame after the current """
-        item = Item()
-        item.setText('  -')
-        self.insert_item(item)
+        self.insert_item(Item())
     
     def delete_frame_clicked(self):
         """ delete selected frame from the model"""
@@ -193,15 +218,15 @@ class FramesWidget(QtGui.QWidget):
             if item.get_image():
                 self.select_frame(0)
             else:
-                img = Canvas(SIZE[0], SIZE[1], QtGui.QImage.Format_ARGB32)
+                img = Canvas(SIZE[0], SIZE[1])
                 item.set_image(img)
-                item.setText('frame')
                 self.select_frame(0)
         # else, jst select the previous frame
         else:
             self.select_frame(row - 1)
         
     def duplicate_frame_clicked(self):
+        """ duplicate the current canvas or if it's still create one in place """
         sel = self.framesList.selectionModel().selectedIndexes()
         if sel:
             item = self.modFramesList.itemFromIndex(sel[0])
@@ -218,6 +243,7 @@ class FramesWidget(QtGui.QWidget):
                 self.add_frame_clicked(img)
                     
     def clear_frame_clicked(self):
+        """ clear the current canvas or if it's still create a blank one """
         sel = self.framesList.selectionModel().selectedIndexes()
         if sel:
             item = self.modFramesList.itemFromIndex(sel[0])
@@ -225,16 +251,16 @@ class FramesWidget(QtGui.QWidget):
             if img:
                 img.clear()
             else:
-                img = Canvas(SIZE[0], SIZE[1], QtGui.QImage.Format_ARGB32)
+                img = Canvas(SIZE[0], SIZE[1])
                 item.set_image(img)
-                item.setText('frame')
         self.change_frame()
         
     def framerate_changed(self):
         f = int(self.framerateW.text())
         if f:
             self.framerate = 1/f
-            print self.framerate
+        else:
+            self.framerate = 1
         
     def check_repeat(self):
         if self.checkRepeatW.isChecked():
@@ -278,26 +304,37 @@ class Play(QtCore.QThread):
         self.end.emit()
             
     def animate(self):
-        for i in range(self.rows):
+        for i in xrange(self.parent.modFramesList.rowCount()):
             if not self.stop:
+                print i
                 self.frame.emit(i)
                 time.sleep(self.parent.framerate)
         
 
 class ColorItem(QtGui.QStandardItem):
     """ a QStandartItem that contain a Color """
-    def __init__(self, color=QtGui.QColor(0, 0, 0, 255)):
+    def __init__(self, color):
         QtGui.QStandardItem.__init__(self)
+        self.setEditable(False)
         self.color = color
-    def set_color(self, color=QtGui.QColor(0, 0, 0, 255)):
+        self.add_icon()
+        
+    def set_color(self, color):
         self.color = color
+        self.add_icon()
     def get_color(self):
         return self.color
+        
+    def add_icon(self):
+        col = QtGui.QColor()
+        col.setRgba(self.color)
+        icon = QtGui.QPixmap(16,16)
+        icon.fill(col)
+        self.setIcon(QtGui.QIcon(icon))
         
         
 class Palette(QtGui.QWidget):
     """ color palette """
-    colorChanged = QtCore.pyqtSignal(object)
     def __init__(self, parent=None):
         QtGui.QWidget.__init__(self, parent)
         self.parent = parent
@@ -312,113 +349,112 @@ class Palette(QtGui.QWidget):
         self.colorList.selectionModel().selectionChanged.connect(self.change_color)
         self.colorList.doubleClicked.connect(self.edit_color)
         
-        self.colorList.setIconSize(QtCore.QSize(32, 32))
-        # try to move frame by drag drop
-        self.colorList.setDefaultDropAction(QtCore.Qt.MoveAction)
-        self.colorList.setDragDropMode(QtGui.QAbstractItemView.InternalMove)
-        
         ### adding and deleting color ###
         self.addColorW = QtGui.QPushButton('add')
         self.addColorW.clicked.connect(self.add_color_clicked)
-        self.delColorW = QtGui.QPushButton('delete')
-        self.delColorW.clicked.connect(self.delete_color_clicked)
 
         ### layout ###
         toolBox = QtGui.QHBoxLayout()
         toolBox.addWidget(self.addColorW)
-        toolBox.addWidget(self.delColorW)
         toolBox.addStretch(0)
         self.layout = QtGui.QVBoxLayout(self)
         self.layout.addWidget(self.colorList)
         self.layout.addLayout(toolBox)
+    
+    def clear_palette(self):
+        for i in xrange(self.modColorList.rowCount()):
+            self.modColorList.removeRow(0)
+    
+    def select_row(self, row):
+        self.colorList.selectionModel().clear()
+        sel = self.modColorList.createIndex(row,0)
+        self.colorList.selectionModel().select(sel, QtGui.QItemSelectionModel.Select)
+        
+    def init_new_palette(self, palette):
+        self.clear_palette()
+        r = 0
+        for i in palette:
+            item = ColorItem(i)
+            self.modColorList.insertRow(r, item)
+            r += 1
+        self.select_row(r)
         
     def change_color(self):
         """ send the selected color to global """
         sel = self.colorList.selectionModel().selectedIndexes()
         if sel:
-            item = self.modColorList.itemFromIndex(sel[0])
-            if item:
-                color = item.get_color()
-                if color:
-                    global COLOR
-                    COLOR = color
+            row = sel[0].row()
+            global COLOR
+            COLOR = row
                     
-    def select_color(self, row):
-        self.colorList.selectionModel().clear()
-        sel = self.modColorList.createIndex(row,0)
-        self.colorList.selectionModel().select(sel, QtGui.QItemSelectionModel.Select)
+    def change_canvas_colortable(self, rgba, row):
+        """ change the color for all canvas """
+        canvas = self.parent.framesWidget.get_all_canvas()
+        for i in canvas:
+            i.setColor(row, rgba)
+        # update canvas
+        canvas = self.parent.framesWidget.get_canvas()
+        self.parent.currentFrameChanged.emit(canvas)
+
         
     def edit_color(self):
-        color = QtGui.QColor(0, 0, 0, 255)
+        color = QtGui.qRgba(0, 0, 0, 255)
         sel = self.colorList.selectionModel().selectedIndexes()
         if sel:
+            row = sel[0].row()
             item = self.modColorList.itemFromIndex(sel[0])
             color = item.get_color()
-                
-        color = QtGui.QColorDialog.getColor(COLOR)
-        if not color.isValid():
+        
+        color, ok = QtGui.QColorDialog.getRgba()
+        if not ok:
             return
-        
         item.set_color(color)
-        colorIcon = QtGui.QPixmap(32, 32)
-        colorIcon.fill(color)
-        item.setIcon(QtGui.QIcon(colorIcon))
-        
+        self.change_canvas_colortable(color, row)
         self.change_color()
         
     def add_color_clicked(self):
         """ create a new row with a color item and ask user wath color to put in"""
-        color = QtGui.QColor(0, 0, 0, 255)
+        color = QtGui.qRgba(0, 0, 0, 255)
         sel = self.colorList.selectionModel().selectedIndexes()
         if sel:
             item = self.modColorList.itemFromIndex(sel[0])
             color = item.get_color()
-                
-        color = QtGui.QColorDialog.getColor(COLOR)
-        if not color.isValid():
+        
+        color, ok = QtGui.QColorDialog.getRgba()
+        if not ok:
             return
         
         item = ColorItem(color)
-        # insert it after the selection or in the end
-        sel = self.colorList.selectionModel().selectedIndexes()
-        if sel:
-            row = sel[0].row()+1
-        else:
-            row = self.modColorList.rowCount()
+        row = self.modColorList.rowCount()
         self.modColorList.insertRow(row, item)
     
-        colorIcon = QtGui.QPixmap(32, 32)
-        colorIcon.fill(color)
-        item.setIcon(QtGui.QIcon(colorIcon))
-        
-        self.select_color(row)
-        
-    def delete_color_clicked(self):
-        """ delete selected frame from the model"""
-        sel = self.colorList.selectionModel().selectedIndexes()
-        row = sel[0].row()
-        self.modColorList.removeRow(row)
-        if self.modColorList.rowCount() == 0:
-            self.add_color_clicked()
-        elif row == 0 :
-            self.select_color(0)
-        else:
-            self.select_color(row - 1)
+        self.change_canvas_colortable(color, row)
+        self.select_row(row)
         
 
 class Canvas(QtGui.QImage):
     """ Canvas for drawing"""
     def __init__(self, w, h=None):
-        if h is None:
+        if not h:
             QtGui.QImage.__init__(self, w)
         else:
             QtGui.QImage.__init__(self, w, h, QtGui.QImage.Format_Indexed8)
             self.setColor(0, QtGui.qRgba(0, 0, 0, 0))
-            self.setColor(1, QtGui.qRgb(0, 0, 0))
-        
+            self.setColor(1, QtGui.qRgba(0, 0, 0, 255))
             self.fill(0)
+            
         self.lastPoint = QtCore.QPoint(0,0)
         
+    def load_from_list(self, li):
+        x, y = 0, 0
+        for i in li:
+            #~ print 'x = %s, y = %s' %(x, y)
+            self.setPixel(QtCore.QPoint(x, y), i)
+            x += 1
+            if x >= SIZE[0]:
+                x = 0
+                y += 1
+                
     def clear(self):
         self.fill(0)
             
@@ -426,7 +462,7 @@ class Canvas(QtGui.QImage):
         if MODE == 'erase':
             color = 0
         else:
-            color = 1
+            color = COLOR
         if fig == 'point':
             self.setPixel (p2, color)
         else:
@@ -484,27 +520,30 @@ class Scene(QtGui.QGraphicsView):
         
         # the canvas to draw on
         self.canvas = False
-        # a pixmap to display on scene
-        self.canvasP = QtGui.QPixmap(SIZE[0], SIZE[1])
-        self.canvasP.fill(QtGui.QColor(0, 0, 0, 0))
         self.zoomN = 1
         
         self.scene = QtGui.QGraphicsScene(self)
         self.scene.setItemIndexMethod(QtGui.QGraphicsScene.NoIndex)
-        self.scene.setSceneRect(0, 0, SIZE[0], SIZE[1])
         self.scene.addPixmap(self.bg)
-        self.canvasItem = self.scene.addPixmap(self.canvasP)
         self.setScene(self.scene)
         self.setTransformationAnchor(QtGui.QGraphicsView.AnchorUnderMouse)
         self.setResizeAnchor(QtGui.QGraphicsView.AnchorViewCenter)
         self.setMinimumSize(400, 400)
         
-        self.parent.framesWidget.frameChanged.connect(self.change_frame)
+        self.change_size()
+        self.parent.currentFrameChanged.connect(self.change_frame)
         
     def change_frame(self, canvas):
         self.canvas = canvas
         self.canvasP.convertFromImage(self.canvas)
         self.canvasItem.setPixmap(self.canvasP)
+        
+    def change_size(self):
+        # a pixmap to display on scene
+        self.canvasP = QtGui.QPixmap(SIZE[0], SIZE[1])
+        self.canvasP.fill(QtGui.QColor(0, 0, 0, 0))
+        self.scene.setSceneRect(0, 0, SIZE[0], SIZE[1])
+        self.canvasItem = self.scene.addPixmap(self.canvasP)
         
     def wheelEvent(self, event):
         if event.delta() > 0:
@@ -554,9 +593,18 @@ class Scene(QtGui.QGraphicsView):
         else:
             return QtGui.QGraphicsView.mouseMoveEvent(self, event)
         
-
+class Pref():
+    def __init__(self):
+        self.color = 0
+        self.size = (0,0)
+        self.playing = False
+        self.colorTable = [2324, 245]
+    def painting_color(self, color):
+        self.color = color
+    def playing(self, state):
+        self.playion = state
 class MainWidget(QtGui.QWidget):
-    
+    currentFrameChanged = QtCore.pyqtSignal(object)
     def __init__(self):
         QtGui.QWidget.__init__(self)
 
@@ -570,16 +618,7 @@ class MainWidget(QtGui.QWidget):
         self.eraseW.setAutoRaise(True)
         self.eraseW.setIcon(QtGui.QIcon(QtGui.QPixmap('icons/eraser.svg')))
         
-
-        ### color ###
-        #~ self.color = QtGui.QColor(0, 0, 0)
-        #~ self.colorIcon = QtGui.QPixmap(22, 22)
-        #~ self.colorIcon.fill(self.color)
-#~ 
-        #~ self.colorW = QtGui.QToolButton(self)
-        #~ self.colorW.setAutoRaise(True)
-        #~ self.colorW.setIcon(QtGui.QIcon(self.colorIcon))
-        
+        ### palette ###
         self.palette = Palette(self)
         
         ### pen size ###
@@ -618,34 +657,20 @@ class MainWidget(QtGui.QWidget):
         ### connexion ##################################################
         self.drawW.clicked.connect(self.draw_mode)
         self.eraseW.clicked.connect(self.erase_mode)
-        #~ self.colorW.clicked.connect(self.color_clicked)
         self.penW.activated[str].connect(self.pen_clicked)  
 
         self.zoomInW.clicked.connect(self.zoom_in)
         self.zoomOutW.clicked.connect(self.zoom_out)
 
         ### layout #####################################################
-        
         grid = QtGui.QGridLayout()
         grid.setSpacing(2)
         grid.addWidget(self.drawW, 0, 0)
         grid.addWidget(self.eraseW, 0, 1)
-        
         grid.addWidget(self.penW, 0, 2)
-        
         grid.addWidget(self.zoomInW, 1, 0)
         grid.addWidget(self.zoomOutW, 1, 1)
         grid.addWidget(self.palette, 2, 0, 2, 4)
-        
-        #~ toolBox = QtGui.QHBoxLayout()
-        #~ toolBox.addWidget(self.drawW)
-        #~ toolBox.addWidget(self.eraseW)
-        #~ toolBox.addWidget(self.colorW)
-        #~ toolBox.addWidget(self.penW)
-        #~ toolBox.addWidget(self.zoomInW)
-        #~ toolBox.addWidget(self.zoomOutW)
-        #~ toolBox.addWidget(self.imL)
-        #~ toolBox.addStretch(0)
 
         hLayout = QtGui.QHBoxLayout()
         hLayout.setSpacing(2)
@@ -653,14 +678,13 @@ class MainWidget(QtGui.QWidget):
         hLayout.addWidget(self.framesWidget)
         hLayout.addWidget(self.viewer)
         
-        ### layout ###
         layout = QtGui.QVBoxLayout()
         layout.setSpacing(2)
-        #~ layout.addLayout(toolBox)
         layout.addLayout(hLayout)
         
         self.setLayout(layout)  
-
+    def init_canvas(self):
+        pass
     def zoom_in(self):
         self.viewer.scaleView(2)
 
@@ -735,11 +759,44 @@ class MainWindow(QtGui.QMainWindow):
         print("new")
         # change size
         # reset FramesWigget
+        
     def import_action(self):
-        print("import")
+        save = open("pix.txt", "r")
+        frame = []
+        for line in save.readlines():
+            if line[0:5] == "COLOR":
+                color = [int(n) for n in line[6:-2].split(',')]
+                print color
+            elif line[0:5] == "SIZE ":
+                size = [int(n) for n in line[6:-2].split(',')]
+            elif line[0:5] == "PIXEL":
+                frame.append([int(n) for n in line[6:-2].split(',')])
+            elif line[0:5] == "STILL":
+                frame.append(None)
+        save.close()
+        global SIZE
+        SIZE = (size[0], size[1])
+        self.centralWidget.framesWidget.init_new_anim(color, frame)
+        self.centralWidget.palette.init_new_palette(color)
         
     def export_action(self):
-        print("export")
+        save = open("pix.txt", "w")
+        lim = self.centralWidget.framesWidget.get_all_canvas(True)
+        col = [int(i) for i in lim[0].colorTable()]
+        save.write("COLOR%s\n" %(col))
+        save.write("SIZE (%s, %s)\n" %(lim[0].width(), lim[0].height()))
+        for im in lim:
+            if im:
+                l = []
+                for y in xrange(im.height()):
+                    for x in xrange(im.width()):
+                        l.append(im.pixelIndex(x, y))
+                s = ','.join(str(n) for n in l)
+                save.write("PIXEL(%s)\n" %(s))
+            else:
+                save.write("STILL\n")
+        save.close()
+        
     def exit_action(self):
         print("exit")
         QtGui.qApp.quit()
