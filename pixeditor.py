@@ -1,13 +1,21 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
 
-from __future__ import division
-import sys
-import os
-import time
-from PyQt4 import QtCore
-from PyQt4 import QtGui
-from PyQt4 import Qt
+# Copyright Nicolas Bougère (pops451@gmail.com), 2012-2013
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 
 # DONE add play function 
 # DONE add custom framerate, stop button, repeat
@@ -20,9 +28,9 @@ from PyQt4 import Qt
 # DONE add palette
 # DONE add palette: change color on doubleclic
 # DONE add indexed color
-# add custom brushes
-# manage thread if we add or remove images or lock interface while playing
-# need UI love
+# DONE add custom brushes
+# DONE add shortcut to change frames
+# DONE add undeo redo (work only on canvas)
 
 # later 
 # add resize canvas
@@ -33,6 +41,17 @@ from PyQt4 import Qt
 # add onionskin
 # add layers
 # add choice between a gif or png transparency mode
+# add a cursor layer (pixel who will be paint) grid
+# manage thread if we add or remove images or lock interface while playing
+# need more UI love
+
+from __future__ import division
+import sys
+import os
+import time
+from PyQt4 import QtCore
+from PyQt4 import QtGui
+from PyQt4 import Qt
 
 ### global ###
 # drawing color
@@ -40,6 +59,7 @@ COLOR = 1
 # canvas size
 SIZE = (64, 64)
 COLORTABLE = [QtGui.qRgba(0, 0, 0, 0), QtGui.qRgba(0, 0, 0, 255)]
+PEN = ((0, 0),)
 
 
 class Item(QtGui.QStandardItem):
@@ -127,6 +147,7 @@ class FramesWidget(QtGui.QWidget):
     def clear_frames(self):
         for i in xrange(self.modFramesList.rowCount()):
             self.modFramesList.removeRow(0)
+            
     def init_new_anim(self, frames):
         self.clear_frames()
         for i in frames:
@@ -141,9 +162,16 @@ class FramesWidget(QtGui.QWidget):
                 
     def select_frame(self, row):
         """ select a frame which call self.change_frame() """
-        self.framesList.selectionModel().clear()
-        sel = self.modFramesList.createIndex(row,0)
-        self.framesList.selectionModel().select(sel, QtGui.QItemSelectionModel.Select)
+        if row < self.modFramesList.rowCount() and row >= 0:
+            self.framesList.selectionModel().clear()
+            sel = self.modFramesList.createIndex(row,0)
+            self.framesList.selectionModel().select(sel, QtGui.QItemSelectionModel.Select)
+        
+    def select_frame_relative(self, n):
+        """ select a frame which call self.change_frame() """
+        sel = self.framesList.selectionModel().selectedIndexes()
+        if sel:
+            self.select_frame(sel[0].row() + n)
         
     def insert_item(self, item):
         """ insert an item after the selection or in the end """
@@ -340,6 +368,7 @@ class Palette(QtGui.QWidget):
         QtGui.QWidget.__init__(self, parent)
         self.parent = parent
         
+        self.title = QtGui.QLabel("Palette")
         ### model to store palette ###
         self.modColorList = QtGui.QStandardItemModel(0, 1)
 
@@ -359,6 +388,7 @@ class Palette(QtGui.QWidget):
         toolBox.addWidget(self.addColorW)
         toolBox.addStretch(0)
         self.layout = QtGui.QVBoxLayout(self)
+        self.layout.addWidget(self.title)
         self.layout.addWidget(self.colorList)
         self.layout.addLayout(toolBox)
     
@@ -449,6 +479,8 @@ class Canvas(QtGui.QImage):
             self.fill(0)
             
         self.lastPoint = QtCore.QPoint(0,0)
+        self.undoList = []
+        self.redoList = []
         
     def load_from_list(self, li):
         x, y = 0, 0
@@ -462,11 +494,27 @@ class Canvas(QtGui.QImage):
     def clear(self):
         self.fill(0)
             
+    def undo(self):
+        if len(self.undoList) > 0:
+            self.redoList.append(Canvas(self))
+            if len(self.redoList) > 50:
+                self.redoList.pop(0)
+            QtGui.QImage.__init__(self, self.undoList.pop(-1))
+            
+                
+    def redo(self):
+        if len(self.redoList) > 0:
+            self.undoList.append(Canvas(self))
+            if len(self.undoList) > 50:
+                self.undoList.pop(0)
+            QtGui.QImage.__init__(self, self.redoList.pop(-1))
+        
     def draw(self, fig, p2):
+        self.redoList = []
         if fig == 'point':
             self.draw_point(p2)
         else:
-        # http://fr.wikipedia.org/wiki/Algorithme_de_trac%C3%A9_de_segment_de_Bresenham
+            # http://fr.wikipedia.org/wiki/Algorithme_de_trac%C3%A9_de_segment_de_Bresenham
             p1 = self.lastPoint
             if abs(p2.x()-p1.x()) > abs(p2.y()-p1.y()):
                 for i in xrange(abs(p1.x()-p2.x())):
@@ -488,17 +536,16 @@ class Canvas(QtGui.QImage):
                 self.draw_point(p2)
             
     def draw_point(self, point):
-        x, y = point.x(), point.y()
-        if x >= 0 and x < SIZE[0] and y >= 0 and y < SIZE[1]: 
-            self.setPixel(QtCore.QPoint(x, y), COLOR)
-        #~ #custom brush
-        #~ brush = ((0, 0), (-1, 0), (0, -1), (1, 0), (0, 1))
-        #~ for i in brush:
-            #~ x, y = point.x() + i[0], point.y() + i[1]
-            #~ if x >= 0 and x < SIZE[0] and y >= 0 and y < SIZE[1]: 
-                #~ self.setPixel(QtCore.QPoint(x, y), color)
+        for i in PEN:
+            x, y = point.x() + i[0], point.y() + i[1]
+            if x >= 0 and x < SIZE[0] and y >= 0 and y < SIZE[1]: 
+                self.setPixel(QtCore.QPoint(x, y), COLOR)
             
     def clic(self, mouseX, mouseY):
+        # save current state
+        self.undoList.append(Canvas(self))
+        if len(self.undoList) > 50:
+            self.undoList.pop(0)
         self.draw('point', QtCore.QPoint(mouseX, mouseY))
         self.lastPoint = QtCore.QPoint(mouseX, mouseY)
 
@@ -610,9 +657,6 @@ class MainWidget(QtGui.QWidget):
     def __init__(self):
         QtGui.QWidget.__init__(self)
         
-        ### palette ###
-        self.palette = Palette(self)
-
         ### zoom buttons ###
         self.zoomInW = QtGui.QToolButton()
         self.zoomInW.setAutoRaise(True)
@@ -620,9 +664,25 @@ class MainWidget(QtGui.QWidget):
         self.zoomOutW = QtGui.QToolButton()
         self.zoomOutW.setAutoRaise(True)
         self.zoomOutW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/zoom_out.svg")))
-
-        ### labels info ###
-        self.imL = QtGui.QLabel("This is an alpha program, full of bug")
+        
+        ### pen size ###
+        self.penW = QtGui.QComboBox(self)
+        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/point.png")), "point")
+        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/2_pixels_horizontal.png")), "2 pixels horizontal")
+        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/2_pixels_vertical.png")), "2 pixels vertical")
+        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/2x2_square.png")), "2x2 square")
+        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/3x3_square.png")), "3x3 square")
+        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/3x3_cross.png")), "3x3 cross")
+        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/5x5_round.png")), "5x5 round")
+        self.penDict = { "point" : ((0, 0),),
+                        "2 pixels horizontal" : ((0, 0), (1, 0)),
+                        "2 pixels vertical" : ((0, 0), (0, 1)),
+                        "2x2 square" : ((0, 0), (0, 1), (1, 0), (1, 1)),
+                        "3x3 square" : ((-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 0), (0, 1), (1, -1), (1, 0), (1, 1)),
+                        "3x3 cross" : ((0, 0), (-1, 0), (0, -1), (1, 0), (0, 1)),
+                        "5x5 round" : ((-1, -2), (0, -2), (1, -2), (-2, -1), (-1, -1), (0, -1), (1, -1), (2, -1), (-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0), (-2, 1), (-1, 1), (0, 1), (1, 1), (2, 1), (-1, 2), (0, 2), (1, 2))}
+        ### palette ###
+        self.palette = Palette(self)
         
         ### viewer and framesWidget ###
         self.framesWidget = FramesWidget(self)
@@ -631,24 +691,24 @@ class MainWidget(QtGui.QWidget):
         ### connexion ##################################################
         self.zoomInW.clicked.connect(self.zoom_in)
         self.zoomOutW.clicked.connect(self.zoom_out)
+        self.penW.activated[str].connect(self.pen_clicked)
 
         ### layout #####################################################
         grid = QtGui.QGridLayout()
         grid.setSpacing(2)
         grid.addWidget(self.zoomInW, 0, 0)
         grid.addWidget(self.zoomOutW, 0, 1)
-        grid.addWidget(self.palette, 1, 0, 2, 4)
-
-        hLayout = QtGui.QHBoxLayout()
-        hLayout.setSpacing(2)
-        hLayout.addLayout(grid)
-        hLayout.addWidget(self.framesWidget)
-        hLayout.addWidget(self.scene)
+        grid.addWidget(self.penW, 1, 0, 1, 4)
+        grid.addWidget(self.palette, 2, 0, 1, 4)
         
-        layout = QtGui.QVBoxLayout()
+        splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
+        splitter.addWidget(self.framesWidget)
+        splitter.addWidget(self.scene)
+        
+        layout = QtGui.QHBoxLayout()
         layout.setSpacing(2)
-        layout.addLayout(hLayout)
-        
+        layout.addLayout(grid)
+        layout.addWidget(splitter)
         self.setLayout(layout)  
         
     def zoom_in(self):
@@ -656,6 +716,10 @@ class MainWidget(QtGui.QWidget):
 
     def zoom_out(self):
         self.scene.scaleView(0.5)
+        
+    def pen_clicked(self, text):
+        global PEN
+        PEN = self.penDict[str(text)]
         
     def change_frame(self, pixmap):
         self.scene.setCanvas(pixmap)
@@ -706,8 +770,20 @@ class MainWindow(QtGui.QMainWindow):
         self.setCentralWidget(self.centralWidget)
         self.init_canvas()
         
+        ### shortcuts ###
+        shortcut = QtGui.QShortcut(self)
+        shortcut.setKey(QtCore.Qt.Key_Left)
+        shortcut.activated.connect(self.prev_frame)
+        shortcut2 = QtGui.QShortcut(self)
+        shortcut2.setKey(QtCore.Qt.Key_Right)
+        shortcut2.activated.connect(self.next_frame)
+        shortcut3 = QtGui.QShortcut(self)
+        shortcut3.setKey(QtGui.QKeySequence(QtCore.Qt.CTRL + QtCore.Qt.Key_Z))
+        shortcut3.activated.connect(self.undo)
+        shortcut4 = QtGui.QShortcut(self)
+        shortcut4.setKey(QtGui.QKeySequence(QtCore.Qt.CTRL + QtCore.Qt.Key_Y))
+        shortcut4.activated.connect(self.redo)
         self.show()
-    
         
     def init_canvas(self):
         self.centralWidget.scene.change_size()
@@ -727,7 +803,7 @@ class MainWindow(QtGui.QMainWindow):
             SIZE = (w, h)
         self.centralWidget.framesWidget.clear_frames()
         self.centralWidget.palette.clear_palette()
-        self.centralWidget.init_canvas()
+        self.init_canvas()
         
     def open_action(self):
         url = QtGui.QFileDialog.getOpenFileName(self, "open pix file", "", "Pix files (*.pix );;All files (*)")
@@ -771,6 +847,7 @@ class MainWindow(QtGui.QMainWindow):
                 else:
                     save.write("STILL\n")
             save.close()
+            
     def export_action(self):
         url = QtGui.QFileDialog.getSaveFileName(self, "Export animation as png", "", "Png files (*.png )")
         if url:
@@ -800,11 +877,25 @@ class MainWindow(QtGui.QMainWindow):
                 if ret:
                     for i in files:
                         i[1].save(i[0])
-            
         
     def exit_action(self):
         QtGui.qApp.quit()
-
+        
+    def prev_frame(self):
+        self.centralWidget.framesWidget.select_frame_relative(-1)
+        
+    def next_frame(self):
+        self.centralWidget.framesWidget.select_frame_relative(1)
+        
+    def undo(self):
+        canvas = self.centralWidget.framesWidget.get_canvas()
+        canvas.undo()
+        self.centralWidget.scene.change_frame(canvas)
+        
+    def redo(self):
+        canvas = self.centralWidget.framesWidget.get_canvas()
+        canvas.redo()
+        self.centralWidget.scene.change_frame(canvas)
 
 class NewDialog(QtGui.QDialog):
     def __init__(self, w=64, h=64):
