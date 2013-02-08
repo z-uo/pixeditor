@@ -4,7 +4,7 @@ pixeditor
 a animated pixel art editor
 
 It is an alpha program, with bugs and limitation.
-You need python 2.6 and pyQt to run it.
+You need python 2.7 and pyQt to run it.
 
 
 Use the left and right key to move to previous and next frame.
