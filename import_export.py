@@ -118,3 +118,88 @@ def export_png(frames, url=None):
         else:
             for i in files:
                 i[1].save(i[0])
+
+def export(frames, url=None):
+    url = QtGui.QFileDialog.getSaveFileName(None, "export (.png or .nanim)", "", "Png files (*.png);;Nanim files (*.nanim)")
+    if url:
+        if url.endsWith("png"):
+            export_png(frames, url)
+        elif url.endsWith("nanim"):
+            export_nanim(frames, url)
+
+def export_png(frames, url):
+    url = os.path.splitext(str(url))[0]
+    files = []
+    fnexist = False
+    for n, im in enumerate(frames, 1):
+        fn = "%s%s.png" %(url, n)
+        if os.path.isfile(fn):
+            fnexist = True
+        if im:
+            files.append((fn, im))
+            sim = im
+        else:
+#                sim.save(fn)
+            files.append((fn, sim))
+    if fnexist:
+        message = QtGui.QMessageBox()
+        message.setWindowTitle("Overwrite?")
+        message.setText("Some filename allready exist.\nDo you want to overwrite them?");
+        message.setIcon(QtGui.QMessageBox.Warning)
+        message.addButton("Cancel", QtGui.QMessageBox.RejectRole)
+        message.addButton("Overwrite", QtGui.QMessageBox.AcceptRole)
+        ret = message.exec_();
+        if ret:
+            for i in files:
+                i[1].save(i[0])
+    else:
+        for i in files:
+            i[1].save(i[0])
+
+def export_nanim(frames, url):
+    try:
+        import google.protobuf
+    except ImportError:
+        message = QtGui.QMessageBox()
+        message.setWindowTitle("Import error")
+        message.setText("You need google protobuf to export as nanim.\nYou can download it at :\nhttps://code.google.com/p/protobuf/downloads/list");
+        message.setIcon(QtGui.QMessageBox.Warning)
+        message.addButton("Ok", QtGui.QMessageBox.AcceptRole)
+        message.exec_();
+        return
+
+    import nanim_pb2
+    nanim = nanim_pb2.Nanim()
+    animation = nanim.animations.add()
+    animation.name = "default"
+    i = 0
+    for im in frames:
+        if not im:
+            im = exim
+        exim = im
+        nimage = nanim.images.add()
+        nimage.width = im.width()
+        nimage.height = im.height()
+        nimage.format = nanim_pb2.RGBA_8888
+        nimage.name = "img_%d" % i
+        i = i + 1
+        pixels = bytearray()
+        for y in xrange(im.height()):
+            for x in xrange(im.width()):
+                colors = QtGui.QColor(im.pixel(x,y))
+                pixels.append(colors.red())
+                pixels.append(colors.green())
+                pixels.append(colors.blue())
+                pixels.append(colors.alpha())
+        nimage.pixels = str(pixels)
+
+        frame = animation.frames.add()
+        frame.imageName = nimage.name
+        frame.duration = 100
+        frame.u1 = 0
+        frame.v1 = 0
+        frame.u2 = 1
+        frame.v2 = 1
+    f = open(url, "wb")
+    f.write(nanim.SerializeToString())
+    f.close()

@@ -58,6 +58,7 @@ from dialogs import *
 from import_export import *
 
 
+
 DEFAUT_COLOR = 1
 DEFAUT_SIZE = (64, 64)
 DEFAUT_COLORTABLE = (QtGui.qRgba(0, 0, 0, 0), QtGui.qRgba(0, 0, 0, 255))
@@ -465,6 +466,7 @@ class Scene(QtGui.QGraphicsView):
         else:
             return QtGui.QGraphicsView.mouseMoveEvent(self, event)
 
+
 class Canvas(QtGui.QImage):
     """ Canvas for drawing"""
     def __init__(self, parent, w, h=None, col=None):
@@ -706,7 +708,7 @@ class MainWidget(QtGui.QWidget):
 
         self.tools = {"color" : DEFAUT_COLOR,
                       "size" : DEFAUT_SIZE,
-                      "colortable" : [DEFAUT_COLORTABLE[0], DEFAUT_COLORTABLE[1]],
+                      "colortable" : list(DEFAUT_COLORTABLE),
                       "pen" : DEFAUT_PEN,
                       "tool" : DEFAUT_TOOL}
 
@@ -899,7 +901,7 @@ class MainWindow(QtGui.QMainWindow):
         if ok:
             self.centralWidget.framesWidget.clear_frames()
             self.centralWidget.tools["color"] = DEFAUT_COLOR
-            self.centralWidget.tools["colortable"] = [DEFAUT_COLORTABLE[0], DEFAUT_COLORTABLE[1]]
+            self.centralWidget.tools["colortable"] = list(DEFAUT_COLORTABLE)
             self.centralWidget.tools["size"] = (w, h)
             self.centralWidget.palette.paletteCanvas.update()
             self.init_canvas()
@@ -933,7 +935,7 @@ class MainWindow(QtGui.QMainWindow):
                  self.centralWidget.framesWidget.get_all_canvas(True))
 
     def export_action(self):
-        export_png(self.centralWidget.framesWidget.get_all_canvas(True))
+        export(self.centralWidget.framesWidget.get_all_canvas(True))
 
     def exit_action(self):
         QtGui.qApp.quit()
