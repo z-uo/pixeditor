@@ -35,6 +35,7 @@
 # DONE add pipette
 # DONE add fill
 # DONE add resize canvas
+# bug save filename
 # add more control on palette
 # add a tool to make lines (iso...)
 # add move frame content
@@ -56,8 +57,6 @@ from PyQt4 import Qt
 
 from dialogs import *
 from import_export import *
-
-
 
 DEFAUT_COLOR = 1
 DEFAUT_SIZE = (64, 64)
@@ -697,19 +696,60 @@ class PaletteWidget(QtGui.QWidget):
         self.paletteCanvas.update()
 
 
-class MainWidget(QtGui.QWidget):
+class MainWindow(QtGui.QMainWindow):
     currentFrameChanged = QtCore.pyqtSignal(object)
     def __init__(self):
-        QtGui.QWidget.__init__(self)
+        QtGui.QMainWindow.__init__(self)
+        self.setWindowTitle("pixeditor")
 
         self.tools = {"color" : DEFAUT_COLOR,
                       "size" : DEFAUT_SIZE,
                       "colortable" : list(DEFAUT_COLORTABLE),
                       "pen" : DEFAUT_PEN,
-                      "tool" : DEFAUT_TOOL}
+                      "tool" : DEFAUT_TOOL,
+                      "url" : None}
 
-        self.state = {"playing" : False,
-                      "saved" : False}
+        ### Menu ###
+        newAction = QtGui.QAction('&New', self)
+        newAction.setShortcut('Ctrl+N')
+        newAction.triggered.connect(self.new_action)
+        resizeAction = QtGui.QAction('&Resize', self)
+        resizeAction.setShortcut('Ctrl+R')
+        resizeAction.triggered.connect(self.resize_action)
+        importAction = QtGui.QAction('&Open', self)
+        importAction.setShortcut('Ctrl+O')
+        importAction.triggered.connect(self.open_action)
+        saveAction = QtGui.QAction('&Save', self)
+        saveAction.setShortcut('Ctrl+S')
+        saveAction.triggered.connect(self.save_action)
+        exportAction = QtGui.QAction('&export', self)
+        exportAction.setShortcut('Ctrl+E')
+        exportAction.triggered.connect(self.export_action)
+        exitAction = QtGui.QAction('&Exit', self)
+        exitAction.setShortcut('Ctrl+Q')
+        exitAction.triggered.connect(self.exit_action)
+        menubar = self.menuBar()
+        fileMenu = menubar.addMenu('&File')
+        fileMenu.addAction(newAction)
+        fileMenu.addAction(resizeAction)
+        fileMenu.addAction(importAction)
+        fileMenu.addAction(saveAction)
+        fileMenu.addAction(exportAction)
+        fileMenu.addAction(exitAction)
+
+        ### shortcuts ###
+        shortcut = QtGui.QShortcut(self)
+        shortcut.setKey(QtCore.Qt.Key_Left)
+        shortcut.activated.connect(self.previous_frame)
+        shortcut2 = QtGui.QShortcut(self)
+        shortcut2.setKey(QtCore.Qt.Key_Right)
+        shortcut2.activated.connect(self.next_frame)
+        shortcut3 = QtGui.QShortcut(self)
+        shortcut3.setKey(QtGui.QKeySequence(QtCore.Qt.CTRL + QtCore.Qt.Key_Z))
+        shortcut3.activated.connect(self.undo)
+        shortcut4 = QtGui.QShortcut(self)
+        shortcut4.setKey(QtGui.QKeySequence(QtCore.Qt.CTRL + QtCore.Qt.Key_Y))
+        shortcut4.activated.connect(self.redo)
 
         ### buttons ###
         self.penB = QtGui.QToolButton()
@@ -782,7 +822,81 @@ class MainWidget(QtGui.QWidget):
         layout.setSpacing(2)
         layout.addLayout(toolbox)
         layout.addWidget(splitter)
-        self.setLayout(layout)
+
+        ### central widget ###
+        self.centralWidget = QtGui.QWidget()
+        self.centralWidget.setLayout(layout)
+        self.setCentralWidget(self.centralWidget)
+        self.init_canvas()
+        self.show()
+
+    def init_canvas(self):
+        self.scene.change_size()
+        # create the first frame
+        self.framesWidget.add_frame_clicked()
+        # and select it
+        sel = self.framesWidget.modFramesList.createIndex(0,0)
+        self.framesWidget.framesList.selectionModel().select(sel, QtGui.QItemSelectionModel.Select)
+
+    def new_action(self):
+        ok, w, h = NewDialog().get_return()
+        if ok:
+            self.framesWidget.clear_frames()
+            self.tools["color"] = DEFAUT_COLOR
+            self.tools["colortable"] = list(DEFAUT_COLORTABLE)
+            self.tools["size"] = (w, h)
+            self.palette.paletteCanvas.update()
+            self.init_canvas()
+
+    def resize_action(self):
+        exSize = self.tools["size"]
+        ok, newSize, offset = ResizeDialog(exSize).get_return()
+        if ok:
+            items = self.framesWidget.get_all_items()
+            for i in items:
+                canvas = i.get_image()
+                l = canvas.return_as_list()
+                ncanvas = Canvas(self, newSize[0], newSize[1])
+                ncanvas.load_from_list(l, exSize[0], offset)
+                i.set_image(ncanvas)
+            self.tools["size"] = newSize
+            self.scene.change_size()
+            self.framesWidget.change_frame()
+
+    def open_action(self):
+        size, colors, frames = open_pix()
+        if size and colors and frames:
+            self.tools["size"] = (size[0], size[1])
+            self.tools["colortable"] = colors
+            self.palette.paletteCanvas.update()
+            self.framesWidget.init_new_anim(frames)
+
+    def save_action(self):
+        save_pix(self.tools["size"],
+                 self.tools["colortable"],
+                 self.framesWidget.get_all_canvas(True))
+
+    def export_action(self):
+        export(self.framesWidget.get_all_canvas(True))
+
+    def exit_action(self):
+        QtGui.qApp.quit()
+
+    def previous_frame(self):
+        self.framesWidget.select_frame_relative(-1)
+
+    def next_frame(self):
+        self.framesWidget.select_frame_relative(1)
+
+    def undo(self):
+        canvas = self.framesWidget.get_canvas()
+        canvas.undo()
+        self.scene.change_frame(canvas)
+
+    def redo(self):
+        canvas = self.framesWidget.get_canvas()
+        canvas.redo()
+        self.scene.change_frame(canvas)
 
     def zoom_in(self):
         self.scene.scaleView(2)
@@ -816,130 +930,6 @@ class MainWidget(QtGui.QWidget):
 
     def change_frame(self, pixmap):
         self.scene.setCanvas(pixmap)
-
-
-class MainWindow(QtGui.QMainWindow):
-    def __init__(self):
-        QtGui.QMainWindow.__init__(self)
-        self.setWindowTitle("pixeditor")
-
-        ### Menu ###
-        newAction = QtGui.QAction('&New', self)
-        newAction.setShortcut('Ctrl+N')
-        newAction.triggered.connect(self.new_action)
-        resizeAction = QtGui.QAction('&Resize', self)
-        resizeAction.setShortcut('Ctrl+R')
-        resizeAction.triggered.connect(self.resize_action)
-        importAction = QtGui.QAction('&Open', self)
-        importAction.setShortcut('Ctrl+O')
-        importAction.triggered.connect(self.open_action)
-        saveAction = QtGui.QAction('&Save', self)
-        saveAction.setShortcut('Ctrl+S')
-        saveAction.triggered.connect(self.save_action)
-        exportAction = QtGui.QAction('&export', self)
-        exportAction.setShortcut('Ctrl+E')
-        exportAction.triggered.connect(self.export_action)
-        exitAction = QtGui.QAction('&Exit', self)
-        exitAction.setShortcut('Ctrl+Q')
-        exitAction.triggered.connect(self.exit_action)
-
-        menubar = self.menuBar()
-        fileMenu = menubar.addMenu('&File')
-        fileMenu.addAction(newAction)
-        fileMenu.addAction(resizeAction)
-        fileMenu.addAction(importAction)
-        fileMenu.addAction(saveAction)
-        fileMenu.addAction(exportAction)
-        fileMenu.addAction(exitAction)
-
-        ### central widget ###
-        self.centralWidget = MainWidget()
-        self.setCentralWidget(self.centralWidget)
-        self.init_canvas()
-
-        ### shortcuts ###
-        shortcut = QtGui.QShortcut(self)
-        shortcut.setKey(QtCore.Qt.Key_Left)
-        shortcut.activated.connect(self.previous_frame)
-        shortcut2 = QtGui.QShortcut(self)
-        shortcut2.setKey(QtCore.Qt.Key_Right)
-        shortcut2.activated.connect(self.next_frame)
-        shortcut3 = QtGui.QShortcut(self)
-        shortcut3.setKey(QtGui.QKeySequence(QtCore.Qt.CTRL + QtCore.Qt.Key_Z))
-        shortcut3.activated.connect(self.undo)
-        shortcut4 = QtGui.QShortcut(self)
-        shortcut4.setKey(QtGui.QKeySequence(QtCore.Qt.CTRL + QtCore.Qt.Key_Y))
-        shortcut4.activated.connect(self.redo)
-        self.show()
-
-    def init_canvas(self):
-        self.centralWidget.scene.change_size()
-        # create the first frame
-        self.centralWidget.framesWidget.add_frame_clicked()
-        # and select it
-        sel = self.centralWidget.framesWidget.modFramesList.createIndex(0,0)
-        self.centralWidget.framesWidget.framesList.selectionModel().select(sel, QtGui.QItemSelectionModel.Select)
-
-    def new_action(self):
-        ok, w, h = NewDialog().get_return()
-        if ok:
-            self.centralWidget.framesWidget.clear_frames()
-            self.centralWidget.tools["color"] = DEFAUT_COLOR
-            self.centralWidget.tools["colortable"] = list(DEFAUT_COLORTABLE)
-            self.centralWidget.tools["size"] = (w, h)
-            self.centralWidget.palette.paletteCanvas.update()
-            self.init_canvas()
-
-    def resize_action(self):
-        exSize = self.centralWidget.tools["size"]
-        ok, newSize, offset = ResizeDialog(exSize).get_return()
-        if ok:
-            items = self.centralWidget.framesWidget.get_all_items()
-            for i in items:
-                canvas = i.get_image()
-                l = canvas.return_as_list()
-                ncanvas = Canvas(self.centralWidget, newSize[0], newSize[1])
-                ncanvas.load_from_listset(l, exSize[0], offset)
-                i.set_image(ncanvas)
-            self.centralWidget.tools["size"] = newSize
-            self.centralWidget.scene.change_size()
-            self.centralWidget.framesWidget.change_frame()
-
-    def open_action(self):
-        size, colors, frames = open_pix()
-        if size and colors and frames:
-            self.centralWidget.tools["size"] = (size[0], size[1])
-            self.centralWidget.tools["colortable"] = colors
-            self.centralWidget.palette.paletteCanvas.update()
-            self.centralWidget.framesWidget.init_new_anim(frames)
-
-    def save_action(self):
-        save_pix(self.centralWidget.tools["size"],
-                 self.centralWidget.tools["colortable"],
-                 self.centralWidget.framesWidget.get_all_canvas(True))
-
-    def export_action(self):
-        export(self.centralWidget.framesWidget.get_all_canvas(True))
-
-    def exit_action(self):
-        QtGui.qApp.quit()
-
-    def previous_frame(self):
-        self.centralWidget.framesWidget.select_frame_relative(-1)
-
-    def next_frame(self):
-        self.centralWidget.framesWidget.select_frame_relative(1)
-
-    def undo(self):
-        canvas = self.centralWidget.framesWidget.get_canvas()
-        canvas.undo()
-        self.centralWidget.scene.change_frame(canvas)
-
-    def redo(self):
-        canvas = self.centralWidget.framesWidget.get_canvas()
-        canvas.redo()
-        self.centralWidget.scene.change_frame(canvas)
-
 
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)
