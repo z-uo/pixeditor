@@ -9,6 +9,8 @@ You need python 2.7 and pyQt to run it.
 Use the left and right key to move to previous and next frame.  
 ctrl z and ctrl y to undo, redo (by now it only work for painting action)
 
+![alt screenshot](https://raw.github.com/pops/pixeditor/master/screenshot.png "screenshot")
+
 
 install
 ======
