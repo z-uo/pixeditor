@@ -482,23 +482,16 @@ class Canvas(QtGui.QImage):
         self.undoList = []
         self.redoList = []
 
-    def load_from_list(self, li):
-        x, y = 0, 0
-        for i in li:
-            self.setPixel(QtCore.QPoint(x, y), i)
-            x += 1
-            if x >= self.width():
-                x = 0
-                y += 1
-
-    def load_from_list_with_offset(self, li, oriW, offset):
+    def load_from_list(self, li, exWidth=None, offset=(0,0)):
+        if not exWidth:
+            exWidth = self.width()
         x, y = 0, 0
         for i in li:
             nx, ny = x + offset[0], y + offset[1]
             if nx >= 0 and nx < self.width() and ny >= 0 and ny < self.height():
                 self.setPixel(QtCore.QPoint(nx, ny), i)
             x += 1
-            if x >= oriW:
+            if x >= exWidth:
                 x = 0
                 y += 1
 
@@ -511,6 +504,12 @@ class Canvas(QtGui.QImage):
 
     def clear(self):
         self.fill(0)
+
+    def save_to_undo(self):
+        self.undoList.append(Canvas(self.parent, self))
+        if len(self.undoList) > 50:
+            self.undoList.pop(0)
+        self.redoList = []
 
     def undo(self):
         if len(self.undoList) > 0:
@@ -571,12 +570,6 @@ class Canvas(QtGui.QImage):
                 l.append((x-1, y))
                 l.append((x, y+1))
                 l.append((x, y-1))
-
-    def save_to_undo(self):
-        self.undoList.append(Canvas(self.parent, self))
-        if len(self.undoList) > 50:
-            self.undoList.pop(0)
-        self.redoList = []
 
     def clic(self, x, y):
         if self.parent.tools["tool"] == "pipette":
@@ -702,6 +695,7 @@ class PaletteWidget(QtGui.QWidget):
     def select_color(self, n):
         self.parent.tools["color"] = n
         self.paletteCanvas.update()
+
 
 class MainWidget(QtGui.QWidget):
     currentFrameChanged = QtCore.pyqtSignal(object)
@@ -830,35 +824,23 @@ class MainWindow(QtGui.QMainWindow):
         self.setWindowTitle("pixeditor")
 
         ### Menu ###
-        # new
-        newAction = QtGui.QAction(QtGui.QIcon('exit.png'), '&New', self)
+        newAction = QtGui.QAction('&New', self)
         newAction.setShortcut('Ctrl+N')
-        newAction.setStatusTip('New canvas')
         newAction.triggered.connect(self.new_action)
-        # resize
-        resizeAction = QtGui.QAction(QtGui.QIcon('exit.png'), '&Resize', self)
+        resizeAction = QtGui.QAction('&Resize', self)
         resizeAction.setShortcut('Ctrl+R')
-        resizeAction.setStatusTip('Resize canvas')
         resizeAction.triggered.connect(self.resize_action)
-        # open
-        importAction = QtGui.QAction(QtGui.QIcon('exit.png'), '&Open', self)
+        importAction = QtGui.QAction('&Open', self)
         importAction.setShortcut('Ctrl+O')
-        importAction.setStatusTip('Open animation')
         importAction.triggered.connect(self.open_action)
-        # save
-        saveAction = QtGui.QAction(QtGui.QIcon('exit.png'), '&Save', self)
+        saveAction = QtGui.QAction('&Save', self)
         saveAction.setShortcut('Ctrl+S')
-        saveAction.setStatusTip('Save animation')
         saveAction.triggered.connect(self.save_action)
-        # export
-        exportAction = QtGui.QAction(QtGui.QIcon('exit.png'), '&export', self)
+        exportAction = QtGui.QAction('&export', self)
         exportAction.setShortcut('Ctrl+E')
-        exportAction.setStatusTip('Export animation')
         exportAction.triggered.connect(self.export_action)
-        # exit
-        exitAction = QtGui.QAction(QtGui.QIcon('exit.png'), '&Exit', self)
+        exitAction = QtGui.QAction('&Exit', self)
         exitAction.setShortcut('Ctrl+Q')
-        exitAction.setStatusTip('Exit application')
         exitAction.triggered.connect(self.exit_action)
 
         menubar = self.menuBar()
@@ -917,7 +899,7 @@ class MainWindow(QtGui.QMainWindow):
                 canvas = i.get_image()
                 l = canvas.return_as_list()
                 ncanvas = Canvas(self.centralWidget, newSize[0], newSize[1])
-                ncanvas.load_from_list_with_offset(l, exSize[0], offset)
+                ncanvas.load_from_listset(l, exSize[0], offset)
                 i.set_image(ncanvas)
             self.centralWidget.tools["size"] = newSize
             self.centralWidget.scene.change_size()
