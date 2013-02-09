@@ -670,7 +670,7 @@ class PaletteWidget(QtGui.QWidget):
         layout.addLayout(toolbox)
         self.setLayout(layout)
 
-    def change_canvas_colortable(self, rgba, n):
+    def change_canvas_colortable(self):
         """ change the color for all canvas """
         for i in self.parent.framesWidget.get_all_canvas():
             i.setColorTable(self.parent.tools["colortable"])
@@ -679,7 +679,8 @@ class PaletteWidget(QtGui.QWidget):
         self.parent.currentFrameChanged.emit(canvas)
 
     def edit_color(self, n):
-        color, ok = QtGui.QColorDialog.getRgba()
+        col = self.parent.tools["colortable"][self.parent.tools["color"]]
+        color, ok = QtGui.QColorDialog.getRgba(col)
         if not ok:
             return
         self.parent.tools["colortable"][n] = color
@@ -689,13 +690,14 @@ class PaletteWidget(QtGui.QWidget):
     def add_color_clicked(self):
         """ select a color in a qcolordialog and add it to the palette"""
         if not len(self.parent.tools["colortable"]) >= 128:
-            color, ok = QtGui.QColorDialog.getRgba()
+            col = self.parent.tools["colortable"][self.parent.tools["color"]]
+            color, ok = QtGui.QColorDialog.getRgba(col)
             if not ok:
                 return
             self.parent.tools["colortable"].append(color)
             self.parent.tools["color"] = len(self.parent.tools["colortable"]) -1
             self.paletteCanvas.update()
-            self.change_canvas_colortable(color, len(self.parent.tools["colortable"]) -1)
+            self.change_canvas_colortable()
 
     def select_color(self, n):
         self.parent.tools["color"] = n
