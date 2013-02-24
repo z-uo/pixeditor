@@ -292,7 +292,7 @@ class FramesWidget(QtGui.QWidget):
                 sel = sel[0]
                 i = 1
                 while not img and sel.row()-i >= 0:
-                    item = self.modFramesList.item(sel.row()-i,0)
+                    item = self.modFramesList.item(sel.row()-i, 0)
                     img = item.get_image()
                     i = i + 1
                 self.add_frame_clicked(img)
@@ -451,11 +451,9 @@ class Scene(QtGui.QGraphicsView):
         if event.buttons() == QtCore.Qt.MidButton:
             globalPos = QtGui.QCursor.pos()
             self.horizontalScrollBar().setValue(self.startScroll[0] -
-                                                globalPos.x() +
-                                                self.lastPos.x())
+                    globalPos.x() + self.lastPos.x())
             self.verticalScrollBar().setValue(self.startScroll[1] -
-                                              globalPos.y() +
-                                              self.lastPos.y())
+                    globalPos.y() + self.lastPos.y())
         # draw on canvas
         if self.canvas and event.buttons() == QtCore.Qt.LeftButton:
             pos = self.mapToScene(event.pos())
@@ -477,11 +475,11 @@ class Canvas(QtGui.QImage):
             self.setColorTable(self.parent.tools["colortable"])
             self.fill(0)
 
-        self.lastPoint = QtCore.QPoint(0,0)
+        self.lastPoint = QtCore.QPoint(0, 0)
         self.undoList = []
         self.redoList = []
 
-    def load_from_list(self, li, exWidth=None, offset=(0,0)):
+    def load_from_list(self, li, exWidth=None, offset=(0, 0)):
         if not exWidth:
             exWidth = self.width()
         x, y = 0, 0
@@ -629,14 +627,14 @@ class PaletteCanvas(QtGui.QWidget):
                 self.parent.edit_color(item)
 
     def item_at(self, x, y):
-            x, y = ((x-2) // 20), ((y-2) // 20)
-            if y == 0:
-                s = x
-            else:
-                s = (y * 8) + x
-            if s >= 0 and s < len(self.parent.parent.tools["colortable"]):
-                return s
-            return None
+        x, y = ((x-2) // 20), ((y-2) // 20)
+        if y == 0:
+            s = x
+        else:
+            s = (y * 8) + x
+        if s >= 0 and s < len(self.parent.parent.tools["colortable"]):
+            return s
+        return None
 
 
 class PaletteWidget(QtGui.QWidget):
@@ -719,6 +717,8 @@ class MainWindow(QtGui.QMainWindow):
         importAction = QtGui.QAction('&Open', self)
         importAction.setShortcut('Ctrl+O')
         importAction.triggered.connect(self.open_action)
+        oldImportAction = QtGui.QAction('Open old pix', self)
+        oldImportAction.triggered.connect(self.open_old_action)
         saveAction = QtGui.QAction('&Save', self)
         saveAction.setShortcut('Ctrl+S')
         saveAction.triggered.connect(self.save_action)
@@ -733,6 +733,7 @@ class MainWindow(QtGui.QMainWindow):
         fileMenu.addAction(newAction)
         fileMenu.addAction(resizeAction)
         fileMenu.addAction(importAction)
+        fileMenu.addAction(oldImportAction)
         fileMenu.addAction(saveAction)
         fileMenu.addAction(exportAction)
         fileMenu.addAction(exitAction)
@@ -740,10 +741,10 @@ class MainWindow(QtGui.QMainWindow):
         ### shortcuts ###
         shortcut = QtGui.QShortcut(self)
         shortcut.setKey(QtCore.Qt.Key_Left)
-        shortcut.activated.connect(self.previous_frame)
+        shortcut.activated.connect(lambda : self.framesWidget.select_frame_relative(-1))
         shortcut2 = QtGui.QShortcut(self)
         shortcut2.setKey(QtCore.Qt.Key_Right)
-        shortcut2.activated.connect(self.next_frame)
+        shortcut2.activated.connect(lambda : self.framesWidget.select_frame_relative(1))
         shortcut3 = QtGui.QShortcut(self)
         shortcut3.setKey(QtGui.QKeySequence(QtCore.Qt.CTRL + QtCore.Qt.Key_Z))
         shortcut3.activated.connect(self.undo)
@@ -771,11 +772,11 @@ class MainWindow(QtGui.QMainWindow):
         self.zoomInB = QtGui.QToolButton()
         self.zoomInB.setAutoRaise(True)
         self.zoomInB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/zoom_in.png")))
-        self.zoomInB.clicked.connect(self.zoom_in)
+        self.zoomInB.clicked.connect(lambda : self.scene.scaleView(2))
         self.zoomOutB = QtGui.QToolButton()
         self.zoomOutB.setAutoRaise(True)
         self.zoomOutB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/zoom_out.png")))
-        self.zoomOutB.clicked.connect(self.zoom_out)
+        self.zoomOutB.clicked.connect(lambda : self.scene.scaleView(0.5))
 
         ### pen size ###
         self.penW = QtGui.QComboBox(self)
@@ -789,11 +790,21 @@ class MainWindow(QtGui.QMainWindow):
         self.penW.activated[str].connect(self.pen_chooser_clicked)
         self.penDict = { "point" : ((0, 0),),
                         "2 pixels horizontal" : ((0, 0), (1, 0)),
-                        "2 pixels vertical" : ((0, 0), (0, 1)),
-                        "2x2 square" : ((0, 0), (0, 1), (1, 0), (1, 1)),
-                        "3x3 square" : ((-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 0), (0, 1), (1, -1), (1, 0), (1, 1)),
-                        "3x3 cross" : ((0, 0), (-1, 0), (0, -1), (1, 0), (0, 1)),
-                        "5x5 round" : ((-1, -2), (0, -2), (1, -2), (-2, -1), (-1, -1), (0, -1), (1, -1), (2, -1), (-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0), (-2, 1), (-1, 1), (0, 1), (1, 1), (2, 1), (-1, 2), (0, 2), (1, 2))}
+                        "2 pixels vertical" : ((0, 0), 
+                                               (0, 1)),
+                        "2x2 square" : ((0, 0), (0, 1), 
+                                        (1, 0), (1, 1)),
+                        "3x3 square" : ((-1, -1), (-1, 0), (-1, 1), 
+                                        ( 0, -1), ( 0, 0), ( 0, 1), 
+                                        ( 1, -1), ( 1, 0), ( 1, 1)),
+                        "3x3 cross" : ((-1, 0), 
+                              (0, -1), ( 0, 0), (0, 1), 
+                                        (1, 0)),
+                        "5x5 round" : ((-1, -2), (0, -2), (1, -2), 
+                             (-2, -1), (-1, -1), (0, -1), (1, -1), (2, -1), 
+                             (-2,  0), (-1,  0), (0,  0), (1,  0), (2,  0), 
+                             (-2,  1), (-1,  1), (0,  1), (1,  1), (2,  1), 
+                                       (-1,  2), (0,  2), (1,  2))}
         ### palette ###
         self.palette = PaletteWidget(self)
 
@@ -835,7 +846,7 @@ class MainWindow(QtGui.QMainWindow):
         # create the first frame
         self.framesWidget.add_frame_clicked()
         # and select it
-        sel = self.framesWidget.modFramesList.createIndex(0,0)
+        sel = self.framesWidget.modFramesList.createIndex(0, 0)
         self.framesWidget.framesList.selectionModel().select(sel, QtGui.QItemSelectionModel.Select)
 
     def new_action(self):
@@ -870,6 +881,14 @@ class MainWindow(QtGui.QMainWindow):
             self.tools["colortable"] = colors
             self.palette.paletteCanvas.update()
             self.framesWidget.init_new_anim(frames)
+            
+    def open_old_action(self):
+        size, colors, frames = open_old_pix()
+        if size and colors and frames:
+            self.tools["size"] = (size[0], size[1])
+            self.tools["colortable"] = colors
+            self.palette.paletteCanvas.update()
+            self.framesWidget.init_new_anim(frames)
 
     def save_action(self):
         save_pix(self.tools["size"],
@@ -882,12 +901,6 @@ class MainWindow(QtGui.QMainWindow):
     def exit_action(self):
         QtGui.qApp.quit()
 
-    def previous_frame(self):
-        self.framesWidget.select_frame_relative(-1)
-
-    def next_frame(self):
-        self.framesWidget.select_frame_relative(1)
-
     def undo(self):
         canvas = self.framesWidget.get_canvas()
         canvas.undo()
@@ -897,12 +910,6 @@ class MainWindow(QtGui.QMainWindow):
         canvas = self.framesWidget.get_canvas()
         canvas.redo()
         self.scene.change_frame(canvas)
-
-    def zoom_in(self):
-        self.scene.scaleView(2)
-
-    def zoom_out(self):
-        self.scene.scaleView(0.5)
 
     def pen_tool_clicked(self):
         if self.penB.isChecked() or (not self.pipetteB.isChecked() and not self.fillB.isChecked()):

@@ -5,6 +5,7 @@ from PyQt4 import QtCore
 from PyQt4 import QtGui
 from PyQt4 import Qt
 import os
+import xml.etree.ElementTree as ET
 
 def open_pix(url=None):
     if not url:
@@ -12,23 +13,59 @@ def open_pix(url=None):
     if url:
         try:
             save = open(url, "r")
-            frames = []
-            for line in save.readlines():
-                if line[0:5] == "COLOR":
-                    colors = [int(n) for n in line[6:-2].split(',')]
-                elif line[0:5] == "SIZE ":
-                    size = [int(n) for n in line[6:-2].split(',')]
-                elif line[0:5] == "PIXEL":
-                    frames.append([int(n) for n in line[6:-2].split(',')])
-                elif line[0:5] == "STILL":
-                    frames.append(None)
+            size, colors, frames = return_canvas(save)
             save.close()
             return size, colors, frames
         except IOError:
             print "Can't open file"
             return False, False, False
-    return False, False, False
-
+        return False, False, False
+        
+def return_canvas(save):
+    pix = ET.parse(save).getroot()
+    xSize = pix.find("size").attrib
+    size = (int(xSize["width"]), int(xSize["height"]))
+    print size
+    xColors = pix.find("colors").text
+    colors = [int(n) for n in xColors.split(',')]
+    print colors
+    xFrames = pix.find("frames")
+    frames = []
+    for i in xFrames.itertext():
+        if i == "0":
+            frames.append(False)
+        else:
+            frames.append([int(n) for n in i.split(',')])
+    print frames
+    return size, colors, frames
+    
+def open_old_pix(url=None):
+    if not url:
+        url = QtGui.QFileDialog.getOpenFileName(None, "open pix file", "", "Pix files (*.pix );;All files (*)")
+    if url:
+        try:
+            save = open(url, "r")
+            size, colors, frames = return_old_canvas(save)
+            save.close()
+            return size, colors, frames
+        except IOError:
+            print "Can't open file"
+            return False, False, False
+        return False, False, False
+    
+def return_old_canvas(save):
+    frames = []
+    for line in save.readlines():
+        if line[0:5] == "COLOR":
+            colors = [int(n) for n in line[6:-2].split(',')]
+        elif line[0:5] == "SIZE ":
+            size = [int(n) for n in line[6:-2].split(',')]
+        elif line[0:5] == "PIXEL":
+            frames.append([int(n) for n in line[6:-2].split(',')])
+        elif line[0:5] == "STILL":
+            frames.append(None)
+    return size, colors, frames
+    
 def save_pix(size, color, frames, pixurl=None):
     if not pixurl:
         directory = ""
@@ -69,25 +106,51 @@ Should I save your animation as :
                 return False
     try:
         save = open(str(pixurl), "w")
-        col = [int(i) for i in color]
-        save.write("COLOR%s\n" %(col))
-        save.write("SIZE (%s, %s)\n" %(size[0], size[0]))
-        for im in frames:
-            if im:
-                l = []
-                for y in xrange(im.height()):
-                    for x in xrange(im.width()):
-                        l.append(im.pixelIndex(x, y))
-                s = ','.join(str(n) for n in l)
-                save.write("PIXEL(%s)\n" %(s))
-            else:
-                save.write("STILL\n")
+        save.write(return_pix(size, color, frames))
         save.close()
         return True
     except IOError:
         print "Can't open file"
         return False
-
+        
+def return_pix(size, color, frames):
+    saveElem = ET.Element("pix", version="0,1")
+    sizeElem = ET.SubElement(saveElem, "size")
+    sizeElem.attrib["width"] = str(size[0])
+    sizeElem.attrib["height"] = str(size[1])
+    colorElem = ET.SubElement(saveElem, "colors", lenght=str(len(color)))
+    colorElem.text = ','.join(str(n) for n in color)
+    framesElem = ET.SubElement(saveElem, "frames", lenght=str(len(frames)))
+    for n, frame in enumerate(frames):
+        f = ET.SubElement(framesElem, "f%s" %(n))
+        if not frame:
+            f.text = "0"
+        else:
+            l = []
+            for y in xrange(frame.height()):
+                for x in xrange(frame.width()):
+                    l.append(frame.pixelIndex(x, y))
+            f.text = ','.join(str(p) for p in l)
+    return ET.tostring(saveElem)
+    
+def return_old_pix(size, color, frames):
+    pix = ""
+    col = [int(i) for i in color]
+    pix = "%sCOLOR%s\n" %(pix, col)
+    pix = "%sSIZE (%s, %s)\n" %(pix, size[0], size[0])
+    for im in frames:
+        if im:
+            l = []
+            for y in xrange(im.height()):
+                for x in xrange(im.width()):
+                    l.append(im.pixelIndex(x, y))
+            s = ','.join(str(n) for n in l)
+            pix = "%sPIXEL(%s)\n" %(pix, s)
+        else:
+            pix = "%sSTILL\n" %(pix,)
+    return pix
+            
+            
 def export_png(frames, url=None):
     url = QtGui.QFileDialog.getSaveFileName(None, "Export animation as png", "", "Png files (*.png )")
     if url:
@@ -203,3 +266,7 @@ def export_nanim(frames, url):
     f = open(url, "wb")
     f.write(nanim.SerializeToString())
     f.close()
+
+if __name__ == '__main__':
+    #~ ouverturexml
+    open_pix("/media/donnees/programation/pixeditor/master/test.pix")
