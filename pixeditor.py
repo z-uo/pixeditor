@@ -100,30 +100,26 @@ class FramesWidget(QtGui.QWidget):
         ### adding and deleting images ###
         self.addFrameW = QtGui.QToolButton()
         self.addFrameW.setAutoRaise(True)
-        self.addFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/add.png")))
+        self.addFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_add.png")))
         self.addFrameW.clicked.connect(self.add_frame_clicked)
-        self.stillFrameW = QtGui.QToolButton()
-        self.stillFrameW.setAutoRaise(True)
-        self.stillFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/still.png")))
-        self.stillFrameW.clicked.connect(self.still_frame_clicked)
         self.delFrameW = QtGui.QToolButton()
         self.delFrameW.setAutoRaise(True)
-        self.delFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/delete.png")))
+        self.delFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_del.png")))
         self.delFrameW.clicked.connect(self.delete_frame_clicked)
         self.duplicateFrameW = QtGui.QToolButton()
         self.duplicateFrameW.setAutoRaise(True)
-        self.duplicateFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/duplicate.png")))
+        self.duplicateFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_dup.png")))
         self.duplicateFrameW.clicked.connect(self.duplicate_frame_clicked)
         self.eraseFrameW = QtGui.QToolButton()
         self.eraseFrameW.setAutoRaise(True)
-        self.eraseFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/clear.png")))
+        self.eraseFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_clear.png")))
         self.eraseFrameW.clicked.connect(self.clear_frame_clicked)
 
         # play the animation
         self.playFrameW = QtGui.QToolButton()
         self.playFrameW.state = "play"
         self.playFrameW.setAutoRaise(True)
-        self.playFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play.png")))
+        self.playFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_play.png")))
         self.playFrameW.clicked.connect(self.play_pause_clicked)
         self.framerate = 1/12
         self.framerateL = QtGui.QLabel("fps")
@@ -135,13 +131,12 @@ class FramesWidget(QtGui.QWidget):
         self.repeatW = QtGui.QToolButton()
         self.repeatW.state = False
         self.repeatW.setAutoRaise(True)
-        self.repeatW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/no_repeat.png")))
+        self.repeatW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_no_repeat.png")))
         self.repeatW.clicked.connect(self.repeat_clicked)
 
         ### layout ###
         toolBox = QtGui.QHBoxLayout()
         toolBox.addWidget(self.addFrameW)
-        toolBox.addWidget(self.stillFrameW)
         toolBox.addWidget(self.delFrameW)
         toolBox.addWidget(self.duplicateFrameW)
         toolBox.addWidget(self.eraseFrameW)
@@ -254,10 +249,6 @@ class FramesWidget(QtGui.QWidget):
 
         self.insert_item(Item(img))
 
-    def still_frame_clicked(self):
-        """ add a still frame after the current """
-        self.insert_item(Item())
-
     def delete_frame_clicked(self):
         """ delete selected frame from the model"""
         sel = self.framesList.selectionModel().selectedIndexes()
@@ -318,16 +309,16 @@ class FramesWidget(QtGui.QWidget):
 
     def repeat_clicked(self):
         if self.repeatW.state:
-            self.repeatW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/no_repeat.png")))
+            self.repeatW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_no_repeat.png")))
             self.repeatW.state = False
         else:
-            self.repeatW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/repeat.png")))
+            self.repeatW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_repeat.png")))
             self.repeatW.state = True
 
     def play_pause_clicked(self):
         """play the animatio since the selected frame"""
         if self.playFrameW.state == 'play':
-            self.playFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/pause.png")))
+            self.playFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_pause.png")))
             self.playFrameW.state = "stop"
             rows = self.modFramesList.rowCount()
             self.playThread = Play(rows, self)
@@ -339,7 +330,7 @@ class FramesWidget(QtGui.QWidget):
 
     def play_end(self):
         self.playFrameW.state = "play"
-        self.playFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play.png")))
+        self.playFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_play.png")))
 
 
 class Play(QtCore.QThread):
@@ -596,7 +587,7 @@ class PaletteCanvas(QtGui.QWidget):
         self.parent = parent
         self.setFixedSize(164, 324)
         self.background = QtGui.QBrush(QtGui.QColor(127, 127, 127))
-        self.alpha = QtGui.QPixmap("icons/alpha.png")
+        self.alpha = QtGui.QPixmap("icons/color_alpha.png")
 
     def paintEvent(self, ev=''):
         p = QtGui.QPainter(self)
@@ -649,7 +640,7 @@ class PaletteWidget(QtGui.QWidget):
         ### adding and deleting color ###
         self.addColorW = QtGui.QToolButton()
         self.addColorW.setAutoRaise(True)
-        self.addColorW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/add_color.png")))
+        self.addColorW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/color_add.png")))
         self.addColorW.clicked.connect(self.add_color_clicked)
         ### layout ###
         toolbox = QtGui.QHBoxLayout()
@@ -757,36 +748,36 @@ class MainWindow(QtGui.QMainWindow):
         self.penB.setAutoRaise(True)
         self.penB.setCheckable(True)
         self.penB.setChecked(True)
-        self.penB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/pen.png")))
+        self.penB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/tool_pen.png")))
         self.penB.toggled.connect(self.pen_tool_clicked)
         self.pipetteB = QtGui.QToolButton()
         self.pipetteB.setAutoRaise(True)
         self.pipetteB.setCheckable(True)
-        self.pipetteB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/pipette.png")))
+        self.pipetteB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/tool_pipette.png")))
         self.pipetteB.toggled.connect(self.pipette_tool_clicked)
         self.fillB = QtGui.QToolButton()
         self.fillB.setAutoRaise(True)
         self.fillB.setCheckable(True)
-        self.fillB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/fill.png")))
+        self.fillB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/tool_fill.png")))
         self.fillB.toggled.connect(self.fill_tool_clicked)
         self.zoomInB = QtGui.QToolButton()
         self.zoomInB.setAutoRaise(True)
-        self.zoomInB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/zoom_in.png")))
+        self.zoomInB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/tool_zoom_in.png")))
         self.zoomInB.clicked.connect(lambda : self.scene.scaleView(2))
         self.zoomOutB = QtGui.QToolButton()
         self.zoomOutB.setAutoRaise(True)
-        self.zoomOutB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/zoom_out.png")))
+        self.zoomOutB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/tool_zoom_out.png")))
         self.zoomOutB.clicked.connect(lambda : self.scene.scaleView(0.5))
 
         ### pen size ###
         self.penW = QtGui.QComboBox(self)
-        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/point.png")), "point")
-        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/2_pixels_horizontal.png")), "2 pixels horizontal")
-        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/2_pixels_vertical.png")), "2 pixels vertical")
-        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/2x2_square.png")), "2x2 square")
-        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/3x3_square.png")), "3x3 square")
-        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/3x3_cross.png")), "3x3 cross")
-        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/5x5_round.png")), "5x5 round")
+        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_1.png")), "point")
+        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_2_hori.png")), "2 pixels horizontal")
+        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_2_vert.png")), "2 pixels vertical")
+        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_2x2_square.png")), "2x2 square")
+        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_3x3_square.png")), "3x3 square")
+        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_3x3_cross.png")), "3x3 cross")
+        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_5x5_round.png")), "5x5 round")
         self.penW.activated[str].connect(self.pen_chooser_clicked)
         self.penDict = { "point" : ((0, 0),),
                         "2 pixels horizontal" : ((0, 0), (1, 0)),
