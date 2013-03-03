@@ -269,7 +269,7 @@ class Timeline(QtGui.QWidget):
         self.currentLayer = 0
         self.selection = False
         self.fps = 12
-        self.to_paste = False
+        self.toPaste = False
         
         ### viewer ###
         self.layersCanvas = LayersCanvas(self)
@@ -392,6 +392,7 @@ class Timeline(QtGui.QWidget):
             self.project.currentLayer = layer
         if frame is not None or layer is not None:
             self.project.currentFrameChanged.emit()
+            
     ######## Size adjust ###############################################
     def showEvent(self, event):
         self.timelineCanvas.setMinimumHeight(len(self.project.frames)*20 + 25)
@@ -431,23 +432,17 @@ class Timeline(QtGui.QWidget):
             f1, f2 = self.selection[1], self.selection[2]
             if f2 < f1:
                 f1, f2, = f2, f1
-            prev = f1
-            if self.is_in_false(self.project.frames[l]["frames"], prev):
-                while not self.project.frames[l]["frames"][prev]:
-                    prev -= 1
-                else:
-                    print prev
-                    self.project.frames[l]["frames"][f1] = self.project.frames[l]["frames"][prev]
-            nex = f2+1
-            if self.is_in_false(self.project.frames[l]["frames"], nex):
-                while not self.project.frames[l]["frames"][nex]:
-                    nex -= 1
-                else:
-                    print nex
-                    self.project.frames[l]["frames"][f2+1] = self.project.frames[l]["frames"][nex]
-                
-                
-            self.to_paste = self.project.frames[l]["frames"][f1:f2+1]
+            # copy frames
+            self.toPaste = self.project.frames[l]["frames"][f1:f2+1]
+            # check if first frame is a real canvas
+            trueFrame = self.project.get_true_frame((f1, l), True)
+            if trueFrame != (f1, l):
+                self.toPaste[0] = self.project.make_canvas(self.project.frames[l]["frames"][trueFrame[0]])
+            # check if frame next to selection is a real canvas
+            trueFrame2 = self.project.get_true_frame((f2+1, l), True)
+            if trueFrame != trueFrame2:
+                self.project.frames[l]["frames"][f2+1] = self.project.make_canvas(self.project.frames[l]["frames"][trueFrame2[0]])
+            # delete cutted frames
             del self.project.frames[l]["frames"][f1:f2+1]
             self.timelineCanvas.update()
             
@@ -458,38 +453,35 @@ class Timeline(QtGui.QWidget):
             f1, f2 = self.selection[1], self.selection[2]
             if f2 < f1:
                 f1, f2, = f2, f1
-            prev = f1
-            if self.is_in_false(self.project.frames[l]["frames"], prev):
-                while not self.project.frames[l]["frames"][prev]:
-                    prev -= 1
-                else:
-                    print prev
-                    self.project.frames[l]["frames"].insert(f1, self.project.frames[l]["frames"][prev])
-                
-            self.to_paste = self.project.frames[l]["frames"][f1:f2+1]
+            # copy frames
+            self.toPaste = self.project.frames[l]["frames"][f1:f2+1]
+            # check if first frame is a real canvas
+            trueFrame = self.project.get_true_frame((f1, l), True)
+            if trueFrame != (f1, l):
+                self.toPaste[0] = self.project.frames[l]["frames"][trueFrame[0]]
+            # make a real copy of all canvas
+            for n, canvas in enumerate(self.toPaste):
+                if canvas:
+                    self.toPaste[n] = self.project.make_canvas(canvas)
         
     def paste(self):
         print "paste"
-        if self.to_paste:
-            f = self.currentFrame
-            l = self.currentLayer
+        if self.toPaste:
+            f = self.project.currentFrame
+            l = self.project.currentLayer
             while f > len(self.project.frames[l]["frames"]):
                 self.project.frames[l]["frames"].append(0)
-            for n, i in enumerate(self.to_paste):
-                print n
-                self.project.frames[l]["frames"].insert(f+n, i)
+            for n, canvas in enumerate(self.toPaste):
+                self.project.frames[l]["frames"].insert(f+n, canvas)
             self.timelineCanvas.update()
-            
-    def is_in_false(self, li, i):
-        if 0 <= i < len(li) and not li[i]:
-            return True
-        return False
+            self.project.currentFrameChanged.emit()
             
     ######## Buttons ###################################################
     def add_frame_clicked(self):
         #~ self.project.frames[0]["frames"].append(self.project.make_canvas())
         self.project.frames[0]["frames"].insert(self.project.currentFrame, self.project.make_canvas())
         self.timelineCanvas.update()
+        self.project.currentFrameChanged.emit()
         
     def delete_frame_clicked(self):
         self.project.frames[0]["frames"].pop(self.project.currentFrame)

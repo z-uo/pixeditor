@@ -404,7 +404,7 @@ class Scene(QtGui.QGraphicsView):
         self.project.currentFrameChanged.connect(self.change_frame)
 
     def change_frame(self):
-        c = self.project.get_canvas()
+        c = self.project.get_true_frame()
         if c:
             self.canvas = c
             self.canvasPixmap.convertFromImage(self.canvas)
@@ -792,17 +792,28 @@ class Project(QtCore.QObject):
         # TODO
         self.url = None
         
-    def make_canvas(self):
-        return Canvas(self, self.size[0], self.size[1], self.colorTable)
+    def make_canvas(self, canvas=False):
+        if canvas:
+            return Canvas(self, canvas)
+        else:
+            return Canvas(self, self.size[0], self.size[1], self.colorTable)
         
     def select_color(self, i):
         pass
         
-    def get_canvas(self):
-        f = self.currentFrame
-        while 0 <= f < len(self.frames[0]["frames"]):
-            if self.frames[0]["frames"][f]:
-                return self.frames[0]["frames"][f]
+    def get_true_frame(self, index=False, getIndex=False):
+        if index:
+            f = index[0]
+            l = index[1]
+        else:
+            f = self.currentFrame
+            l = self.currentLayer
+        while 0 <= f < len(self.frames[l]["frames"]):
+            if self.frames[l]["frames"][f]:
+                if getIndex:
+                    return (f, l)
+                else:
+                    return self.frames[l]["frames"][f]
             f -= 1
         return False
             
