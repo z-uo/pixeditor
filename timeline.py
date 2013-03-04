@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 #-*- coding: utf-8 -*-
 
+from __future__ import division
 from PyQt4 import QtGui
 from PyQt4 import QtCore
 from PyQt4 import Qt
@@ -239,7 +240,7 @@ class TimelineCanvas(QtGui.QWidget):
                     sf -= 1
                 else:
                     break
-            self.update()
+            self.parent.adjust_size()
             self.strechFrame = (sl, sf)
         
     def frame_at(self, x):
@@ -262,13 +263,7 @@ class Timeline(QtGui.QWidget):
         QtGui.QWidget.__init__(self)
         self.project = project
         
-        self.frames = [{"frames" : [1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0], "pos" : 0, "visible" : True, "lock" : False, "name": "Layer 01"},
-                       {"frames" : [1, 1, 0, 0, 1, 1, 0, 1, 0, 1], "pos" : 0, "visible" : True, "lock" : False, "name": "Layer 02"},
-                       {"frames" : [1, 1, 0, 0, 1, 1, 0, 1, 0, 1], "pos" : 0, "visible" : True, "lock" : False, "name": "Layer 03"}]
-        self.currentFrame = 0
-        self.currentLayer = 0
         self.selection = False
-        self.fps = 12
         self.toPaste = False
         
         ### viewer ###
@@ -284,7 +279,7 @@ class Timeline(QtGui.QWidget):
         self.timelineV.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
         self.timelineV.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.timeVSize = (0, 0)
-        self.timelineV.resysing.connect(self.adjustSize)
+        self.timelineV.resysing.connect(self.adjust_size)
         
         self.layersV.verticalScrollBar().valueChanged.connect(
                 lambda v: self.timelineV.verticalScrollBar().setValue(v))
@@ -340,12 +335,13 @@ class Timeline(QtGui.QWidget):
         self.playFrameW.setAutoRaise(True)
         self.playFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_play.png")))
         self.playFrameW.clicked.connect(self.play_pause_clicked)
-        self.framerate = 1/12
-        self.framerateL = QtGui.QLabel("fps")
-        self.framerateW = QtGui.QLineEdit(self)
-        self.framerateW.setText(str(12))
-        self.framerateW.setValidator(QtGui.QIntValidator(self.framerateW))
-        self.framerateW.textChanged.connect(self.framerate_changed)
+        self.fpsL = QtGui.QLabel("fps")
+        self.fpsW = QtGui.QLineEdit(self)
+        self.fpsW.setText(str(12))
+        valid = QtGui.QIntValidator()
+        valid.setRange(1, 60)
+        self.fpsW.setValidator(valid)
+        self.fpsW.textChanged.connect(self.fps_changed)
 
         self.repeatW = QtGui.QToolButton()
         self.repeatW.state = False
@@ -360,8 +356,8 @@ class Timeline(QtGui.QWidget):
         toolbox.addWidget(self.delFrameW)
         toolbox.addWidget(self.clearFrameW)
         toolbox.addStretch(0)
-        toolbox.addWidget(self.framerateW)
-        toolbox.addWidget(self.framerateL)
+        toolbox.addWidget(self.fpsW)
+        toolbox.addWidget(self.fpsL)
         toolbox.addWidget(self.repeatW)
         toolbox.addWidget(self.playFrameW)
         
@@ -386,12 +382,13 @@ class Timeline(QtGui.QWidget):
         self.setLayout(layout2)
 
     def change_current(self, frame=None, layer=None):
-        if frame is not None:
-            self.project.currentFrame = frame
-        if layer is not None:
-            self.project.currentLayer = layer
-        if frame is not None or layer is not None:
-            self.project.currentFrameChanged.emit()
+        if not self.project.playing:
+            if frame is not None:
+                self.project.currentFrame = frame
+            if layer is not None:
+                self.project.currentLayer = layer
+            if frame is not None or layer is not None:
+                self.project.currentFrameChanged.emit()
             
     ######## Size adjust ###############################################
     def showEvent(self, event):
@@ -406,15 +403,13 @@ class Timeline(QtGui.QWidget):
         self.layersV.setMaximumWidth(self.layersCanvas.width() + 
                     self.layersV.verticalScrollBar().width() + 2)
         
-    def adjustSize(self, timeVSize=False):
+    def adjust_size(self, timeVSize=False):
         if timeVSize:
             self.timeVSize = timeVSize
         else:
             timeVSize = self.timeVSize
         wW = timeVSize[0]
         wH = timeVSize[1] - self.timelineV.horizontalScrollBar().height()
-        print timeVSize
-        print self.timelineV.viewport().size()
         timeMin = self.timelineCanvas.getMiniSize()
         self.timelineCanvas.setFixedWidth(timeMin[0] + wW - self.timelineCanvas.frameWidth)
         if timeMin[1] > wH-2:
@@ -423,6 +418,8 @@ class Timeline(QtGui.QWidget):
         else:
             self.timelineCanvas.setFixedHeight(wH-2)
             self.layersCanvas.setFixedHeight(wH-2)
+        self.timelineCanvas.update()
+        self.layersCanvas.update()
     
     ######## Copy ######################################################
     def cut(self):
@@ -478,37 +475,114 @@ class Timeline(QtGui.QWidget):
             
     ######## Buttons ###################################################
     def add_frame_clicked(self):
-        #~ self.project.frames[0]["frames"].append(self.project.make_canvas())
         self.project.frames[0]["frames"].insert(self.project.currentFrame, self.project.make_canvas())
-        self.timelineCanvas.update()
+        self.adjust_size()
         self.project.currentFrameChanged.emit()
         
     def delete_frame_clicked(self):
         self.project.frames[0]["frames"].pop(self.project.currentFrame)
-        self.timelineCanvas.update()
+        self.adjust_size()
+        self.project.currentFrameChanged.emit()
         
     def duplicate_frame_clicked(self):
-        pass
+        self.project.frames[0]["frames"].insert(self.project.currentFrame, self.project.make_canvas(self.project.get_true_frame()))
+        self.adjust_size()
+        self.project.currentFrameChanged.emit()
         
     def clear_frame_clicked(self):
-        pass
+        self.project.get_true_frame().clear()
+        self.project.currentFrameChanged.emit()
         
     def add_layer_clicked(self):
-        pass
+        name = "Layer %s" %(len(self.project.frames)+1)
+        layer = {"frames" : [self.project.make_canvas(), ], "pos" : 0, "visible" : True, "lock" : False, "name": name}
+        self.project.frames.insert(self.project.currentLayer, layer)
+        self.adjust_size()
         
     def duplicate_layer_clicked(self):
         pass
         
     def delete_layer_clicked(self):
         pass
-        
-    def play_pause_clicked(self):
-        pass
-        
-    def framerate_changed(self):
-        pass
-        
+
+    ######## Play ######################################################
+    def fps_changed(self):
+        try:
+            f = abs(int(self.fpsW.text())) or 1
+        except ValueError:
+            f = 1
+        print f
+        self.project.fps = f
+        self.timelineCanvas.update()
+
     def repeat_clicked(self):
-        pass
+        if self.repeatW.state:
+            self.repeatW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_no_repeat.png")))
+            self.repeatW.state = False
+        else:
+            self.repeatW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_repeat.png")))
+            self.repeatW.state = True
+
+    def play_pause_clicked(self):
+        """play the animation"""
+        if self.playFrameW.state == 'play':
+            self.playFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_pause.png")))
+            self.playFrameW.state = "stop"
+            
+            self.playThread = Play(self)
+            self.playThread.end.connect(self.play_end)
+            self.playThread.frame.connect(self.change_frame)
+            self.project.playing = True
+            self.playThread.start()
+        elif self.playFrameW.state == 'stop':
+            self.playThread.stop = True
+
+    def play_end(self):
+        self.playFrameW.state = "play"
+        self.playFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_play.png")))
+        self.project.playing = False
         
+    def change_frame(self, f):
+        self.project.currentFrame = f
+        self.timelineCanvas.update()
+        self.project.currentFrameChanged.emit()
+
+
+class Play(QtCore.QThread):
+    """ thread used to play the animation """
+    frame = QtCore.pyqtSignal(int)
+    end = QtCore.pyqtSignal()
+    def __init__(self, parent):
+        QtCore.QThread.__init__(self, parent)
+        self.parent = parent
+        self.stop = False
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.animate)
+        self.f = self.parent.project.currentFrame
+        self.fps = self.parent.project.fps
         
+    def run(self):
+        self.timer.start(1000//self.fps)
+
+    def animate(self):
+        self.f += 1
+        if self.stop:
+            self.timer.stop()
+            self.end.emit()
+        if self.fps != self.parent.project.fps:
+            self.fps = self.parent.project.fps
+            self.timer.setInterval(1000//self.fps)
+        if self.is_frame(self.f):
+            self.frame.emit(self.f)
+        elif self.parent.repeatW.state:
+            self.f = 0
+            self.frame.emit(self.f)
+        else:
+            self.timer.stop()
+            self.end.emit()
+            
+    def is_frame(self, f):
+        for i in self.parent.project.frames:
+            if 0 <= f < len(i["frames"]):
+                return True
+        return False

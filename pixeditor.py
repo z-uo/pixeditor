@@ -50,7 +50,6 @@
 from __future__ import division
 import sys
 import os
-import time
 from PyQt4 import QtCore
 from PyQt4 import QtGui
 from PyQt4 import Qt
@@ -784,10 +783,11 @@ class Project(QtCore.QObject):
         self.color = DEFAUT_COLOR
         self.pen = DEFAUT_PEN
         self.tool = DEFAUT_TOOL
-        self.frames = [{"frames" : [self.make_canvas(), ], "name": "Layer 01"},]
+        self.frames = [{"frames" : [self.make_canvas(), ], "pos" : 0, "visible" : True, "lock" : False, "name": "Layer 1"},]
         self.fps = 12
         self.currentFrame = 0
         self.currentLayer = 0
+        self.playing = False
         
         # TODO
         self.url = None
@@ -819,6 +819,7 @@ class Project(QtCore.QObject):
             
     def get_all_canvas(self):
         pass
+        
         
         
 class MainWindow(QtGui.QMainWindow):
