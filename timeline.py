@@ -388,7 +388,7 @@ class Timeline(QtGui.QWidget):
             if layer is not None:
                 self.project.currentLayer = layer
             if frame is not None or layer is not None:
-                self.project.currentFrameChanged.emit()
+                self.project.update_view.emit()
             
     ######## Size adjust ###############################################
     def showEvent(self, event):
@@ -471,27 +471,27 @@ class Timeline(QtGui.QWidget):
             for n, canvas in enumerate(self.toPaste):
                 self.project.frames[l]["frames"].insert(f+n, canvas)
             self.timelineCanvas.update()
-            self.project.currentFrameChanged.emit()
+            self.project.update_view.emit()
             
     ######## Buttons ###################################################
     def add_frame_clicked(self):
         self.project.frames[0]["frames"].insert(self.project.currentFrame, self.project.make_canvas())
         self.adjust_size()
-        self.project.currentFrameChanged.emit()
+        self.project.update_view.emit()
         
     def delete_frame_clicked(self):
         self.project.frames[0]["frames"].pop(self.project.currentFrame)
         self.adjust_size()
-        self.project.currentFrameChanged.emit()
+        self.project.update_view.emit()
         
     def duplicate_frame_clicked(self):
         self.project.frames[0]["frames"].insert(self.project.currentFrame, self.project.make_canvas(self.project.get_true_frame()))
         self.adjust_size()
-        self.project.currentFrameChanged.emit()
+        self.project.update_view.emit()
         
     def clear_frame_clicked(self):
         self.project.get_true_frame().clear()
-        self.project.currentFrameChanged.emit()
+        self.project.update_view.emit()
         
     def add_layer_clicked(self):
         name = "Layer %s" %(len(self.project.frames)+1)
@@ -545,7 +545,7 @@ class Timeline(QtGui.QWidget):
     def change_frame(self, f):
         self.project.currentFrame = f
         self.timelineCanvas.update()
-        self.project.currentFrameChanged.emit()
+        self.project.update_view.emit()
 
 
 class Play(QtCore.QThread):

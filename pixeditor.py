@@ -379,8 +379,6 @@ class Scene(QtGui.QGraphicsView):
         QtGui.QGraphicsView.__init__(self)
         self.project = project
 
-        self.setBackgroundBrush(QtGui.QBrush(QtGui.QColor(140, 140, 140)))
-
         # the canvas to draw on
         self.canvas = False
         self.zoomN = 1
@@ -392,22 +390,29 @@ class Scene(QtGui.QGraphicsView):
         self.setResizeAnchor(QtGui.QGraphicsView.AnchorViewCenter)
         self.setMinimumSize(400, 400)
         #~ self.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
-
         w, h = self.project.size[0], self.project.size[1]
         self.scene.setSceneRect(0, 0, w, h)
-        self.bg = self.scene.addPixmap(Bg(w, h))
-        self.canvasPixmap = QtGui.QPixmap(w, h)
-        self.canvasPixmap.fill(QtGui.QColor(0, 0, 0, 0))
-        self.canvasItem = self.scene.addPixmap(self.canvasPixmap)
 
-        self.project.currentFrameChanged.connect(self.change_frame)
+        self.setBackgroundBrush(QtGui.QBrush(QtGui.QColor(140, 140, 140)))
+        self.bg = self.scene.addPixmap(Bg(w, h))
+        
+        self.canvasList = []
+        self.pixmapList = []
+        self.itemList = []
+        for i in self.project.frames:
+            p = QtGui.QPixmap(w, h)
+            p.fill(QtGui.QColor(0, 0, 0, 0))
+            self.pixmapList.append(p)
+            self.itemList.append(self.scene.addPixmap(p))
+        self.project.update_view.connect(self.change_frame)
 
     def change_frame(self):
-        c = self.project.get_true_frame()
-        if c:
-            self.canvas = c
-            self.canvasPixmap.convertFromImage(self.canvas)
-            self.canvasItem.setPixmap(self.canvasPixmap)
+        # adding layer, resizing...
+        self.canvasList = self.project.get_true_frame_list()
+        for n, i in enumerate(self.canvasList):
+            if i:
+                self.pixmapList[n].convertFromImage(i)
+                self.itemList[n].setPixmap(self.pixmapList[n])
 
     def change_size(self):
         w, h = self.project.size[0], self.project.size[1]
@@ -428,6 +433,7 @@ class Scene(QtGui.QGraphicsView):
         self.scale(factor, factor)
 
     def mousePressEvent(self, event):
+        print 'clic'
         # pan
         if event.buttons() == QtCore.Qt.MidButton:
             self.startScroll = (self.horizontalScrollBar().value(),
@@ -435,11 +441,12 @@ class Scene(QtGui.QGraphicsView):
             self.lastPos = QtCore.QPoint(QtGui.QCursor.pos())
             self.setDragMode(QtGui.QGraphicsView.NoDrag)
         # draw on canvas
-        if self.canvas and event.buttons() == QtCore.Qt.LeftButton:
+        l = self.project.currentLayer
+        if self.canvasList[l] and event.buttons() == QtCore.Qt.LeftButton:
             pos = self.mapToScene(event.pos())
-            self.canvas.clic(QtCore.QPoint(int(pos.x()),int(pos.y())))
-            self.canvasPixmap.convertFromImage(self.canvas)
-            self.canvasItem.setPixmap(self.canvasPixmap)
+            self.canvasList[l].clic(QtCore.QPoint(int(pos.x()),int(pos.y())))
+            self.pixmapList[l].convertFromImage(self.canvasList[l])
+            self.itemList[l].setPixmap(self.pixmapList[l])
         else:
             return QtGui.QGraphicsView.mousePressEvent(self, event)
 
@@ -452,11 +459,12 @@ class Scene(QtGui.QGraphicsView):
             self.verticalScrollBar().setValue(self.startScroll[1] -
                     globalPos.y() + self.lastPos.y())
         # draw on canvas
-        if self.canvas and event.buttons() == QtCore.Qt.LeftButton:
+        l = self.project.currentLayer
+        if self.canvasList[l] and event.buttons() == QtCore.Qt.LeftButton:
             pos = self.mapToScene(event.pos())
-            self.canvas.move(QtCore.QPoint(int(pos.x()),int(pos.y())))
-            self.canvasPixmap.convertFromImage(self.canvas)
-            self.canvasItem.setPixmap(self.canvasPixmap)
+            self.canvasList[l].move(QtCore.QPoint(int(pos.x()),int(pos.y())))
+            self.pixmapList[l].convertFromImage(self.canvasList[l])
+            self.itemList[l].setPixmap(self.pixmapList[l])
         else:
             return QtGui.QGraphicsView.mouseMoveEvent(self, event)
 
@@ -567,7 +575,8 @@ class Canvas(QtGui.QImage):
         elif self.rect().contains(point):
             col = self.pixelIndex(point)
             if self.project.tool == "pipette":
-                self.project.select_color(col)
+                self.project.color = col
+                self.project.update_palette.emit()
             elif self.project.tool == "fill" and self.project.color != col:
                 self.save_to_undo()
                 self.flood_fill(point, col)
@@ -575,7 +584,8 @@ class Canvas(QtGui.QImage):
     def move(self, point):
         if self.project.tool == "pipette":
             if self.rect().contains(point):
-                self.project.select_color(self.pixelIndex(point))
+                self.project.color = self.pixelIndex(point)
+                self.project.update_palette.emit()
         elif self.project.tool == "pen":
             self.draw('line', QtCore.QPoint(point))
 
@@ -690,6 +700,7 @@ class ToolsWidget(QtGui.QWidget):
         
         ### palette ###
         self.paletteCanvas = PaletteCanvas(self)
+        self.project.update_palette.connect(self.paletteCanvas.update)
         self.addColorW = QtGui.QToolButton()
         self.addColorW.setAutoRaise(True)
         self.addColorW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/color_add.png")))
@@ -700,8 +711,8 @@ class ToolsWidget(QtGui.QWidget):
         toolbox.addWidget(self.penB)
         toolbox.addWidget(self.pipetteB)
         toolbox.addWidget(self.fillB)
-        toolbox.addWidget(self.zoomInB)
-        toolbox.addWidget(self.zoomOutB)
+        #~ toolbox.addWidget(self.zoomInB)
+        #~ toolbox.addWidget(self.zoomOutB)
         toolbox.addStretch()
         colorbox = QtGui.QHBoxLayout()
         colorbox.addWidget(self.addColorW)
@@ -744,7 +755,7 @@ class ToolsWidget(QtGui.QWidget):
         """ change the color for all canvas """
         for i in self.project.get_all_canvas():
             i.setColorTable(self.project.colorTable)
-        self.project.currentFrameChanged.emit()
+        self.project.update_view.emit()
 
     def edit_color(self, n):
         col = self.project.colorTable[self.project.color]
@@ -758,7 +769,7 @@ class ToolsWidget(QtGui.QWidget):
     def add_color_clicked(self):
         """ select a color in a qcolordialog and add it to the palette"""
         if not len(self.project.colorTable) >= 128:
-            col = self.project.colorTable[project.color]
+            col = self.project.colorTable[self.project.color]
             color, ok = QtGui.QColorDialog.getRgba(col)
             if not ok:
                 return
@@ -774,7 +785,9 @@ class ToolsWidget(QtGui.QWidget):
 
 class Project(QtCore.QObject):
     """ store all data that need to be saved"""
-    currentFrameChanged = QtCore.pyqtSignal()
+    update_view = QtCore.pyqtSignal()
+    update_palette = QtCore.pyqtSignal()
+    update_timeline = QtCore.pyqtSignal()
     def __init__(self, parent):
         QtCore.QObject.__init__(self)
         self.parent = parent
@@ -783,7 +796,8 @@ class Project(QtCore.QObject):
         self.color = DEFAUT_COLOR
         self.pen = DEFAUT_PEN
         self.tool = DEFAUT_TOOL
-        self.frames = [{"frames" : [self.make_canvas(), ], "pos" : 0, "visible" : True, "lock" : False, "name": "Layer 1"},]
+        self.frames = [{"frames" : [self.make_canvas(), ], "pos" : 0, "visible" : True, "lock" : False, "name": "Layer 1"},
+                       {"frames" : [self.make_canvas(), ], "pos" : 0, "visible" : True, "lock" : False, "name": "Layer 1"},]
         self.fps = 12
         self.currentFrame = 0
         self.currentLayer = 0
@@ -798,8 +812,18 @@ class Project(QtCore.QObject):
         else:
             return Canvas(self, self.size[0], self.size[1], self.colorTable)
         
-    def select_color(self, i):
-        pass
+    def get_true_frame_list(self):
+        tf = []
+        f = self.currentFrame
+        for l in self.frames:
+            while 0 <= f < len(l["frames"]):
+                if l["frames"][f]:
+                    tf.append(l["frames"][f])
+                    break
+                f -= 1
+            else:
+                tf.append(0)
+        return tf
         
     def get_true_frame(self, index=False, getIndex=False):
         if index:
@@ -816,10 +840,15 @@ class Project(QtCore.QObject):
                     return self.frames[l]["frames"][f]
             f -= 1
         return False
-            
-    def get_all_canvas(self):
-        pass
         
+    def get_all_canvas(self):
+        canvas = []
+        for l in self.frames:
+            for f in l["frames"]:
+                if f:
+                    canvas.append(f)
+        return canvas
+        #~ return [[f for f in l["frames"]] for l in self.frames]
         
         
 class MainWindow(QtGui.QMainWindow):
