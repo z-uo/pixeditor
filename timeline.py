@@ -285,6 +285,8 @@ class Timeline(QtGui.QWidget):
                 lambda v: self.timelineV.verticalScrollBar().setValue(v))
         self.timelineV.verticalScrollBar().valueChanged.connect(
                 lambda v: self.layersV.verticalScrollBar().setValue(v))
+        self.project.update_timeline.connect(self.timelineCanvas.update)
+        self.project.update_timeline.connect(self.layersCanvas.update)
         
         ### shortcuts ###
         shortcut = QtGui.QShortcut(self)
@@ -350,36 +352,23 @@ class Timeline(QtGui.QWidget):
         self.repeatW.clicked.connect(self.repeat_clicked)
 
         ### layout ###
-        toolbox = QtGui.QHBoxLayout()
-        toolbox.addWidget(self.addFrameW)
-        toolbox.addWidget(self.dupFrameW)
-        toolbox.addWidget(self.delFrameW)
-        toolbox.addWidget(self.clearFrameW)
-        toolbox.addStretch(0)
-        toolbox.addWidget(self.fpsW)
-        toolbox.addWidget(self.fpsL)
-        toolbox.addWidget(self.repeatW)
-        toolbox.addWidget(self.playFrameW)
-        
-        toolbox2 = QtGui.QVBoxLayout()
-        toolbox2.addWidget(self.addLayerW)
-        toolbox2.addWidget(self.dupLayerW)
-        toolbox2.addWidget(self.delLayerW)
-        toolbox2.addStretch(0)
-        
-        timeLayout = QtGui.QHBoxLayout()
-        timeLayout.addWidget(self.layersV)
-        timeLayout.addWidget(self.timelineV)
-        
-        layout = QtGui.QVBoxLayout()
-        layout.addLayout(timeLayout)
-        layout.addLayout(toolbox)
-        
-        layout2 = QtGui.QHBoxLayout()
-        layout2.addLayout(toolbox2)
-        layout2.addLayout(layout)
-
-        self.setLayout(layout2)
+        layout = QtGui.QGridLayout()
+        layout.setSpacing(4)
+        layout.addWidget(self.addLayerW, 0, 0)
+        layout.addWidget(self.dupLayerW, 1, 0)
+        layout.addWidget(self.delLayerW, 2, 0)
+        layout.addWidget(self.layersV, 0, 1, 4, 1)
+        layout.addWidget(self.timelineV, 0, 2, 4, 9)
+        layout.addWidget(self.addFrameW, 4, 2)
+        layout.addWidget(self.dupFrameW, 4, 3)
+        layout.addWidget(self.delFrameW, 4, 4)
+        layout.addWidget(self.clearFrameW, 4, 5)
+        layout.setColumnStretch(6, 2)
+        layout.addWidget(self.fpsW, 4, 7)
+        layout.addWidget(self.fpsL, 4, 8)
+        layout.addWidget(self.repeatW, 4, 9)
+        layout.addWidget(self.playFrameW, 4, 10)
+        self.setLayout(layout)
 
     def change_current(self, frame=None, layer=None):
         if not self.project.playing:
@@ -498,9 +487,11 @@ class Timeline(QtGui.QWidget):
         layer = {"frames" : [self.project.make_canvas(), ], "pos" : 0, "visible" : True, "lock" : False, "name": name}
         self.project.frames.insert(self.project.currentLayer, layer)
         self.adjust_size()
+        self.project.update_view()
         
     def duplicate_layer_clicked(self):
-        pass
+        exl = self.project.currentLayer
+        
         
     def delete_layer_clicked(self):
         pass
@@ -508,10 +499,13 @@ class Timeline(QtGui.QWidget):
     ######## Play ######################################################
     def fps_changed(self):
         try:
-            f = abs(int(self.fpsW.text())) or 1
+            f = int(self.fpsW.text())
         except ValueError:
-            f = 1
-        print f
+            self.fpsW.setText("1")
+            return
+        if f == 0:
+            self.fpsW.setText("1")
+            return
         self.project.fps = f
         self.timelineCanvas.update()
 

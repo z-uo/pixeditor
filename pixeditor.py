@@ -65,302 +65,6 @@ DEFAUT_PEN = ((0, 0),)
 DEFAUT_TOOL = "pen"
 
 
-class Item(QtGui.QStandardItem):
-    """ a QStandartItem used in FramesWidget that contain a Canvas """
-    def __init__(self, image=None):
-        QtGui.QStandardItem.__init__(self)
-        self.set_image(image)
-
-    def set_image(self, image=None):
-        self.image = image
-        if image:
-            self.setText('frame')
-        else:
-            self.setText('   -')
-    def get_image(self):
-        return self.image
-
-
-class FramesWidget(QtGui.QWidget):
-    """ manages the frames """
-    def __init__(self, project, parent):
-        QtGui.QWidget.__init__(self, parent)
-        self.parent = parent
-        self.project = project
-
-        ### model to store images ###
-        self.modFramesList = QtGui.QStandardItemModel(0, 1)
-
-        ### listview to display images ###
-        self.framesList = QtGui.QTableView()
-        self.framesList.setModel(self.modFramesList)
-        self.framesList.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
-        self.framesList.selectionModel().selectionChanged.connect(self.change_frame)
-        self.framesList.horizontalHeader().setVisible(False)
-
-        ### adding and deleting images ###
-        self.addFrameW = QtGui.QToolButton()
-        self.addFrameW.setAutoRaise(True)
-        self.addFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_add.png")))
-        self.addFrameW.clicked.connect(self.add_frame_clicked)
-        self.delFrameW = QtGui.QToolButton()
-        self.delFrameW.setAutoRaise(True)
-        self.delFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_del.png")))
-        self.delFrameW.clicked.connect(self.delete_frame_clicked)
-        self.duplicateFrameW = QtGui.QToolButton()
-        self.duplicateFrameW.setAutoRaise(True)
-        self.duplicateFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_dup.png")))
-        self.duplicateFrameW.clicked.connect(self.duplicate_frame_clicked)
-        self.eraseFrameW = QtGui.QToolButton()
-        self.eraseFrameW.setAutoRaise(True)
-        self.eraseFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_clear.png")))
-        self.eraseFrameW.clicked.connect(self.clear_frame_clicked)
-
-        # play the animation
-        self.playFrameW = QtGui.QToolButton()
-        self.playFrameW.state = "play"
-        self.playFrameW.setAutoRaise(True)
-        self.playFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_play.png")))
-        self.playFrameW.clicked.connect(self.play_pause_clicked)
-        self.framerate = 1/12
-        self.framerateL = QtGui.QLabel("fps")
-        self.framerateW = QtGui.QLineEdit(self)
-        self.framerateW.setText(str(12))
-        self.framerateW.setValidator(QtGui.QIntValidator(self.framerateW))
-        self.framerateW.textChanged.connect(self.framerate_changed)
-
-        self.repeatW = QtGui.QToolButton()
-        self.repeatW.state = False
-        self.repeatW.setAutoRaise(True)
-        self.repeatW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_no_repeat.png")))
-        self.repeatW.clicked.connect(self.repeat_clicked)
-
-        ### layout ###
-        toolBox = QtGui.QHBoxLayout()
-        toolBox.addWidget(self.addFrameW)
-        toolBox.addWidget(self.delFrameW)
-        toolBox.addWidget(self.duplicateFrameW)
-        toolBox.addWidget(self.eraseFrameW)
-        toolBox.addStretch(0)
-        
-        toolBox2 = QtGui.QHBoxLayout()
-        toolBox2.addWidget(self.framerateW)
-        toolBox2.addWidget(self.framerateL)
-        toolBox2.addWidget(self.repeatW)
-        toolBox2.addWidget(self.playFrameW)
-        toolBox2.addStretch(0)
-        
-        self.layout = QtGui.QVBoxLayout(self)
-        self.layout.addWidget(self.framesList)
-        self.layout.addLayout(toolBox)
-        self.layout.addLayout(toolBox2)
-
-    def clear_frames(self):
-        for i in xrange(self.modFramesList.rowCount()):
-            self.modFramesList.removeRow(0)
-
-    def init_new_anim(self, frames):
-        self.clear_frames()
-        for i in frames:
-            if i:
-                img = self.make_frame()
-                img.load_from_list(i)
-                item = Item(img)
-            else:
-                item = Item(None)
-            self.insert_item(item)
-        self.select_frame(0)
-
-    def select_frame(self, row):
-        """ select a frame which call self.change_frame() """
-        if row < self.modFramesList.rowCount() and row >= 0:
-            self.framesList.selectionModel().clear()
-            sel = self.modFramesList.createIndex(row,0)
-            self.framesList.selectionModel().select(sel, QtGui.QItemSelectionModel.Select)
-
-    def select_frame_relative(self, n):
-        """ select a frame which call self.change_frame() """
-        sel = self.framesList.selectionModel().selectedIndexes()
-        if sel:
-            self.select_frame(sel[0].row() + n)
-
-    def make_frame(self):
-        return Canvas(self.project,
-                      self.project.size[0],
-                      self.project.size[1],
-                      self.project.colorTable)
-
-    def insert_item(self, item):
-        """ insert an item after the selection or in the end """
-        sel = self.framesList.selectionModel().selectedIndexes()
-        if sel:
-            row = sel[0].row()+1
-        else:
-            row = self.modFramesList.rowCount()
-        self.modFramesList.insertRow(row, item)
-        self.select_frame(row)
-
-    def change_frame(self):
-        """ send the selected canvas to the viewer """
-        canvas = self.get_canvas()
-        if canvas:
-            self.parent.currentFrameChanged.emit(canvas)
-
-    def get_canvas(self):
-        sel = self.framesList.selectionModel().selectedIndexes()
-        if sel:
-            item = self.modFramesList.itemFromIndex(sel[0])
-            img = item.get_image()
-            if not img:
-                i = sel[0].row()
-                while not img and i >= 0:
-                    item = self.modFramesList.item(i,0)
-                    img = item.get_image()
-                    i -= 1
-            return img
-
-    def get_all_canvas(self, still=False):
-        """ return a list containing all non still canvas """
-        l = []
-        for i in xrange(self.modFramesList.rowCount()):
-            item = self.modFramesList.item(i,0)
-            img = item.get_image()
-            if still:
-                l.append(img)
-            else:
-                if img:
-                    l.append(img)
-        return l
-    def get_all_items(self, still=False):
-        l = []
-        for i in xrange(self.modFramesList.rowCount()):
-            item = self.modFramesList.item(i,0)
-            if still:
-                l.append(item)
-            else:
-                if item.get_image():
-                    l.append(item)
-        return l
-
-    def add_frame_clicked(self, qimg=None):
-        """ create a new row and a canvas inside """
-        # create the canvas and the item hanging it on FramesWidget
-        if qimg:
-            img = Canvas(self.parent, qimg.copy(0, 0, self.parent.tools["size"][0], self.parent.tools["size"][1]))
-        else:
-            img = self.make_frame()
-
-        self.insert_item(Item(img))
-
-    def delete_frame_clicked(self):
-        """ delete selected frame from the model"""
-        sel = self.framesList.selectionModel().selectedIndexes()
-        row = sel[0].row()
-        self.modFramesList.removeRow(row)
-        # if we just deleted the last frame, create a new empty one
-        if self.modFramesList.rowCount() == 0:
-            self.add_frame_clicked()
-        # if we just deleted the first frame,
-        #    if the new first frame contain a canvas, select it
-        #    else (if its a still frame), create a new empty one
-        elif row == 0 :
-            item = self.modFramesList.item(0,0)
-            if item.get_image():
-                self.select_frame(0)
-            else:
-                item.set_image(self.make_frame())
-                self.select_frame(0)
-        # else, just select the previous frame
-        else:
-            self.select_frame(row - 1)
-
-    def duplicate_frame_clicked(self):
-        """ duplicate the current canvas or if it's still create one in place """
-        sel = self.framesList.selectionModel().selectedIndexes()
-        if sel:
-            item = self.modFramesList.itemFromIndex(sel[0])
-            img = item.get_image()
-            if img:
-                self.add_frame_clicked(img)
-            else:
-                sel = sel[0]
-                i = 1
-                while not img and sel.row()-i >= 0:
-                    item = self.modFramesList.item(sel.row()-i, 0)
-                    img = item.get_image()
-                    i = i + 1
-                self.add_frame_clicked(img)
-
-    def clear_frame_clicked(self):
-        """ clear the current canvas or if it's still create a blank one """
-        sel = self.framesList.selectionModel().selectedIndexes()
-        if sel:
-            item = self.modFramesList.itemFromIndex(sel[0])
-            img = item.get_image()
-            if img:
-                img.clear()
-            else:
-                item.set_image(self.make_frame())
-        self.change_frame()
-
-    def framerate_changed(self):
-        f = int(self.framerateW.text())
-        if f:
-            self.framerate = 1/f
-        else:
-            self.framerate = 1
-
-    def repeat_clicked(self):
-        if self.repeatW.state:
-            self.repeatW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_no_repeat.png")))
-            self.repeatW.state = False
-        else:
-            self.repeatW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_repeat.png")))
-            self.repeatW.state = True
-
-    def play_pause_clicked(self):
-        """play the animation"""
-        if self.playFrameW.state == 'play':
-            self.playFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_pause.png")))
-            self.playFrameW.state = "stop"
-            rows = self.modFramesList.rowCount()
-            self.playThread = Play(rows, self)
-            self.playThread.frame.connect(self.select_frame)
-            self.playThread.end.connect(self.play_end)
-            self.playThread.start()
-        elif self.playFrameW.state == 'stop':
-            self.playThread.stop = True
-
-    def play_end(self):
-        self.playFrameW.state = "play"
-        self.playFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_play.png")))
-
-
-class Play(QtCore.QThread):
-    """ thread used to play the animation """
-    frame = QtCore.pyqtSignal(int)
-    end = QtCore.pyqtSignal()
-    def __init__(self, rows, parent=None):
-        QtCore.QThread.__init__(self, parent)
-        self.parent = parent
-        self.rows = rows
-        self.stop = False
-
-    def run(self):
-        if self.parent.repeatW.state:
-            while not self.stop and self.parent.repeatW.state:
-                self.animate()
-        else:
-            self.animate()
-        self.end.emit()
-
-    def animate(self):
-        for i in xrange(self.parent.modFramesList.rowCount()):
-            if not self.stop:
-                self.frame.emit(i)
-                time.sleep(self.parent.framerate)
-
-
 class Bg(QtGui.QPixmap):
     """ background of the scene"""
     def __init__(self, w, h):
@@ -389,35 +93,47 @@ class Scene(QtGui.QGraphicsView):
         self.setTransformationAnchor(QtGui.QGraphicsView.AnchorUnderMouse)
         self.setResizeAnchor(QtGui.QGraphicsView.AnchorViewCenter)
         self.setMinimumSize(400, 400)
-        #~ self.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
+        
         w, h = self.project.size[0], self.project.size[1]
         self.scene.setSceneRect(0, 0, w, h)
 
         self.setBackgroundBrush(QtGui.QBrush(QtGui.QColor(140, 140, 140)))
         self.bg = self.scene.addPixmap(Bg(w, h))
         
-        self.canvasList = []
+        self.p = QtGui.QPixmap(self.scene.width(), self.scene.height())
+        self.p.fill(QtGui.QColor(0, 0, 0, 0))
         self.pixmapList = []
         self.itemList = []
-        for i in self.project.frames:
-            p = QtGui.QPixmap(w, h)
-            p.fill(QtGui.QColor(0, 0, 0, 0))
-            self.pixmapList.append(p)
-            self.itemList.append(self.scene.addPixmap(p))
+        self.canvasList = []
+        self.change_frame()
         self.project.update_view.connect(self.change_frame)
-
+        
     def change_frame(self):
-        # adding layer, resizing...
         self.canvasList = self.project.get_true_frame_list()
+        if len(self.itemList) != len(self.canvasList):
+            for i in self.itemList:
+                self.scene.removeItem(i)
+            self.pixmapList = []
+            self.itemList = []
+            for i in self.canvasList:
+                p = QtGui.QPixmap(self.scene.width(), self.scene.height())
+                p.fill(QtGui.QColor(0, 0, 0, 0))
+                self.pixmapList.append(p)
+                self.itemList.append(self.scene.addPixmap(p))
         for n, i in enumerate(self.canvasList):
             if i:
                 self.pixmapList[n].convertFromImage(i)
-                self.itemList[n].setPixmap(self.pixmapList[n])
+            else:
+                self.pixmapList[n].fill(QtGui.QColor(0, 0, 0, 0))
+            self.itemList[n].setPixmap(self.pixmapList[n])
+        print self.scene.items()
 
     def change_size(self):
         w, h = self.project.size[0], self.project.size[1]
         self.scene.setSceneRect(0, 0, w, h)
         self.bg.setPixmap(Bg(w, h))
+        self.p = QtGui.QPixmap(self.scene.width(), self.scene.height())
+        self.p.fill(QtGui.QColor(0, 0, 0, 0))
 
     def wheelEvent(self, event):
         if event.delta() > 0:
@@ -442,7 +158,7 @@ class Scene(QtGui.QGraphicsView):
             self.setDragMode(QtGui.QGraphicsView.NoDrag)
         # draw on canvas
         l = self.project.currentLayer
-        if self.canvasList[l] and event.buttons() == QtCore.Qt.LeftButton:
+        if event.buttons() == QtCore.Qt.LeftButton and self.canvasList[l]:
             pos = self.mapToScene(event.pos())
             self.canvasList[l].clic(QtCore.QPoint(int(pos.x()),int(pos.y())))
             self.pixmapList[l].convertFromImage(self.canvasList[l])
@@ -460,7 +176,7 @@ class Scene(QtGui.QGraphicsView):
                     globalPos.y() + self.lastPos.y())
         # draw on canvas
         l = self.project.currentLayer
-        if self.canvasList[l] and event.buttons() == QtCore.Qt.LeftButton:
+        if event.buttons() == QtCore.Qt.LeftButton and self.canvasList[l]:
             pos = self.mapToScene(event.pos())
             self.canvasList[l].move(QtCore.QPoint(int(pos.x()),int(pos.y())))
             self.pixmapList[l].convertFromImage(self.canvasList[l])
@@ -639,7 +355,7 @@ class PaletteCanvas(QtGui.QWidget):
 
 
 class ToolsWidget(QtGui.QWidget):
-    """ main windows of the application """
+    """ side widget cantaining tools buttons and palette """
     def __init__(self, project):
         QtGui.QWidget.__init__(self)
         self.project = project
@@ -707,26 +423,23 @@ class ToolsWidget(QtGui.QWidget):
         self.addColorW.clicked.connect(self.add_color_clicked)
         
         ### Layout ###
-        toolbox = QtGui.QHBoxLayout()
-        toolbox.addWidget(self.penB)
-        toolbox.addWidget(self.pipetteB)
-        toolbox.addWidget(self.fillB)
-        #~ toolbox.addWidget(self.zoomInB)
-        #~ toolbox.addWidget(self.zoomOutB)
-        toolbox.addStretch()
-        colorbox = QtGui.QHBoxLayout()
-        colorbox.addWidget(self.addColorW)
-        colorbox.addStretch(0)
-        layout = QtGui.QVBoxLayout()
-        layout.addLayout(toolbox)
-        layout.addWidget(self.penW)
-        layout.addWidget(self.paletteCanvas)
-        layout.addLayout(colorbox)
-        layout.addStretch()
+        layout = QtGui.QGridLayout()
+        layout.setSpacing(4)
+        layout.addWidget(self.penB, 0, 0)
+        layout.addWidget(self.pipetteB, 0, 1)
+        layout.addWidget(self.fillB, 0, 2)
+        layout.setColumnStretch(3, 2)
+        layout.addWidget(self.penW, 1, 0, 1, 4)
+        layout.addWidget(self.paletteCanvas, 2, 0, 1, 4)
+        layout.addWidget(self.addColorW, 3, 0)
         self.setLayout(layout)
 
+    def showEvent(self, event):
+        self.setFixedWidth(self.width())
+        
     ### Tools ##########################################################
     def pen_tool_clicked(self):
+        print self.size()
         if self.penB.isChecked() or (not self.pipetteB.isChecked() and not self.fillB.isChecked()):
             self.project.tool = "pen"
             self.pipetteB.setChecked(False)
@@ -850,7 +563,6 @@ class Project(QtCore.QObject):
         return canvas
         #~ return [[f for f in l["frames"]] for l in self.frames]
         
-        
 class MainWindow(QtGui.QMainWindow):
     currentFrameChanged = QtCore.pyqtSignal(object)
     def __init__(self):
@@ -858,6 +570,9 @@ class MainWindow(QtGui.QMainWindow):
         self.setWindowTitle("pixeditor")
 
         self.project = Project(self)
+        self.toolsWidget = ToolsWidget(self.project)
+        self.timeline = Timeline(self.project)
+        self.scene = Scene(self.project)
 
         ### Menu ###
         newAction = QtGui.QAction('&New', self)
@@ -893,10 +608,10 @@ class MainWindow(QtGui.QMainWindow):
         ### shortcuts ###
         shortcut = QtGui.QShortcut(self)
         shortcut.setKey(QtCore.Qt.Key_Left)
-        shortcut.activated.connect(lambda : self.framesWidget.select_frame_relative(-1))
+        shortcut.activated.connect(lambda : self.select_frame(-1))
         shortcut2 = QtGui.QShortcut(self)
         shortcut2.setKey(QtCore.Qt.Key_Right)
-        shortcut2.activated.connect(lambda : self.framesWidget.select_frame_relative(1))
+        shortcut2.activated.connect(lambda : self.select_frame(1))
         shortcut3 = QtGui.QShortcut(self)
         shortcut3.setKey(QtGui.QKeySequence(QtCore.Qt.CTRL + QtCore.Qt.Key_Z))
         shortcut3.activated.connect(self.undo)
@@ -904,102 +619,82 @@ class MainWindow(QtGui.QMainWindow):
         shortcut4.setKey(QtGui.QKeySequence(QtCore.Qt.CTRL + QtCore.Qt.Key_Y))
         shortcut4.activated.connect(self.redo)
 
-        ### palette ###
-        self.toolsWidget = ToolsWidget(self.project)
-
-        ### viewer and framesWidget ###
-        self.framesWidget = FramesWidget(self.project, self)
-        self.timeline = Timeline(self.project)
-        self.scene = Scene(self.project)
-
         ### layout #####################################################
         splitter = QtGui.QSplitter()
         splitter.addWidget(self.toolsWidget)
         splitter.addWidget(self.scene)
-        
-        layout = QtGui.QVBoxLayout()
-        layout.addWidget(splitter)
-        layout.addWidget(self.timeline)
-
-        ### central widget ###
-        self.centralWidget = QtGui.QWidget()
-        self.centralWidget.setLayout(layout)
-        self.setCentralWidget(self.centralWidget)
-        self.init_canvas()
+        splitter2 = QtGui.QSplitter(QtCore.Qt.Vertical)
+        splitter2.addWidget(splitter)
+        splitter2.addWidget(self.timeline)
+        self.setCentralWidget(splitter2)
         self.show()
 
-    def init_canvas(self):
-        self.scene.change_size()
-        # create the first frame
-        self.framesWidget.add_frame_clicked()
-        # and select it
-        sel = self.framesWidget.modFramesList.createIndex(0, 0)
-        self.framesWidget.framesList.selectionModel().select(sel, QtGui.QItemSelectionModel.Select)
-
     def new_action(self):
-        ok, w, h = NewDialog().get_return()
-        if ok:
-            self.framesWidget.clear_frames()
-            self.project.color = DEFAUT_COLOR
-            self.project.colorTable = list(DEFAUT_COLORTABLE)
-            self.project.size = (w, h)
-            self.palette.paletteCanvas.update()
-            self.init_canvas()
+        pass
+        #~ ok, w, h = NewDialog().get_return()
+        #~ if ok:
+            #~ self.framesWidget.clear_frames()
+            #~ self.project.color = DEFAUT_COLOR
+            #~ self.project.colorTable = list(DEFAUT_COLORTABLE)
+            #~ self.project.size = (w, h)
+            #~ self.palette.paletteCanvas.update()
+            #~ self.init_canvas()
 
     def resize_action(self):
-        exSize = self.tools["size"]
-        ok, newSize, offset = ResizeDialog(exSize).get_return()
-        if ok:
-            items = self.framesWidget.get_all_items()
-            for i in items:
-                canvas = i.get_image()
-                l = canvas.return_as_list()
-                ncanvas = Canvas(self, newSize[0], newSize[1])
-                ncanvas.load_from_list(l, exSize[0], offset)
-                i.set_image(ncanvas)
-            self.tools["size"] = newSize
-            self.scene.change_size()
-            self.framesWidget.change_frame()
+        pass
+        #~ exSize = self.tools["size"]
+        #~ ok, newSize, offset = ResizeDialog(exSize).get_return()
+        #~ if ok:
+            #~ items = self.framesWidget.get_all_items()
+            #~ for i in items:
+                #~ canvas = i.get_image()
+                #~ l = canvas.return_as_list()
+                #~ ncanvas = Canvas(self, newSize[0], newSize[1])
+                #~ ncanvas.load_from_list(l, exSize[0], offset)
+                #~ i.set_image(ncanvas)
+            #~ self.tools["size"] = newSize
+            #~ self.scene.change_size()
 
     def open_action(self):
         size, colors, frames = open_pix()
-        if size and colors and frames:
-            self.tools["size"] = (size[0], size[1])
-            self.tools["colortable"] = colors
-            self.palette.paletteCanvas.update()
-            self.framesWidget.init_new_anim(frames)
+        #~ if size and colors and frames:
+            #~ self.tools["size"] = (size[0], size[1])
+            #~ self.tools["colortable"] = colors
+            #~ self.palette.paletteCanvas.update()
+            #~ self.framesWidget.init_new_anim(frames)
             
     def open_old_action(self):
         size, colors, frames = open_old_pix()
-        if size and colors and frames:
-            self.tools["size"] = (size[0], size[1])
-            self.tools["colortable"] = colors
-            self.palette.paletteCanvas.update()
-            self.framesWidget.init_new_anim(frames)
+        #~ if size and colors and frames:
+            #~ self.tools["size"] = (size[0], size[1])
+            #~ self.tools["colortable"] = colors
+            #~ self.palette.paletteCanvas.update()
+            #~ self.framesWidget.init_new_anim(frames)
 
     def save_action(self):
-        save_pix(self.tools["size"],
-                 self.tools["colortable"],
-                 self.framesWidget.get_all_canvas(True))
+        save_pix(self.project)
 
     def export_action(self):
-        export(self.framesWidget.get_all_canvas(True))
+        export(self.project.frames)
 
     def exit_action(self):
         QtGui.qApp.quit()
 
     def undo(self):
-        canvas = self.framesWidget.get_canvas()
+        canvas = self.project.frames[self.project.currentLayer]["frames"][self.project.currentFrame]
         canvas.undo()
-        self.scene.change_frame(canvas)
+        self.project.update_view.emit()
 
     def redo(self):
-        canvas = self.framesWidget.get_canvas()
+        canvas = self.project.frames[self.project.currentLayer]["frames"][self.project.currentFrame]
         canvas.redo()
-        self.scene.change_frame(canvas)
+        self.project.update_view.emit()
 
-    def change_frame(self, pixmap):
-        self.scene.setCanvas(pixmap)
+    def select_frame(self, n, relative=True):
+        if relative:
+            self.project.currentFrame += n
+            self.project.update_timeline.emit()
+            self.project.update_view.emit()
 
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)
