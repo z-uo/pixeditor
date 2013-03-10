@@ -7,6 +7,8 @@ from PyQt4 import Qt
 import os
 import xml.etree.ElementTree as ET
 
+
+######## open ##########################################################
 def open_pix(url=None):
     if not url:
         url = QtGui.QFileDialog.getOpenFileName(None, "open pix file", "", "Pix files (*.pix );;All files (*)")
@@ -22,51 +24,26 @@ def open_pix(url=None):
         return False, False, False
         
 def return_canvas(save):
-    pix = ET.parse(save).getroot()
-    xSize = pix.find("size").attrib
-    size = (int(xSize["width"]), int(xSize["height"]))
-    print size
-    xColors = pix.find("colors").text
-    colors = [int(n) for n in xColors.split(',')]
-    print colors
-    xFrames = pix.find("frames")
+    saveElem = ET.parse(save).getroot()
+    sizeElem = saveElem.find("size").attrib
+    size = (int(sizeElem["width"]), int(sizeElem["height"]))
+    colorsElem = saveElem.find("colors").text
+    colors = [int(n) for n in colorsElem.split(',')]
+    framesElem = saveElem.find("frames")
     frames = []
-    for i in xFrames.itertext():
-        if i == "0":
-            frames.append(False)
-        else:
-            frames.append([int(n) for n in i.split(',')])
-    print frames
+    for layerElem in framesElem:
+        print layerElem.attrib["name"]
+        layer = {"frames": [], "name": str(layerElem.attrib["name"]), "pos" : 0, "visible" : True, "lock" : False}
+        for f in layerElem.itertext():
+            if f == "0":
+                layer["frames"].append(False)
+            else:
+                layer["frames"].append([int(n) for n in f.split(',')])
+        frames.append(layer)
     return size, colors, frames
-    
-def open_old_pix(url=None):
-    if not url:
-        url = QtGui.QFileDialog.getOpenFileName(None, "open pix file", "", "Pix files (*.pix );;All files (*)")
-    if url:
-        try:
-            save = open(url, "r")
-            size, colors, frames = return_old_canvas(save)
-            save.close()
-            return size, colors, frames
-        except IOError:
-            print "Can't open file"
-            return False, False, False
-        return False, False, False
-    
-def return_old_canvas(save):
-    frames = []
-    for line in save.readlines():
-        if line[0:5] == "COLOR":
-            colors = [int(n) for n in line[6:-2].split(',')]
-        elif line[0:5] == "SIZE ":
-            size = [int(n) for n in line[6:-2].split(',')]
-        elif line[0:5] == "PIXEL":
-            frames.append([int(n) for n in line[6:-2].split(',')])
-        elif line[0:5] == "STILL":
-            frames.append(None)
-    return size, colors, frames
-    
-def save_pix(size, color, frames, pixurl=None):
+
+######## save ##########################################################
+def save_pix(project, pixurl=None):
     if not pixurl:
         directory = ""
         repeat = True
@@ -106,14 +83,33 @@ Should I save your animation as :
                 return False
     try:
         save = open(str(pixurl), "w")
-        save.write(return_pix(size, color, frames))
+        save.write(return_pix(project))
         save.close()
         return True
     except IOError:
         print "Can't open file"
         return False
         
-def return_pix(size, color, frames):
+def return_pix(project):
+    saveElem = ET.Element("pix", version="0.2")
+    sizeElem = ET.SubElement(saveElem, "size")
+    sizeElem.attrib["width"] = str(project.size[0])
+    sizeElem.attrib["height"] = str(project.size[1])
+    colorElem = ET.SubElement(saveElem, "colors", lenght=str(len(project.colorTable)))
+    colorElem.text = ','.join(str(n) for n in project.colorTable)
+    framesElem = ET.SubElement(saveElem, "frames", lenght=str(len(project.frames)))
+    for nl, layer in enumerate(project.frames):
+        layerElem = ET.SubElement(framesElem, "layer%s" %(nl))
+        layerElem.attrib["name"] = layer["name"]
+        for nf, f in enumerate(layer["frames"]):
+            fElem = ET.SubElement(layerElem, "f%s" %(nf))
+            if not f:
+                fElem.text = "0"
+            else:
+                fElem.text = ','.join(str(p) for p in f.return_as_list())
+    return ET.tostring(saveElem)
+    
+def return_old_pix(size, color, frames):
     saveElem = ET.Element("pix", version="0,1")
     sizeElem = ET.SubElement(saveElem, "size")
     sizeElem.attrib["width"] = str(size[0])
@@ -132,78 +128,61 @@ def return_pix(size, color, frames):
                     l.append(frame.pixelIndex(x, y))
             f.text = ','.join(str(p) for p in l)
     return ET.tostring(saveElem)
-    
-def return_old_pix(size, color, frames):
-    pix = ""
-    col = [int(i) for i in color]
-    pix = "%sCOLOR%s\n" %(pix, col)
-    pix = "%sSIZE (%s, %s)\n" %(pix, size[0], size[0])
-    for im in frames:
-        if im:
-            l = []
-            for y in xrange(im.height()):
-                for x in xrange(im.width()):
-                    l.append(im.pixelIndex(x, y))
-            s = ','.join(str(n) for n in l)
-            pix = "%sPIXEL(%s)\n" %(pix, s)
-        else:
-            pix = "%sSTILL\n" %(pix,)
-    return pix
-            
-            
-def export_png(frames, url=None):
-    url = QtGui.QFileDialog.getSaveFileName(None, "Export animation as png", "", "Png files (*.png )")
+
+######## export ########################################################
+#~ def export_png_old(frames, url=None):
+    #~ url = QtGui.QFileDialog.getSaveFileName(None, "Export animation as png", "", "Png files (*.png )")
+    #~ if url:
+        #~ url = os.path.splitext(str(url))[0]
+        #~ files = []
+        #~ fnexist = False
+        #~ for n, im in enumerate(frames, 1):
+            #~ fn = "%s%s.png" %(url, n)
+            #~ if os.path.isfile(fn):
+                #~ fnexist = True
+            #~ if im:
+                #~ files.append((fn, im))
+                #~ sim = im
+            #~ else:
+#~ #                sim.save(fn)
+                #~ files.append((fn, sim))
+        #~ if fnexist:
+            #~ message = QtGui.QMessageBox()
+            #~ message.setWindowTitle("Overwrite?")
+            #~ message.setText("Some filename allready exist.\nDo you want to overwrite them?");
+            #~ message.setIcon(QtGui.QMessageBox.Warning)
+            #~ message.addButton("Cancel", QtGui.QMessageBox.RejectRole)
+            #~ message.addButton("Overwrite", QtGui.QMessageBox.AcceptRole)
+            #~ ret = message.exec_();
+            #~ if ret:
+                #~ for i in files:
+                    #~ i[1].save(i[0])
+        #~ else:
+            #~ for i in files:
+                #~ i[1].save(i[0])
+
+def export(project, url=None):
+    url = QtGui.QFileDialog.getSaveFileName(None, "export (.png or .nanim)", "", "Png files (*.png);;Nanim files (*.nanim)")
     if url:
-        url = os.path.splitext(str(url))[0]
-        files = []
-        fnexist = False
-        for n, im in enumerate(frames, 1):
-            fn = "%s%s.png" %(url, n)
+        if url.endsWith("png"):
+            export_png(project, url)
+        elif url.endsWith("nanim"):
+            export_nanim(project, url)
+
+def export_png(project, url):
+    url = os.path.splitext(str(url))[0]
+    files = []
+    fnexist = False
+    for nl, layer in enumerate(project.frames, 1):
+        for nf, im in enumerate(layer["frames"], 1):
+            fn = "%s%s%s.png" %(url, nl, nf)
             if os.path.isfile(fn):
                 fnexist = True
             if im:
                 files.append((fn, im))
                 sim = im
             else:
-#                sim.save(fn)
                 files.append((fn, sim))
-        if fnexist:
-            message = QtGui.QMessageBox()
-            message.setWindowTitle("Overwrite?")
-            message.setText("Some filename allready exist.\nDo you want to overwrite them?");
-            message.setIcon(QtGui.QMessageBox.Warning)
-            message.addButton("Cancel", QtGui.QMessageBox.RejectRole)
-            message.addButton("Overwrite", QtGui.QMessageBox.AcceptRole)
-            ret = message.exec_();
-            if ret:
-                for i in files:
-                    i[1].save(i[0])
-        else:
-            for i in files:
-                i[1].save(i[0])
-
-def export(frames, url=None):
-    url = QtGui.QFileDialog.getSaveFileName(None, "export (.png or .nanim)", "", "Png files (*.png);;Nanim files (*.nanim)")
-    if url:
-        if url.endsWith("png"):
-            export_png(frames, url)
-        elif url.endsWith("nanim"):
-            export_nanim(frames, url)
-
-def export_png(frames, url):
-    url = os.path.splitext(str(url))[0]
-    files = []
-    fnexist = False
-    for n, im in enumerate(frames, 1):
-        fn = "%s%s.png" %(url, n)
-        if os.path.isfile(fn):
-            fnexist = True
-        if im:
-            files.append((fn, im))
-            sim = im
-        else:
-#                sim.save(fn)
-            files.append((fn, sim))
     if fnexist:
         message = QtGui.QMessageBox()
         message.setWindowTitle("Overwrite?")
@@ -219,7 +198,7 @@ def export_png(frames, url):
         for i in files:
             i[1].save(i[0])
 
-def export_nanim(frames, url):
+def export_nanim(project, url):
     try:
         import google.protobuf
     except ImportError:
@@ -236,33 +215,34 @@ def export_nanim(frames, url):
     animation = nanim.animations.add()
     animation.name = "default"
     i = 0
-    for im in frames:
-        if not im:
-            im = exim
-        exim = im
-        nimage = nanim.images.add()
-        nimage.width = im.width()
-        nimage.height = im.height()
-        nimage.format = nanim_pb2.RGBA_8888
-        nimage.name = "img_%d" % i
-        i = i + 1
-        pixels = bytearray()
-        for y in xrange(im.height()):
-            for x in xrange(im.width()):
-                colors = QtGui.QColor(im.pixel(x,y))
-                pixels.append(colors.red())
-                pixels.append(colors.green())
-                pixels.append(colors.blue())
-                pixels.append(colors.alpha())
-        nimage.pixels = str(pixels)
+    for layer in project.frames:
+        for im in layer["frames"]:
+            if not im:
+                im = exim
+            exim = im
+            nimage = nanim.images.add()
+            nimage.width = im.width()
+            nimage.height = im.height()
+            nimage.format = nanim_pb2.RGBA_8888
+            nimage.name = "img_%d" % i
+            i = i + 1
+            pixels = bytearray()
+            for y in xrange(im.height()):
+                for x in xrange(im.width()):
+                    colors = QtGui.QColor(im.pixel(x,y))
+                    pixels.append(colors.red())
+                    pixels.append(colors.green())
+                    pixels.append(colors.blue())
+                    pixels.append(colors.alpha())
+            nimage.pixels = str(pixels)
 
-        frame = animation.frames.add()
-        frame.imageName = nimage.name
-        frame.duration = 100
-        frame.u1 = 0
-        frame.v1 = 0
-        frame.u2 = 1
-        frame.v2 = 1
+            frame = animation.frames.add()
+            frame.imageName = nimage.name
+            frame.duration = 100
+            frame.u1 = 0
+            frame.v1 = 0
+            frame.u2 = 1
+            frame.v2 = 1
     f = open(url, "wb")
     f.write(nanim.SerializeToString())
     f.close()

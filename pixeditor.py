@@ -47,6 +47,7 @@
 # add a cursor layer (pixel who will be paint) grid
 # add animated gif export
 
+
 from __future__ import division
 import sys
 import os
@@ -64,7 +65,7 @@ DEFAUT_COLORTABLE = (QtGui.qRgba(0, 0, 0, 0), QtGui.qRgba(0, 0, 0, 255))
 DEFAUT_PEN = ((0, 0),)
 DEFAUT_TOOL = "pen"
 
-
+        
 class Bg(QtGui.QPixmap):
     """ background of the scene"""
     def __init__(self, w, h):
@@ -109,6 +110,10 @@ class Scene(QtGui.QGraphicsView):
         self.project.update_view.connect(self.change_frame)
         
     def change_frame(self):
+        if (int(self.scene.sceneRect().width()) != self.project.size[0] or
+            int(self.scene.sceneRect().height()) != self.project.size[1]):
+            self.change_size()
+            
         self.canvasList = self.project.get_true_frame_list()
         if len(self.itemList) != len(self.canvasList):
             for i in self.itemList:
@@ -149,7 +154,7 @@ class Scene(QtGui.QGraphicsView):
         self.scale(factor, factor)
 
     def mousePressEvent(self, event):
-        print 'clic'
+        l = self.project.currentLayer
         # pan
         if event.buttons() == QtCore.Qt.MidButton:
             self.startScroll = (self.horizontalScrollBar().value(),
@@ -157,8 +162,7 @@ class Scene(QtGui.QGraphicsView):
             self.lastPos = QtCore.QPoint(QtGui.QCursor.pos())
             self.setDragMode(QtGui.QGraphicsView.NoDrag)
         # draw on canvas
-        l = self.project.currentLayer
-        if event.buttons() == QtCore.Qt.LeftButton and self.canvasList[l]:
+        elif event.buttons() == QtCore.Qt.LeftButton and self.canvasList[l]:
             pos = self.mapToScene(event.pos())
             self.canvasList[l].clic(QtCore.QPoint(int(pos.x()),int(pos.y())))
             self.pixmapList[l].convertFromImage(self.canvasList[l])
@@ -167,6 +171,7 @@ class Scene(QtGui.QGraphicsView):
             return QtGui.QGraphicsView.mousePressEvent(self, event)
 
     def mouseMoveEvent(self, event):
+        l = self.project.currentLayer
         # pan
         if event.buttons() == QtCore.Qt.MidButton:
             globalPos = QtGui.QCursor.pos()
@@ -175,8 +180,7 @@ class Scene(QtGui.QGraphicsView):
             self.verticalScrollBar().setValue(self.startScroll[1] -
                     globalPos.y() + self.lastPos.y())
         # draw on canvas
-        l = self.project.currentLayer
-        if event.buttons() == QtCore.Qt.LeftButton and self.canvasList[l]:
+        elif event.buttons() == QtCore.Qt.LeftButton and self.canvasList[l]:
             pos = self.mapToScene(event.pos())
             self.canvasList[l].move(QtCore.QPoint(int(pos.x()),int(pos.y())))
             self.pixmapList[l].convertFromImage(self.canvasList[l])
@@ -200,6 +204,7 @@ class Canvas(QtGui.QImage):
         self.undoList = []
         self.redoList = []
 
+    ######## import/export #############################################
     def load_from_list(self, li, exWidth=None, offset=(0, 0)):
         if not exWidth:
             exWidth = self.width()
@@ -207,7 +212,7 @@ class Canvas(QtGui.QImage):
         for i in li:
             nx, ny = x + offset[0], y + offset[1]
             if self.rect().contains(nx, ny):
-                self.setPixel(QtCore.QPoint(nx, ny), i)
+                self.setPixel(QtCore.QPoint(nx, ny), int(i))
             x += 1
             if x >= exWidth:
                 x = 0
@@ -220,9 +225,7 @@ class Canvas(QtGui.QImage):
                 l.append(self.pixelIndex(x, y))
         return l
 
-    def clear(self):
-        self.fill(0)
-
+    ######## undo/redo #################################################
     def save_to_undo(self):
         self.undoList.append(Canvas(self.project, self))
         if len(self.undoList) > 50:
@@ -243,28 +246,32 @@ class Canvas(QtGui.QImage):
                 self.undoList.pop(0)
             self.swap(self.redoList.pop(-1))
 
-    def draw(self, fig, p2):
+    ######## draw ######################################################
+    def clear(self):
+        self.fill(0)
+        
+    def draw_line(self, p2):
+        p1 = self.lastPoint
+        # http://fr.wikipedia.org/wiki/Algorithme_de_trac%C3%A9_de_segment_de_Bresenham
+        distx = abs(p2.x()-p1.x())
+        disty = abs(p2.y()-p1.y())
+        if distx > disty:
+            step = (p2.y()-p1.y()) / (p2.x()-p1.x() or 1)
+            for i in xrange(distx):
+                if p1.x() - p2.x() > 0:
+                    i = -i
+                x = p1.x() + i
+                y = int(step * i + p1.y() + 0.5)
+                self.draw_point(QtCore.QPoint(x, y))
+        else:
+            step = (p2.x()-p1.x()) / (p2.y()-p1.y() or 1)
+            for i in xrange(disty):
+                if p1.y() - p2.y() > 0:
+                    i = -i
+                y = p1.y() + i
+                x = int(step * i + p1.x() + 0.5)
+                self.draw_point(QtCore.QPoint(x, y))
         self.draw_point(p2)
-        if fig == 'line':
-            # http://fr.wikipedia.org/wiki/Algorithme_de_trac%C3%A9_de_segment_de_Bresenham
-            p1 = self.lastPoint
-            if abs(p2.x()-p1.x()) > abs(p2.y()-p1.y()):
-                for i in xrange(abs(p1.x()-p2.x())):
-                    if p1.x() - p2.x() < 0:
-                        x = p1.x() + i
-                    else:
-                        x = p1.x() - i
-                    y = int((p2.y()-p1.y()) / (p2.x()-p1.x()) * (x-p1.x()) + p1.y() + 0.5)
-                    self.draw_point(QtCore.QPoint(x, y))
-            else:
-                for i in xrange(abs(p1.y()-p2.y())):
-                    if p1.y() - p2.y() < 0:
-                        y = p1.y() + i
-                    else:
-                        y = p1.y() - i
-                    x = int((p2.x()-p1.x()) / (p2.y()-p1.y()) * (y-p1.y()) + p1.x() + 0.5)
-                    self.draw_point(QtCore.QPoint(x, y))
-        self.lastPoint = p2
 
     def draw_point(self, point):
         for i, j in self.project.pen:
@@ -287,7 +294,8 @@ class Canvas(QtGui.QImage):
     def clic(self, point):
         if self.project.tool == "pen":
             self.save_to_undo()
-            self.draw('point', point)
+            self.draw_point(point)
+            self.lastPoint = point
         elif self.rect().contains(point):
             col = self.pixelIndex(point)
             if self.project.tool == "pipette":
@@ -303,17 +311,19 @@ class Canvas(QtGui.QImage):
                 self.project.color = self.pixelIndex(point)
                 self.project.update_palette.emit()
         elif self.project.tool == "pen":
-            self.draw('line', QtCore.QPoint(point))
-
+            self.draw_line(point)
+            self.lastPoint = point
 
 class PaletteCanvas(QtGui.QWidget):
-    """ Canvas where the palette is draw"""
+    """ Canvas where the palette is draw """
     def __init__(self, parent):
         QtGui.QWidget.__init__(self)
         self.parent = parent
         self.setFixedSize(164, 324)
         self.background = QtGui.QBrush(QtGui.QColor(127, 127, 127))
         self.alpha = QtGui.QPixmap("icons/color_alpha.png")
+        self.black = QtGui.QBrush(QtGui.QColor(0, 0, 0))
+        self.white = QtGui.QBrush(QtGui.QColor(255, 255, 255))
 
     def paintEvent(self, ev=''):
         p = QtGui.QPainter(self)
@@ -322,12 +332,12 @@ class PaletteCanvas(QtGui.QWidget):
             y = ((n // 8) * 20) + 2
             x = ((n % 8) * 20) + 2
             if n == self.parent.project.color:
-                p.fillRect (x, y, 20, 20, QtGui.QBrush(QtGui.QColor(0, 0, 0)))
-                p.fillRect (x + 1, y + 1, 18, 18, QtGui.QBrush(QtGui.QColor(255, 255, 255)))
+                p.fillRect (x, y, 20, 20, self.black)
+                p.fillRect (x+1, y+1, 18, 18, self.white)
             if i == 0:
-                p.drawPixmap(x + 2, y + 2, self.alpha)
+                p.drawPixmap(x+2, y+2, self.alpha)
             else:
-                p.fillRect(x + 2, y + 2, 16, 16, QtGui.QBrush(QtGui.QColor(i)))
+                p.fillRect(x+2, y+2, 16, 16, QtGui.QBrush(QtGui.QColor(i)))
 
     def mousePressEvent(self, event):
         if (event.button() == QtCore.Qt.LeftButton):
@@ -335,7 +345,6 @@ class PaletteCanvas(QtGui.QWidget):
             if item is not None:
                 self.parent.project.color = item
                 self.update()
-
 
     def mouseDoubleClickEvent(self, event):
         if (event.button() == QtCore.Qt.LeftButton):
@@ -437,7 +446,7 @@ class ToolsWidget(QtGui.QWidget):
     def showEvent(self, event):
         self.setFixedWidth(self.width())
         
-    ### Tools ##########################################################
+    ######## Tools #####################################################
     def pen_tool_clicked(self):
         print self.size()
         if self.penB.isChecked() or (not self.pipetteB.isChecked() and not self.fillB.isChecked()):
@@ -463,7 +472,7 @@ class ToolsWidget(QtGui.QWidget):
     def pen_chooser_clicked(self, text):
         self.project.pen = self.penDict[str(text)]
     
-    ### Color ##########################################################
+    ######## Color #####################################################
     def change_canvas_colortable(self):
         """ change the color for all canvas """
         for i in self.project.get_all_canvas():
@@ -480,7 +489,7 @@ class ToolsWidget(QtGui.QWidget):
         self.change_canvas_colortable()
 
     def add_color_clicked(self):
-        """ select a color in a qcolordialog and add it to the palette"""
+        """ select a color and add it to the palette"""
         if not len(self.project.colorTable) >= 128:
             col = self.project.colorTable[self.project.color]
             color, ok = QtGui.QColorDialog.getRgba(col)
@@ -509,8 +518,7 @@ class Project(QtCore.QObject):
         self.color = DEFAUT_COLOR
         self.pen = DEFAUT_PEN
         self.tool = DEFAUT_TOOL
-        self.frames = [{"frames" : [self.make_canvas(), ], "pos" : 0, "visible" : True, "lock" : False, "name": "Layer 1"},
-                       {"frames" : [self.make_canvas(), ], "pos" : 0, "visible" : True, "lock" : False, "name": "Layer 1"},]
+        self.frames = [{"frames" : [self.make_canvas(), ], "pos" : 0, "visible" : True, "lock" : False, "name": "Layer 1"},]
         self.fps = 12
         self.currentFrame = 0
         self.currentLayer = 0
@@ -524,6 +532,19 @@ class Project(QtCore.QObject):
             return Canvas(self, canvas)
         else:
             return Canvas(self, self.size[0], self.size[1], self.colorTable)
+            
+    def make_layer(self, layer=False):
+        name = "Layer %s" %(len(self.frames)+1)
+        if layer:
+            l = dict(layer)
+            l["name"] = name
+            l["frames"] = list(layer["frames"])
+            for i,  f in enumerate(l["frames"]):
+                if f:
+                    l[i] = Canvas(self, f)
+            return l
+        else:
+            return {"frames" : [self.make_canvas(), ], "pos" : 0, "visible" : True, "lock" : False, "name": name}
         
     def get_true_frame_list(self):
         tf = []
@@ -564,6 +585,7 @@ class Project(QtCore.QObject):
         #~ return [[f for f in l["frames"]] for l in self.frames]
         
 class MainWindow(QtGui.QMainWindow):
+    """ Main windows of the application """
     currentFrameChanged = QtCore.pyqtSignal(object)
     def __init__(self):
         QtGui.QMainWindow.__init__(self)
@@ -584,8 +606,6 @@ class MainWindow(QtGui.QMainWindow):
         importAction = QtGui.QAction('&Open', self)
         importAction.setShortcut('Ctrl+O')
         importAction.triggered.connect(self.open_action)
-        oldImportAction = QtGui.QAction('Open old pix', self)
-        oldImportAction.triggered.connect(self.open_old_action)
         saveAction = QtGui.QAction('&Save', self)
         saveAction.setShortcut('Ctrl+S')
         saveAction.triggered.connect(self.save_action)
@@ -600,7 +620,6 @@ class MainWindow(QtGui.QMainWindow):
         fileMenu.addAction(newAction)
         fileMenu.addAction(resizeAction)
         fileMenu.addAction(importAction)
-        fileMenu.addAction(oldImportAction)
         fileMenu.addAction(saveAction)
         fileMenu.addAction(exportAction)
         fileMenu.addAction(exitAction)
@@ -630,52 +649,51 @@ class MainWindow(QtGui.QMainWindow):
         self.show()
 
     def new_action(self):
-        pass
-        #~ ok, w, h = NewDialog().get_return()
-        #~ if ok:
-            #~ self.framesWidget.clear_frames()
-            #~ self.project.color = DEFAUT_COLOR
-            #~ self.project.colorTable = list(DEFAUT_COLORTABLE)
-            #~ self.project.size = (w, h)
-            #~ self.palette.paletteCanvas.update()
-            #~ self.init_canvas()
+        ok, w, h = NewDialog().get_return()
+        if ok:
+            self.project.color = DEFAUT_COLOR
+            self.project.colorTable = list(DEFAUT_COLORTABLE)
+            self.project.size = (w, h)
+            self.project.frames = [self.project.make_layer()]
+            self.project.update_view.emit()
+            self.project.update_palette.emit()
+            self.project.update_timeline.emit()
 
     def resize_action(self):
-        pass
-        #~ exSize = self.tools["size"]
-        #~ ok, newSize, offset = ResizeDialog(exSize).get_return()
-        #~ if ok:
-            #~ items = self.framesWidget.get_all_items()
-            #~ for i in items:
-                #~ canvas = i.get_image()
-                #~ l = canvas.return_as_list()
-                #~ ncanvas = Canvas(self, newSize[0], newSize[1])
-                #~ ncanvas.load_from_list(l, exSize[0], offset)
-                #~ i.set_image(ncanvas)
-            #~ self.tools["size"] = newSize
-            #~ self.scene.change_size()
+        exSize = self.project.size
+        ok, newSize, offset = ResizeDialog(exSize).get_return()
+        if ok:
+            for y, l in enumerate(self.project.frames):
+                for x, f in enumerate(l["frames"]):
+                    if f:
+                        li = f.return_as_list()
+                        nf = Canvas(self.project, newSize[0], newSize[1])
+                        nf.load_from_list(li, exSize[0], offset)
+                        self.project.frames[y]["frames"][x] = nf
+            self.project.size = newSize
+            self.project.update_view.emit()
 
     def open_action(self):
         size, colors, frames = open_pix()
-        #~ if size and colors and frames:
-            #~ self.tools["size"] = (size[0], size[1])
-            #~ self.tools["colortable"] = colors
-            #~ self.palette.paletteCanvas.update()
-            #~ self.framesWidget.init_new_anim(frames)
-            
-    def open_old_action(self):
-        size, colors, frames = open_old_pix()
-        #~ if size and colors and frames:
-            #~ self.tools["size"] = (size[0], size[1])
-            #~ self.tools["colortable"] = colors
-            #~ self.palette.paletteCanvas.update()
-            #~ self.framesWidget.init_new_anim(frames)
+        if size and colors and frames:
+            self.project.size = size
+            self.project.colorTable = colors
+            for y, l in enumerate(frames):
+                for x, f in enumerate(l["frames"]):
+                    if f:
+                        nf = Canvas(self.project, size[0], size[1])
+                        nf.load_from_list(f)
+                        frames[y]["frames"][x] = nf
+            self.project.frames = frames
+            self.project.update_view.emit()
+            self.project.update_palette.emit()
+            self.project.update_timeline.emit()
 
     def save_action(self):
         save_pix(self.project)
 
     def export_action(self):
-        export(self.project.frames)
+        export(self.project)
 
     def exit_action(self):
         QtGui.qApp.quit()

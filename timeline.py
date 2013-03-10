@@ -12,7 +12,7 @@ from PyQt4 import Qt
 
 class Viewer(QtGui.QScrollArea):
     """ QScrollArea you can move with midbutton"""
-    resysing = QtCore.pyqtSignal(tuple)
+    resyzing = QtCore.pyqtSignal(tuple)
     def __init__ (self):
         QtGui.QScrollArea.__init__(self)
         self.setAlignment(QtCore.Qt.AlignLeft)
@@ -21,10 +21,9 @@ class Viewer(QtGui.QScrollArea):
         """ capture middle mouse event to move the view """
         # clic: save position
         if   (event.type() == QtCore.QEvent.MouseButtonPress and
-              event.button()==QtCore.Qt.MidButton):
+              event.button() == QtCore.Qt.MidButton):
             self.mouseX,  self.mouseY = event.x(), event.y()
             return True
-
         # drag: move the scrollbars
         elif (event.type() == QtCore.QEvent.MouseMove and
                event.buttons() == QtCore.Qt.MidButton):
@@ -35,12 +34,11 @@ class Viewer(QtGui.QScrollArea):
             self.mouseX,  self.mouseY = event.x(), event.y()
             return True
         elif (event.type() == QtCore.QEvent.Resize):
-            self.resysing.emit((event.size().width(), event.size().height()))
-            #~ self.widget().adjustSize(event.size().width(), event.size().height())
+            self.resyzing.emit((event.size().width(), event.size().height()))
         return QtGui.QScrollArea.event(self, event)
 
 class LayersCanvas(QtGui.QWidget):
-    """ preview of the image and interation with the mouse """
+    """ Widget containing the canvas list """
     def __init__(self, parent):
         QtGui.QWidget.__init__(self)
         self.parent = parent
@@ -89,8 +87,7 @@ class LayersCanvas(QtGui.QWidget):
             
         
 class TimelineCanvas(QtGui.QWidget):
-    """ preview of the image and interation with the mouse
-    """
+    """ widget containing the timeline """
     def __init__(self, parent):
         QtGui.QWidget.__init__(self, parent)
         self.parent = parent
@@ -106,7 +103,6 @@ class TimelineCanvas(QtGui.QWidget):
         self.setMinimumSize(self.getMiniSize()[0], self.getMiniSize()[1])
 
     def paintEvent(self, ev=''):
-        """ draw the widget """
         fW, fH = self.frameWidth, self.frameHeight
         mX, mY = self.margeX, self.margeY
         p = QtGui.QPainter(self)
@@ -258,7 +254,7 @@ class TimelineCanvas(QtGui.QWidget):
         
 ########################################################################
 class Timeline(QtGui.QWidget):
-    """ main windows of the application """
+    """ widget containing timeline, layers and all their buttons """
     def __init__(self, project):
         QtGui.QWidget.__init__(self)
         self.project = project
@@ -279,7 +275,7 @@ class Timeline(QtGui.QWidget):
         self.timelineV.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
         self.timelineV.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.timeVSize = (0, 0)
-        self.timelineV.resysing.connect(self.adjust_size)
+        self.timelineV.resyzing.connect(self.adjust_size)
         
         self.layersV.verticalScrollBar().valueChanged.connect(
                 lambda v: self.timelineV.verticalScrollBar().setValue(v))
@@ -464,17 +460,20 @@ class Timeline(QtGui.QWidget):
             
     ######## Buttons ###################################################
     def add_frame_clicked(self):
-        self.project.frames[0]["frames"].insert(self.project.currentFrame, self.project.make_canvas())
+        self.project.frames[self.project.currentLayer]["frames"].insert(self.project.currentFrame, self.project.make_canvas())
         self.adjust_size()
         self.project.update_view.emit()
         
     def delete_frame_clicked(self):
-        self.project.frames[0]["frames"].pop(self.project.currentFrame)
+        self.project.frames[self.project.currentLayer]["frames"].pop(
+                self.project.currentFrame)
         self.adjust_size()
         self.project.update_view.emit()
         
     def duplicate_frame_clicked(self):
-        self.project.frames[0]["frames"].insert(self.project.currentFrame, self.project.make_canvas(self.project.get_true_frame()))
+        self.project.frames[self.project.currentLayer]["frames"].insert(
+                self.project.currentFrame, 
+                self.project.make_canvas(self.project.get_true_frame()))
         self.adjust_size()
         self.project.update_view.emit()
         
@@ -483,18 +482,25 @@ class Timeline(QtGui.QWidget):
         self.project.update_view.emit()
         
     def add_layer_clicked(self):
-        name = "Layer %s" %(len(self.project.frames)+1)
-        layer = {"frames" : [self.project.make_canvas(), ], "pos" : 0, "visible" : True, "lock" : False, "name": name}
-        self.project.frames.insert(self.project.currentLayer, layer)
+        self.project.frames.insert(self.project.currentLayer, 
+                                   self.project.make_layer())
         self.adjust_size()
-        self.project.update_view()
+        self.project.update_view.emit()
         
     def duplicate_layer_clicked(self):
-        exl = self.project.currentLayer
-        
+        self.project.frames.insert(self.project.currentLayer,
+                self.project.make_layer(
+                self.project.frames[self.project.currentLayer]))
+        self.adjust_size()
+        self.project.update_view.emit()
         
     def delete_layer_clicked(self):
-        pass
+        del self.project.frames[self.project.currentLayer]
+        self.project.currentLayer = 0
+        if not self.project.frames:
+            self.project.frames.append(self.project.make_layer())
+        self.adjust_size()
+        self.project.update_view.emit()
 
     ######## Play ######################################################
     def fps_changed(self):
