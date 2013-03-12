@@ -115,6 +115,7 @@ class Scene(QtGui.QGraphicsView):
             self.change_size()
             
         self.canvasList = self.project.get_true_frame_list()
+        #~ print self.canvasList
         if len(self.itemList) != len(self.canvasList):
             for i in self.itemList:
                 self.scene.removeItem(i)
@@ -131,7 +132,6 @@ class Scene(QtGui.QGraphicsView):
             else:
                 self.pixmapList[n].fill(QtGui.QColor(0, 0, 0, 0))
             self.itemList[n].setPixmap(self.pixmapList[n])
-        print self.scene.items()
 
     def change_size(self):
         w, h = self.project.size[0], self.project.size[1]
@@ -548,8 +548,8 @@ class Project(QtCore.QObject):
         
     def get_true_frame_list(self):
         tf = []
-        f = self.currentFrame
         for l in self.frames:
+            f = self.currentFrame
             while 0 <= f < len(l["frames"]):
                 if l["frames"][f]:
                     tf.append(l["frames"][f])
@@ -699,12 +699,12 @@ class MainWindow(QtGui.QMainWindow):
         QtGui.qApp.quit()
 
     def undo(self):
-        canvas = self.project.frames[self.project.currentLayer]["frames"][self.project.currentFrame]
+        canvas = self.project.get_true_frame()
         canvas.undo()
         self.project.update_view.emit()
 
     def redo(self):
-        canvas = self.project.frames[self.project.currentLayer]["frames"][self.project.currentFrame]
+        canvas = self.project.get_true_frame()
         canvas.redo()
         self.project.update_view.emit()
 

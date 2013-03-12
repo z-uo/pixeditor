@@ -153,12 +153,9 @@ class TimelineCanvas(QtGui.QWidget):
                 if frame:
                     w, h = 9, 17
                     s = x
-                    while 1:
+                    while s+1 < len(layer["frames"]) and not layer["frames"][s+1]:
                         s += 1
-                        if s < len(layer["frames"]) and not layer["frames"][s]:
-                            w += 13
-                        else:
-                            break
+                        w += 13
                     nx = x * fW + mX + 1
                     ny = y * fH + mY + 1
                     framesRects.append(QtCore.QRect(nx, ny, w, h))
