@@ -632,6 +632,12 @@ class MainWindow(QtGui.QMainWindow):
         shortcut2.setKey(QtCore.Qt.Key_Right)
         shortcut2.activated.connect(lambda : self.select_frame(1))
         shortcut3 = QtGui.QShortcut(self)
+        shortcut3.setKey(QtCore.Qt.Key_Up)
+        shortcut3.activated.connect(lambda : self.select_layer(-1))
+        shortcut4 = QtGui.QShortcut(self)
+        shortcut4.setKey(QtCore.Qt.Key_Down)
+        shortcut4.activated.connect(lambda : self.select_layer(1))
+        shortcut3 = QtGui.QShortcut(self)
         shortcut3.setKey(QtGui.QKeySequence(QtCore.Qt.CTRL + QtCore.Qt.Key_Z))
         shortcut3.activated.connect(self.undo)
         shortcut4 = QtGui.QShortcut(self)
@@ -708,9 +714,16 @@ class MainWindow(QtGui.QMainWindow):
         canvas.redo()
         self.project.update_view.emit()
 
-    def select_frame(self, n, relative=True):
-        if relative:
+    def select_frame(self, n):
+        maxF = max([len(l["frames"]) for l in self.project.frames])
+        if 0 <= self.project.currentFrame+n < maxF:
             self.project.currentFrame += n
+            self.project.update_timeline.emit()
+            self.project.update_view.emit()
+            
+    def select_layer(self, n):
+        if 0 <= self.project.currentLayer+n < len(self.project.frames):
+            self.project.currentLayer += n
             self.project.update_timeline.emit()
             self.project.update_view.emit()
 
