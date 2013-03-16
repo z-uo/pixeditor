@@ -457,37 +457,64 @@ class Timeline(QtGui.QWidget):
             
     ######## Buttons ###################################################
     def add_frame_clicked(self):
-        self.project.frames[self.project.currentLayer]["frames"].insert(self.project.currentFrame, self.project.make_canvas())
-        self.adjust_size()
-        self.project.update_view.emit()
-        
-    def delete_frame_clicked(self):
-        self.project.frames[self.project.currentLayer]["frames"].pop(
-                self.project.currentFrame)
+        layer = self.project.frames[self.project.currentLayer]["frames"]
+        frame = self.project.currentFrame
+        while frame >= len(layer):
+            layer.append(0)
+        if layer[frame]:
+            layer.insert(frame, self.project.make_canvas())
+        else:
+            layer[frame] = self.project.make_canvas()
         self.adjust_size()
         self.project.update_view.emit()
         
     def duplicate_frame_clicked(self):
-        self.project.frames[self.project.currentLayer]["frames"].insert(
-                self.project.currentFrame, 
-                self.project.make_canvas(self.project.get_true_frame()))
+        layer = self.project.frames[self.project.currentLayer]["frames"]
+        frame = self.project.currentFrame
+        while frame >= len(layer):
+            layer.append(0)
+        f = self.project.make_canvas(self.project.get_true_frame())
+        if layer[frame]:
+            layer.insert(frame, f)
+        else:
+            layer[frame] = f
+        self.adjust_size()
+        self.project.update_view.emit()
+        
+    def delete_frame_clicked(self):
+        layer = self.project.frames[self.project.currentLayer]["frames"]
+        frame = self.project.currentFrame
+        if frame >= len(layer):
+            return
+        if len(layer) == 1 and frame == 0:
+            layer[frame].clear()
+        elif (layer[frame] and 
+              not frame + 1 >= len(layer) and 
+              not layer[frame + 1]):
+            layer.pop(frame + 1)
+        else:
+            layer.pop(frame)
         self.adjust_size()
         self.project.update_view.emit()
         
     def clear_frame_clicked(self):
-        self.project.get_true_frame().clear()
-        self.project.update_view.emit()
+        f = self.project.get_true_frame()
+        if f:
+            f.clear()
+            self.project.update_view.emit()
         
     def add_layer_clicked(self):
-        self.project.frames.insert(self.project.currentLayer, 
+        self.project.frames.insert(self.project.currentLayer + 1, 
                                    self.project.make_layer())
+        self.project.currentLayer += 1
         self.adjust_size()
         self.project.update_view.emit()
         
     def duplicate_layer_clicked(self):
-        self.project.frames.insert(self.project.currentLayer,
+        self.project.frames.insert(self.project.currentLayer + 1,
                 self.project.make_layer(
                 self.project.frames[self.project.currentLayer]))
+        self.project.currentLayer += 1
         self.adjust_size()
         self.project.update_view.emit()
         
@@ -525,61 +552,41 @@ class Timeline(QtGui.QWidget):
         if self.playFrameW.state == 'play':
             self.playFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_pause.png")))
             self.playFrameW.state = "stop"
-            
-            self.playThread = Play(self)
-            self.playThread.end.connect(self.play_end)
-            self.playThread.frame.connect(self.change_frame)
+            self.timer = QtCore.QTimer()
+            self.timer.timeout.connect(self.animate)
+            self.f = self.project.currentFrame
+            self.fps = self.project.fps
             self.project.playing = True
-            self.playThread.start()
+            maxF = max([len(l["frames"]) for l in self.project.frames])
+            if self.project.currentFrame+1 >= maxF:
+                self.project.currentFrame = 0
+                self.timelineCanvas.update()
+                self.project.update_view.emit()
+            self.timer.start(1000//self.fps)
         elif self.playFrameW.state == 'stop':
-            self.playThread.stop = True
-
+            self.play_end()
+            
     def play_end(self):
+        self.timer.stop()
         self.playFrameW.state = "play"
         self.playFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_play.png")))
         self.project.playing = False
         
-    def change_frame(self, f):
-        self.project.currentFrame = f
-        self.timelineCanvas.update()
-        self.project.update_view.emit()
-
-
-class Play(QtCore.QThread):
-    """ thread used to play the animation """
-    frame = QtCore.pyqtSignal(int)
-    end = QtCore.pyqtSignal()
-    def __init__(self, parent):
-        QtCore.QThread.__init__(self, parent)
-        self.parent = parent
-        self.stop = False
-        self.timer = QtCore.QTimer()
-        self.timer.timeout.connect(self.animate)
-        self.f = self.parent.project.currentFrame
-        self.fps = self.parent.project.fps
-        
-    def run(self):
-        self.timer.start(1000//self.fps)
-
     def animate(self):
-        self.f += 1
-        if self.stop:
-            self.timer.stop()
-            self.end.emit()
-        if self.fps != self.parent.project.fps:
-            self.fps = self.parent.project.fps
+        if self.fps != self.project.fps:
+            self.fps = self.project.fps
             self.timer.setInterval(1000//self.fps)
-        if self.is_frame(self.f):
-            self.frame.emit(self.f)
-        elif self.parent.repeatW.state:
-            self.f = 0
-            self.frame.emit(self.f)
+        maxF = max([len(l["frames"]) for l in self.project.frames])
+        self.f = self.project.currentFrame + 1
+        if self.f < maxF:
+            self.project.currentFrame = self.f
+            self.timelineCanvas.update()
+            self.project.update_view.emit()
         else:
-            self.timer.stop()
-            self.end.emit()
+            if self.repeatW.state:
+                self.project.currentFrame = 0
+                self.timelineCanvas.update()
+                self.project.update_view.emit()
+            else:
+                self.play_end()
             
-    def is_frame(self, f):
-        for i in self.parent.project.frames:
-            if 0 <= f < len(i["frames"]):
-                return True
-        return False

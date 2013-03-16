@@ -115,7 +115,6 @@ class Scene(QtGui.QGraphicsView):
             self.change_size()
             
         self.canvasList = self.project.get_true_frame_list()
-        #~ print self.canvasList
         if len(self.itemList) != len(self.canvasList):
             for i in self.itemList:
                 self.scene.removeItem(i)
@@ -127,6 +126,7 @@ class Scene(QtGui.QGraphicsView):
                 self.pixmapList.append(p)
                 self.itemList.append(self.scene.addPixmap(p))
         for n, i in enumerate(self.canvasList):
+            n = len(self.canvasList) - 1 - n
             if i:
                 self.pixmapList[n].convertFromImage(i)
             else:
@@ -155,6 +155,7 @@ class Scene(QtGui.QGraphicsView):
 
     def mousePressEvent(self, event):
         l = self.project.currentLayer
+        l2 = len(self.canvasList) - 1 - self.project.currentLayer
         # pan
         if event.buttons() == QtCore.Qt.MidButton:
             self.startScroll = (self.horizontalScrollBar().value(),
@@ -165,13 +166,14 @@ class Scene(QtGui.QGraphicsView):
         elif event.buttons() == QtCore.Qt.LeftButton and self.canvasList[l]:
             pos = self.mapToScene(event.pos())
             self.canvasList[l].clic(QtCore.QPoint(int(pos.x()),int(pos.y())))
-            self.pixmapList[l].convertFromImage(self.canvasList[l])
-            self.itemList[l].setPixmap(self.pixmapList[l])
+            self.pixmapList[l2].convertFromImage(self.canvasList[l])
+            self.itemList[l2].setPixmap(self.pixmapList[l2])
         else:
             return QtGui.QGraphicsView.mousePressEvent(self, event)
 
     def mouseMoveEvent(self, event):
         l = self.project.currentLayer
+        l2 = len(self.canvasList) - 1 - self.project.currentLayer
         # pan
         if event.buttons() == QtCore.Qt.MidButton:
             globalPos = QtGui.QCursor.pos()
@@ -183,8 +185,8 @@ class Scene(QtGui.QGraphicsView):
         elif event.buttons() == QtCore.Qt.LeftButton and self.canvasList[l]:
             pos = self.mapToScene(event.pos())
             self.canvasList[l].move(QtCore.QPoint(int(pos.x()),int(pos.y())))
-            self.pixmapList[l].convertFromImage(self.canvasList[l])
-            self.itemList[l].setPixmap(self.pixmapList[l])
+            self.pixmapList[l2].convertFromImage(self.canvasList[l])
+            self.itemList[l2].setPixmap(self.pixmapList[l2])
         else:
             return QtGui.QGraphicsView.mouseMoveEvent(self, event)
 
@@ -200,7 +202,7 @@ class Canvas(QtGui.QImage):
             self.setColorTable(self.project.colorTable)
             self.fill(0)
 
-        self.lastPoint = QtCore.QPoint(0, 0)
+        self.lastPoint = False
         self.undoList = []
         self.redoList = []
 
@@ -293,8 +295,17 @@ class Canvas(QtGui.QImage):
 
     def clic(self, point):
         if self.project.tool == "pen":
+            if QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier:
+                if self.rect().contains(point):
+                    col = self.pixelIndex(point)
+                    self.project.color = col
+                    self.project.update_palette.emit()
+                return
             self.save_to_undo()
-            self.draw_point(point)
+            if QtGui.QApplication.keyboardModifiers() == QtCore.Qt.AltModifier and self.lastPoint:
+                self.draw_line(point)
+            else:
+                self.draw_point(point)
             self.lastPoint = point
         elif self.rect().contains(point):
             col = self.pixelIndex(point)
@@ -311,7 +322,15 @@ class Canvas(QtGui.QImage):
                 self.project.color = self.pixelIndex(point)
                 self.project.update_palette.emit()
         elif self.project.tool == "pen":
-            self.draw_line(point)
+            if QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier:
+                if self.rect().contains(point):
+                    self.project.color = col
+                    self.project.update_palette.emit()
+                return
+            if self.lastPoint:
+                self.draw_line(point)
+            else:
+                self.draw_point(point)
             self.lastPoint = point
 
 class PaletteCanvas(QtGui.QWidget):
@@ -729,6 +748,7 @@ class MainWindow(QtGui.QMainWindow):
 
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)
+    app.setWindowIcon(QtGui.QIcon(QtGui.QPixmap("icons/pixeditor.png")))
     mainWin = MainWindow()
     sys.exit(app.exec_())
 

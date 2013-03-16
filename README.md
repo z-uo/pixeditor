@@ -6,8 +6,12 @@ a animated pixel art editor released under the GNU GPL V3
 It is an alpha program, with bugs and limitation.  
 You need python 2.7 and pyQt to run it.
 
-Use the left and right key to move to previous and next frame.  
-ctrl z and ctrl y to undo, redo (by now it only work for painting action)
+Shortcuts
+------
+Arrow key to move to previous/next frame/layer.  
+Ctrl Z and Ctrl Y to undo, redo (by now it only work for painting action)
+Ctrl X/Ctrl C/Ctrl V to cut/copy/paste frames on the timeline
+Ctrl to draw lines
 
 ![alt screenshot](https://raw.github.com/pops/pixeditor/master/screenshot.png "screenshot")
 
