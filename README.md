@@ -11,7 +11,8 @@ Shortcuts
 Arrow key to move to previous/next frame/layer.  
 Ctrl Z and Ctrl Y to undo, redo (by now it only work for painting action)
 Ctrl X/Ctrl C/Ctrl V to cut/copy/paste frames on the timeline
-Ctrl to draw lines
+Shift clic to draw lines
+Ctrl clic to select color
 
 ![alt screenshot](https://raw.github.com/pops/pixeditor/master/screenshot.png "screenshot")
 

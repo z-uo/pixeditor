@@ -419,7 +419,7 @@ class Timeline(QtGui.QWidget):
                 self.toPaste[0] = self.project.make_canvas(self.project.frames[l]["frames"][trueFrame[0]])
             # check if frame next to selection is a real canvas
             trueFrame2 = self.project.get_true_frame((f2+1, l), True)
-            if trueFrame != trueFrame2:
+            if trueFrame2 and trueFrame != trueFrame2:
                 self.project.frames[l]["frames"][f2+1] = self.project.make_canvas(self.project.frames[l]["frames"][trueFrame2[0]])
             # delete cutted frames
             del self.project.frames[l]["frames"][f1:f2+1]

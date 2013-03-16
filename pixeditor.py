@@ -294,19 +294,20 @@ class Canvas(QtGui.QImage):
                 l.append((x, y-1))
 
     def clic(self, point):
-        if self.project.tool == "pen":
-            if QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier:
-                if self.rect().contains(point):
-                    col = self.pixelIndex(point)
-                    self.project.color = col
-                    self.project.update_palette.emit()
-                return
-            self.save_to_undo()
-            if QtGui.QApplication.keyboardModifiers() == QtCore.Qt.AltModifier and self.lastPoint:
+        if (self.project.tool == "pen" or self.project.tool == "fill") and QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier:
+            if self.rect().contains(point):
+                self.project.color = self.pixelIndex(point)
+                self.project.update_palette.emit()
+            self.lastPoint = False
+        elif self.project.tool == "pen":
+            if QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ShiftModifier and self.lastPoint:
+                self.save_to_undo()
                 self.draw_line(point)
+                self.lastPoint = point
             else:
+                self.save_to_undo()
                 self.draw_point(point)
-            self.lastPoint = point
+                self.lastPoint = point
         elif self.rect().contains(point):
             col = self.pixelIndex(point)
             if self.project.tool == "pipette":
@@ -315,23 +316,26 @@ class Canvas(QtGui.QImage):
             elif self.project.tool == "fill" and self.project.color != col:
                 self.save_to_undo()
                 self.flood_fill(point, col)
+            self.lastPoint = False
 
     def move(self, point):
-        if self.project.tool == "pipette":
+        if (self.project.tool == "pen" or self.project.tool == "fill") and QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier:
             if self.rect().contains(point):
                 self.project.color = self.pixelIndex(point)
                 self.project.update_palette.emit()
+            self.lastPoint = False
+        elif self.project.tool == "pipette":
+            if self.rect().contains(point):
+                self.project.color = self.pixelIndex(point)
+                self.project.update_palette.emit()
+            self.lastPoint = False
         elif self.project.tool == "pen":
-            if QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier:
-                if self.rect().contains(point):
-                    self.project.color = col
-                    self.project.update_palette.emit()
-                return
             if self.lastPoint:
                 self.draw_line(point)
+                self.lastPoint = point
             else:
                 self.draw_point(point)
-            self.lastPoint = point
+                self.lastPoint = point
 
 class PaletteCanvas(QtGui.QWidget):
     """ Canvas where the palette is draw """
