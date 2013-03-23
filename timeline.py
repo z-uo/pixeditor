@@ -296,51 +296,59 @@ class Timeline(QtGui.QWidget):
         shortpaste.activated.connect(self.paste)
         
         ### adding and deleting images ###
-        self.addFrameW = QtGui.QToolButton()
-        self.addFrameW.setAutoRaise(True)
-        self.addFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_add.png")))
-        self.addFrameW.clicked.connect(self.add_frame_clicked)
-        self.addFrameW.setToolTip("add frame")
-        self.dupFrameW = QtGui.QToolButton()
-        self.dupFrameW.setAutoRaise(True)
-        self.dupFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_dup.png")))
-        self.dupFrameW.clicked.connect(self.duplicate_frame_clicked)
-        self.dupFrameW.setToolTip("duplicate frame")
-        self.delFrameW = QtGui.QToolButton()
-        self.delFrameW.setAutoRaise(True)
-        self.delFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_del.png")))
-        self.delFrameW.clicked.connect(self.delete_frame_clicked)
-        self.delFrameW.setToolTip("delete frame")
-        self.clearFrameW = QtGui.QToolButton()
-        self.clearFrameW.setAutoRaise(True)
-        self.clearFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_clear.png")))
-        self.clearFrameW.clicked.connect(self.clear_frame_clicked)
-        self.clearFrameW.setToolTip("clear frame")
+        self.addFrameB = QtGui.QToolButton()
+        self.addFrameB.setAutoRaise(True)
+        self.addFrameB.setIconSize(QtCore.QSize(24, 24)) 
+        self.addFrameB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_add.png")))
+        self.addFrameB.clicked.connect(self.add_frame_clicked)
+        self.addFrameB.setToolTip("add frame")
+        self.dupFrameB = QtGui.QToolButton()
+        self.dupFrameB.setAutoRaise(True)
+        self.dupFrameB.setIconSize(QtCore.QSize(24, 24)) 
+        self.dupFrameB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_dup.png")))
+        self.dupFrameB.clicked.connect(self.duplicate_frame_clicked)
+        self.dupFrameB.setToolTip("duplicate frame")
+        self.delFrameB = QtGui.QToolButton()
+        self.delFrameB.setAutoRaise(True)
+        self.delFrameB.setIconSize(QtCore.QSize(24, 24)) 
+        self.delFrameB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_del.png")))
+        self.delFrameB.clicked.connect(self.delete_frame_clicked)
+        self.delFrameB.setToolTip("delete frame")
+        self.clearFrameB = QtGui.QToolButton()
+        self.clearFrameB.setAutoRaise(True)
+        self.clearFrameB.setIconSize(QtCore.QSize(24, 24)) 
+        self.clearFrameB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_clear.png")))
+        self.clearFrameB.clicked.connect(self.clear_frame_clicked)
+        self.clearFrameB.setToolTip("clear frame")
 
         ### adding and deleting layers ###
-        self.addLayerW = QtGui.QToolButton()
-        self.addLayerW.setAutoRaise(True)
-        self.addLayerW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/layer_add.png")))
-        self.addLayerW.clicked.connect(self.add_layer_clicked)
-        self.addLayerW.setToolTip("add layer")
-        self.dupLayerW = QtGui.QToolButton()
-        self.dupLayerW.setAutoRaise(True)
-        self.dupLayerW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/layer_dup.png")))
-        self.dupLayerW.clicked.connect(self.duplicate_layer_clicked)
-        self.dupLayerW.setToolTip("duplicate layer")
-        self.delLayerW = QtGui.QToolButton()
-        self.delLayerW.setAutoRaise(True)
-        self.delLayerW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/layer_del.png")))
-        self.delLayerW.clicked.connect(self.delete_layer_clicked)
-        self.delLayerW.setToolTip("delete layer")
+        self.addLayerB = QtGui.QToolButton()
+        self.addLayerB.setAutoRaise(True)
+        self.addLayerB.setIconSize(QtCore.QSize(24, 24)) 
+        self.addLayerB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/layer_add.png")))
+        self.addLayerB.clicked.connect(self.add_layer_clicked)
+        self.addLayerB.setToolTip("add layer")
+        self.dupLayerB = QtGui.QToolButton()
+        self.dupLayerB.setAutoRaise(True)
+        self.dupLayerB.setIconSize(QtCore.QSize(24, 24)) 
+        self.dupLayerB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/layer_dup.png")))
+        self.dupLayerB.clicked.connect(self.duplicate_layer_clicked)
+        self.dupLayerB.setToolTip("duplicate layer")
+        self.delLayerB = QtGui.QToolButton()
+        self.delLayerB.setAutoRaise(True)
+        self.delLayerB.setIconSize(QtCore.QSize(24, 24)) 
+        self.delLayerB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/layer_del.png")))
+        self.delLayerB.clicked.connect(self.delete_layer_clicked)
+        self.delLayerB.setToolTip("delete layer")
         
         ### play the animation ###
-        self.playFrameW = QtGui.QToolButton()
-        self.playFrameW.state = "play"
-        self.playFrameW.setAutoRaise(True)
-        self.playFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_play.png")))
-        self.playFrameW.clicked.connect(self.play_pause_clicked)
-        self.playFrameW.setToolTip("play / pause")
+        self.playFrameB = QtGui.QToolButton()
+        self.playFrameB.state = "play"
+        self.playFrameB.setAutoRaise(True)
+        self.playFrameB.setIconSize(QtCore.QSize(24, 24)) 
+        self.playFrameB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_play.png")))
+        self.playFrameB.clicked.connect(self.play_pause_clicked)
+        self.playFrameB.setToolTip("play / pause")
         self.fpsL = QtGui.QLabel("fps")
         self.fpsW = QtGui.QLineEdit(self)
         self.fpsW.setText(str(12))
@@ -349,30 +357,31 @@ class Timeline(QtGui.QWidget):
         self.fpsW.setValidator(valid)
         self.fpsW.textChanged.connect(self.fps_changed)
 
-        self.repeatW = QtGui.QToolButton()
-        self.repeatW.state = False
-        self.repeatW.setAutoRaise(True)
-        self.repeatW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_no_repeat.png")))
-        self.repeatW.clicked.connect(self.repeat_clicked)
-        self.repeatW.setToolTip("no repeat / repeat")
+        self.repeatB = QtGui.QToolButton()
+        self.repeatB.state = False
+        self.repeatB.setAutoRaise(True)
+        self.repeatB.setIconSize(QtCore.QSize(24, 24)) 
+        self.repeatB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_no_repeat.png")))
+        self.repeatB.clicked.connect(self.repeat_clicked)
+        self.repeatB.setToolTip("no repeat / repeat")
 
         ### layout ###
         layout = QtGui.QGridLayout()
         layout.setSpacing(4)
-        layout.addWidget(self.addLayerW, 0, 0)
-        layout.addWidget(self.dupLayerW, 1, 0)
-        layout.addWidget(self.delLayerW, 2, 0)
+        layout.addWidget(self.addLayerB, 0, 0)
+        layout.addWidget(self.dupLayerB, 1, 0)
+        layout.addWidget(self.delLayerB, 2, 0)
         layout.addWidget(self.layersV, 0, 1, 4, 1)
         layout.addWidget(self.timelineV, 0, 2, 4, 9)
-        layout.addWidget(self.addFrameW, 4, 2)
-        layout.addWidget(self.dupFrameW, 4, 3)
-        layout.addWidget(self.delFrameW, 4, 4)
-        layout.addWidget(self.clearFrameW, 4, 5)
+        layout.addWidget(self.addFrameB, 4, 2)
+        layout.addWidget(self.dupFrameB, 4, 3)
+        layout.addWidget(self.delFrameB, 4, 4)
+        layout.addWidget(self.clearFrameB, 4, 5)
         layout.setColumnStretch(6, 2)
         layout.addWidget(self.fpsW, 4, 7)
         layout.addWidget(self.fpsL, 4, 8)
-        layout.addWidget(self.repeatW, 4, 9)
-        layout.addWidget(self.playFrameW, 4, 10)
+        layout.addWidget(self.repeatB, 4, 9)
+        layout.addWidget(self.playFrameB, 4, 10)
         self.setLayout(layout)
 
     def change_current(self, frame=None, layer=None):
@@ -549,18 +558,18 @@ class Timeline(QtGui.QWidget):
         self.timelineCanvas.update()
 
     def repeat_clicked(self):
-        if self.repeatW.state:
-            self.repeatW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_no_repeat.png")))
-            self.repeatW.state = False
+        if self.repeatB.state:
+            self.repeatB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_no_repeat.png")))
+            self.repeatB.state = False
         else:
-            self.repeatW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_repeat.png")))
-            self.repeatW.state = True
+            self.repeatB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_repeat.png")))
+            self.repeatB.state = True
 
     def play_pause_clicked(self):
         """play the animation"""
-        if self.playFrameW.state == 'play':
-            self.playFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_pause.png")))
-            self.playFrameW.state = "stop"
+        if self.playFrameB.state == 'play':
+            self.playFrameB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_pause.png")))
+            self.playFrameB.state = "stop"
             self.timer = QtCore.QTimer()
             self.timer.timeout.connect(self.animate)
             self.f = self.project.currentFrame
@@ -572,13 +581,13 @@ class Timeline(QtGui.QWidget):
                 self.timelineCanvas.update()
                 self.project.update_view.emit()
             self.timer.start(1000//self.fps)
-        elif self.playFrameW.state == 'stop':
+        elif self.playFrameB.state == 'stop':
             self.play_end()
             
     def play_end(self):
         self.timer.stop()
-        self.playFrameW.state = "play"
-        self.playFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_play.png")))
+        self.playFrameB.state = "play"
+        self.playFrameB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_play.png")))
         self.project.playing = False
         
     def animate(self):
@@ -592,7 +601,7 @@ class Timeline(QtGui.QWidget):
             self.timelineCanvas.update()
             self.project.update_view.emit()
         else:
-            if self.repeatW.state:
+            if self.repeatB.state:
                 self.project.currentFrame = 0
                 self.timelineCanvas.update()
                 self.project.update_view.emit()
