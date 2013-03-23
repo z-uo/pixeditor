@@ -46,6 +46,7 @@ class LayersCanvas(QtGui.QWidget):
         
         self.white = QtGui.QBrush(QtGui.QColor(255, 255, 255))
         self.black = QtGui.QBrush(QtGui.QColor(0, 0, 0))
+        self.grey = QtGui.QBrush(QtGui.QColor(0, 0, 0, 30))
         self.font = QtGui.QFont('SansSerif', 8, QtGui.QFont.Normal)
         self.layerH = 20
         self.margeH = 22
@@ -57,6 +58,7 @@ class LayersCanvas(QtGui.QWidget):
         p.setFont(self.font)
         
         # background
+        p.fillRect (0, 0, self.width(), self.height(), self.grey)
         p.fillRect (0, 0, self.width(), mH-2, self.white)
         p.drawLine (0, mH-2, self.width(), mH-2)
         # currentLayer
@@ -91,7 +93,7 @@ class TimelineCanvas(QtGui.QWidget):
     def __init__(self, parent):
         QtGui.QWidget.__init__(self, parent)
         self.parent = parent
-        self.grey = QtGui.QBrush(QtGui.QColor(193, 193, 193))
+        self.grey = QtGui.QBrush(QtGui.QColor(0, 0, 0, 30))
         self.white = QtGui.QBrush(QtGui.QColor(255, 255, 255))
         self.whitea = QtGui.QBrush(QtGui.QColor(255, 255, 255, 127))
         self.black = QtGui.QBrush(QtGui.QColor(0, 0, 0))
@@ -112,6 +114,7 @@ class TimelineCanvas(QtGui.QWidget):
         p.setBrush(self.whitea)
         
         # background
+        p.fillRect (0, 0, self.width(), self.height(), self.grey)
         p.fillRect (0, 0, self.width(), 21, self.white)
         p.drawLine (0, 21, self.width(), 21)
         for j, i in enumerate(xrange(7, self.width(), fW), 1):
@@ -297,32 +300,39 @@ class Timeline(QtGui.QWidget):
         self.addFrameW.setAutoRaise(True)
         self.addFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_add.png")))
         self.addFrameW.clicked.connect(self.add_frame_clicked)
+        self.addFrameW.setToolTip("add frame")
         self.dupFrameW = QtGui.QToolButton()
         self.dupFrameW.setAutoRaise(True)
         self.dupFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_dup.png")))
         self.dupFrameW.clicked.connect(self.duplicate_frame_clicked)
+        self.dupFrameW.setToolTip("duplicate frame")
         self.delFrameW = QtGui.QToolButton()
         self.delFrameW.setAutoRaise(True)
         self.delFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_del.png")))
         self.delFrameW.clicked.connect(self.delete_frame_clicked)
+        self.delFrameW.setToolTip("delete frame")
         self.clearFrameW = QtGui.QToolButton()
         self.clearFrameW.setAutoRaise(True)
         self.clearFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_clear.png")))
         self.clearFrameW.clicked.connect(self.clear_frame_clicked)
+        self.clearFrameW.setToolTip("clear frame")
 
         ### adding and deleting layers ###
         self.addLayerW = QtGui.QToolButton()
         self.addLayerW.setAutoRaise(True)
         self.addLayerW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/layer_add.png")))
         self.addLayerW.clicked.connect(self.add_layer_clicked)
+        self.addLayerW.setToolTip("add layer")
         self.dupLayerW = QtGui.QToolButton()
         self.dupLayerW.setAutoRaise(True)
         self.dupLayerW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/layer_dup.png")))
         self.dupLayerW.clicked.connect(self.duplicate_layer_clicked)
+        self.dupLayerW.setToolTip("duplicate layer")
         self.delLayerW = QtGui.QToolButton()
         self.delLayerW.setAutoRaise(True)
         self.delLayerW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/layer_del.png")))
         self.delLayerW.clicked.connect(self.delete_layer_clicked)
+        self.delLayerW.setToolTip("delete layer")
         
         ### play the animation ###
         self.playFrameW = QtGui.QToolButton()
@@ -330,6 +340,7 @@ class Timeline(QtGui.QWidget):
         self.playFrameW.setAutoRaise(True)
         self.playFrameW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_play.png")))
         self.playFrameW.clicked.connect(self.play_pause_clicked)
+        self.playFrameW.setToolTip("play / pause")
         self.fpsL = QtGui.QLabel("fps")
         self.fpsW = QtGui.QLineEdit(self)
         self.fpsW.setText(str(12))
@@ -343,6 +354,7 @@ class Timeline(QtGui.QWidget):
         self.repeatW.setAutoRaise(True)
         self.repeatW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_no_repeat.png")))
         self.repeatW.clicked.connect(self.repeat_clicked)
+        self.repeatW.setToolTip("no repeat / repeat")
 
         ### layout ###
         layout = QtGui.QGridLayout()
@@ -405,7 +417,6 @@ class Timeline(QtGui.QWidget):
     
     ######## Copy ######################################################
     def cut(self):
-        print "cut"
         if self.selection:
             l = self.selection[0]
             f1, f2 = self.selection[1], self.selection[2]
@@ -426,7 +437,6 @@ class Timeline(QtGui.QWidget):
             self.timelineCanvas.update()
             
     def copy(self):
-        print "copy"
         if self.selection:
             l = self.selection[0]
             f1, f2 = self.selection[1], self.selection[2]
@@ -444,7 +454,6 @@ class Timeline(QtGui.QWidget):
                     self.toPaste[n] = self.project.make_canvas(canvas)
         
     def paste(self):
-        print "paste"
         if self.toPaste:
             f = self.project.currentFrame
             l = self.project.currentLayer

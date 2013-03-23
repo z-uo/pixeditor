@@ -65,18 +65,17 @@ DEFAUT_COLORTABLE = (QtGui.qRgba(0, 0, 0, 0), QtGui.qRgba(0, 0, 0, 255))
 DEFAUT_PEN = ((0, 0),)
 DEFAUT_TOOL = "pen"
 
-        
 class Bg(QtGui.QPixmap):
     """ background of the scene"""
     def __init__(self, w, h):
         QtGui.QPixmap.__init__(self, w, h)
         self.brush = QtGui.QBrush(QtGui.QPixmap("icons/bg.png"))
+        self.fill(QtGui.QColor(255, 255, 255, 0))
         self.paintEvent()
 
     def paintEvent(self, ev=None):
         p = QtGui.QPainter(self)
         p.fillRect (0, 0, self.width(), self.height(), self.brush)
-
 
 class Scene(QtGui.QGraphicsView):
     """ Display, zoom, pan..."""
@@ -98,11 +97,9 @@ class Scene(QtGui.QGraphicsView):
         w, h = self.project.size[0], self.project.size[1]
         self.scene.setSceneRect(0, 0, w, h)
 
-        self.setBackgroundBrush(QtGui.QBrush(QtGui.QColor(140, 140, 140)))
+        self.setBackgroundBrush(QtGui.QBrush(QtGui.QColor(150, 150, 150)))
         self.bg = self.scene.addPixmap(Bg(w, h))
-        
-        self.p = QtGui.QPixmap(self.scene.width(), self.scene.height())
-        self.p.fill(QtGui.QColor(0, 0, 0, 0))
+
         self.pixmapList = []
         self.itemList = []
         self.canvasList = []
@@ -137,8 +134,6 @@ class Scene(QtGui.QGraphicsView):
         w, h = self.project.size[0], self.project.size[1]
         self.scene.setSceneRect(0, 0, w, h)
         self.bg.setPixmap(Bg(w, h))
-        self.p = QtGui.QPixmap(self.scene.width(), self.scene.height())
-        self.p.fill(QtGui.QColor(0, 0, 0, 0))
 
     def wheelEvent(self, event):
         if event.delta() > 0:
@@ -343,7 +338,7 @@ class PaletteCanvas(QtGui.QWidget):
         QtGui.QWidget.__init__(self)
         self.parent = parent
         self.setFixedSize(164, 324)
-        self.background = QtGui.QBrush(QtGui.QColor(127, 127, 127))
+        self.background = QtGui.QBrush(QtGui.QColor(150, 150, 150))
         self.alpha = QtGui.QPixmap("icons/color_alpha.png")
         self.black = QtGui.QBrush(QtGui.QColor(0, 0, 0))
         self.white = QtGui.QBrush(QtGui.QColor(255, 255, 255))
@@ -399,24 +394,19 @@ class ToolsWidget(QtGui.QWidget):
         self.penB.setChecked(True)
         self.penB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/tool_pen.png")))
         self.penB.toggled.connect(self.pen_tool_clicked)
+        self.penB.setToolTip("pen")
         self.pipetteB = QtGui.QToolButton()
         self.pipetteB.setAutoRaise(True)
         self.pipetteB.setCheckable(True)
         self.pipetteB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/tool_pipette.png")))
         self.pipetteB.toggled.connect(self.pipette_tool_clicked)
+        self.pipetteB.setToolTip("pipette")
         self.fillB = QtGui.QToolButton()
         self.fillB.setAutoRaise(True)
         self.fillB.setCheckable(True)
         self.fillB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/tool_fill.png")))
         self.fillB.toggled.connect(self.fill_tool_clicked)
-        self.zoomInB = QtGui.QToolButton()
-        self.zoomInB.setAutoRaise(True)
-        self.zoomInB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/tool_zoom_in.png")))
-        self.zoomInB.clicked.connect(lambda : self.project.parent.scene.scaleView(2))
-        self.zoomOutB = QtGui.QToolButton()
-        self.zoomOutB.setAutoRaise(True)
-        self.zoomOutB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/tool_zoom_out.png")))
-        self.zoomOutB.clicked.connect(lambda : self.project.parent.scene.scaleView(0.5))
+        self.fillB.setToolTip("fill")
 
         ### pen size ###
         self.penW = QtGui.QComboBox(self)
@@ -453,6 +443,7 @@ class ToolsWidget(QtGui.QWidget):
         self.addColorW.setAutoRaise(True)
         self.addColorW.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/color_add.png")))
         self.addColorW.clicked.connect(self.add_color_clicked)
+        self.addColorW.setToolTip("add color")
         
         ### Layout ###
         layout = QtGui.QGridLayout()
@@ -471,7 +462,6 @@ class ToolsWidget(QtGui.QWidget):
         
     ######## Tools #####################################################
     def pen_tool_clicked(self):
-        print self.size()
         if self.penB.isChecked() or (not self.pipetteB.isChecked() and not self.fillB.isChecked()):
             self.project.tool = "pen"
             self.pipetteB.setChecked(False)
@@ -549,14 +539,20 @@ class Project(QtCore.QObject):
         
         # TODO
         self.url = None
-        
+        self.undoList = []
+        self.redoList = []
+
     def make_canvas(self, canvas=False):
+        """ make a new canvas 
+            or a copy of arg:canvas """
         if canvas:
             return Canvas(self, canvas)
         else:
             return Canvas(self, self.size[0], self.size[1], self.colorTable)
             
     def make_layer(self, layer=False):
+        """ make a new empty layer by default
+            or a copy of arg:layer """
         name = "Layer %s" %(len(self.frames)+1)
         if layer:
             l = dict(layer)
@@ -570,6 +566,7 @@ class Project(QtCore.QObject):
             return {"frames" : [self.make_canvas(), ], "pos" : 0, "visible" : True, "lock" : False, "name": name}
         
     def get_true_frame_list(self):
+        """ return the list of all layer's canvas at self.currentFrame """
         tf = []
         for l in self.frames:
             f = self.currentFrame
@@ -583,6 +580,9 @@ class Project(QtCore.QObject):
         return tf
         
     def get_true_frame(self, index=False, getIndex=False):
+        """ return the current canvas by defaut
+            if arg:index, the canvas at (frame, layer)
+            if arg:getIndex, the index of canvas in self.frame """
         if index:
             f = index[0]
             l = index[1]
@@ -599,6 +599,7 @@ class Project(QtCore.QObject):
         return False
         
     def get_all_canvas(self):
+        """ retrun all canvas from self.frames """
         canvas = []
         for l in self.frames:
             for f in l["frames"]:
