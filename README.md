@@ -41,7 +41,8 @@ make pixeditor.py executable and run it.
 
 MacOs
 ----
-I didnt test, but it should work by installing python 2.7 an pyqt (the version for python 2.7) and run pixeditor.py
+It should work by installing python 2.7 an pyqt (the version for python 2.7) and run pixeditor.py but apparently it didn't.
+Help is welcome.
 
 
 Optionnal
