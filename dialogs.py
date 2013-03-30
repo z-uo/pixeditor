@@ -183,3 +183,59 @@ class ResizeDialog(QtGui.QDialog):
             return True , (self.w, self.h), (self.wOffset, self.hOffset)
         else:
             return False, None, None
+            
+class RenameLayerDialog(QtGui.QDialog):
+    def __init__(self, name, otherNames=[]):
+        QtGui.QDialog.__init__(self)
+        self.setWindowTitle("rename layer")
+        
+        self.name = name
+        self.otherNames = otherNames
+        ### instructions ###
+        self.instL = QtGui.QLabel("Enter the new name of the layer :")
+        self.nameW = QtGui.QLineEdit(name, self)
+        ### error ###
+        self.errorL = QtGui.QLabel("")
+        ### apply, undo ###
+        self.cancelW = QtGui.QPushButton('cancel', self)
+        self.cancelW.clicked.connect(self.cancel_clicked)
+        self.renameW = QtGui.QPushButton('rename', self)
+        self.renameW.clicked.connect(self.rename_clicked)
+
+        okBox = QtGui.QHBoxLayout()
+        okBox.addStretch(0)
+        okBox.addWidget(self.cancelW)
+        okBox.addWidget(self.renameW)
+
+        vBox = QtGui.QVBoxLayout()
+        vBox.addWidget(self.instL)
+        vBox.addWidget(self.nameW)
+        vBox.addWidget(self.errorL)
+        vBox.addLayout(okBox)
+
+        self.setLayout(vBox)
+        self.exec_()
+
+    def rename_clicked(self):
+        n = self.nameW.text()
+        for i in self.otherNames:
+            if n == i:
+                self.errorL.setText("ERROR : layer's name must be unique !")
+                return
+        self.name = n
+        self.accept()
+
+    def cancel_clicked(self):
+        self.reject()
+
+    def get_return(self):
+        if self.result():
+            return True , self.name
+        else:
+            return False, None
+
+if __name__ == '__main__':
+    import sys
+    app = QtGui.QApplication(sys.argv)
+    mainWin = RenameLayerDialog("layer 1")
+    sys.exit(app.exec_())

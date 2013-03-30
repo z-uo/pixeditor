@@ -65,6 +65,7 @@ DEFAUT_COLORTABLE = (QtGui.qRgba(0, 0, 0, 0), QtGui.qRgba(0, 0, 0, 255))
 DEFAUT_PEN = ((0, 0),)
 DEFAUT_TOOL = "pen"
 
+    
 class Bg(QtGui.QPixmap):
     """ background of the scene"""
     def __init__(self, w, h):
@@ -111,7 +112,7 @@ class Scene(QtGui.QGraphicsView):
             int(self.scene.sceneRect().height()) != self.project.size[1]):
             self.change_size()
             
-        self.canvasList = self.project.get_true_frame_list()
+        self.canvasList = self.project.get_canvas_list()
         if len(self.itemList) != len(self.canvasList):
             for i in self.itemList:
                 self.scene.removeItem(i)
@@ -147,6 +148,9 @@ class Scene(QtGui.QGraphicsView):
             return
         self.zoomN = n
         self.scale(factor, factor)
+        
+    def pointToInt(self, point):
+        return QtCore.QPoint(int(point.x()), int(point.y()))
 
     def mousePressEvent(self, event):
         l = self.project.currentLayer
@@ -159,10 +163,13 @@ class Scene(QtGui.QGraphicsView):
             self.setDragMode(QtGui.QGraphicsView.NoDrag)
         # draw on canvas
         elif event.buttons() == QtCore.Qt.LeftButton and self.canvasList[l]:
-            pos = self.mapToScene(event.pos())
-            self.canvasList[l].clic(QtCore.QPoint(int(pos.x()),int(pos.y())))
-            self.pixmapList[l2].convertFromImage(self.canvasList[l])
-            self.itemList[l2].setPixmap(self.pixmapList[l2])
+            pos = self.pointToInt(self.mapToScene(event.pos()))
+            if self.project.tool == "move":
+                self.lastPos = pos
+            else:
+                self.canvasList[l].clic(pos)
+                self.pixmapList[l2].convertFromImage(self.canvasList[l])
+                self.itemList[l2].setPixmap(self.pixmapList[l2])
         else:
             return QtGui.QGraphicsView.mousePressEvent(self, event)
 
@@ -178,12 +185,32 @@ class Scene(QtGui.QGraphicsView):
                     globalPos.y() + self.lastPos.y())
         # draw on canvas
         elif event.buttons() == QtCore.Qt.LeftButton and self.canvasList[l]:
-            pos = self.mapToScene(event.pos())
-            self.canvasList[l].move(QtCore.QPoint(int(pos.x()),int(pos.y())))
-            self.pixmapList[l2].convertFromImage(self.canvasList[l])
-            self.itemList[l2].setPixmap(self.pixmapList[l2])
+            pos = self.pointToInt(self.mapToScene(event.pos()))
+            if self.project.tool == "move":
+                dif = pos - self.lastPos
+                intPos = self.pointToInt(self.itemList[l2].pos())
+                self.itemList[l2].setPos(QtCore.QPointF(intPos + dif))
+                self.lastPos = pos
+            else:
+                self.canvasList[l].move(pos)
+                self.pixmapList[l2].convertFromImage(self.canvasList[l])
+                self.itemList[l2].setPixmap(self.pixmapList[l2])
         else:
             return QtGui.QGraphicsView.mouseMoveEvent(self, event)
+            
+    def mouseReleaseEvent(self, event):
+        if event.button() == QtCore.Qt.LeftButton and self.project.tool == "move":
+            l = self.project.currentLayer
+            l2 = len(self.canvasList) - 1 - self.project.currentLayer
+            if self.canvasList[l] and self.itemList[l2].pos():
+                offset = (int(self.itemList[l2].pos().x()), int(self.itemList[l2].pos().y()))
+                self.canvasList[l].load_from_list(self.canvasList[l].return_as_list(), 
+                                                  self.canvasList[l].width(),
+                                                  offset)
+                self.itemList[l2].setPos(QtCore.QPointF(0, 0))
+                self.change_frame()
+        else:
+            return QtGui.QGraphicsView.mouseReleaseEvent(self, event)
 
 
 class Canvas(QtGui.QImage):
@@ -203,6 +230,7 @@ class Canvas(QtGui.QImage):
 
     ######## import/export #############################################
     def load_from_list(self, li, exWidth=None, offset=(0, 0)):
+        self.fill(0)
         if not exWidth:
             exWidth = self.width()
         x, y = 0, 0
@@ -221,7 +249,7 @@ class Canvas(QtGui.QImage):
             for x in xrange(self.width()):
                 l.append(self.pixelIndex(x, y))
         return l
-
+        
     ######## undo/redo #################################################
     def save_to_undo(self):
         self.undoList.append(Canvas(self.project, self))
@@ -242,9 +270,10 @@ class Canvas(QtGui.QImage):
             if len(self.undoList) > 50:
                 self.undoList.pop(0)
             self.swap(self.redoList.pop(-1))
-
+        
     ######## draw ######################################################
     def clear(self):
+        self.save_to_undo()
         self.fill(0)
         
     def draw_line(self, p2):
@@ -295,14 +324,13 @@ class Canvas(QtGui.QImage):
                 self.project.update_palette.emit()
             self.lastPoint = False
         elif self.project.tool == "pen":
+            self.save_to_undo()
+            #~ self.project.save_to_undo("canvas")
             if QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ShiftModifier and self.lastPoint:
-                self.save_to_undo()
                 self.draw_line(point)
-                self.lastPoint = point
             else:
-                self.save_to_undo()
                 self.draw_point(point)
-                self.lastPoint = point
+            self.lastPoint = point
         elif self.rect().contains(point):
             col = self.pixelIndex(point)
             if self.project.tool == "pipette":
@@ -310,6 +338,7 @@ class Canvas(QtGui.QImage):
                 self.project.update_palette.emit()
             elif self.project.tool == "fill" and self.project.color != col:
                 self.save_to_undo()
+                #~ self.project.save_to_undo("canvas")
                 self.flood_fill(point, col)
             self.lastPoint = False
 
@@ -410,6 +439,13 @@ class ToolsWidget(QtGui.QWidget):
         self.fillB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/tool_fill.png")))
         self.fillB.toggled.connect(self.fill_tool_clicked)
         self.fillB.setToolTip("fill")
+        self.moveB = QtGui.QToolButton()
+        self.moveB.setAutoRaise(True)
+        self.moveB.setCheckable(True)
+        self.moveB.setIconSize(QtCore.QSize(24, 24)) 
+        self.moveB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/tool_move.png")))
+        self.moveB.toggled.connect(self.move_tool_clicked)
+        self.moveB.setToolTip("move")
 
         ### pen size ###
         self.penW = QtGui.QComboBox(self)
@@ -455,6 +491,7 @@ class ToolsWidget(QtGui.QWidget):
         layout.addWidget(self.penB, 0, 0)
         layout.addWidget(self.pipetteB, 0, 1)
         layout.addWidget(self.fillB, 0, 2)
+        layout.addWidget(self.moveB, 0, 3)
         layout.setColumnStretch(3, 2)
         layout.addWidget(self.penW, 1, 0, 1, 4)
         layout.addWidget(self.paletteCanvas, 2, 0, 1, 4)
@@ -466,25 +503,40 @@ class ToolsWidget(QtGui.QWidget):
         
     ######## Tools #####################################################
     def pen_tool_clicked(self):
-        if self.penB.isChecked() or (not self.pipetteB.isChecked() and not self.fillB.isChecked()):
+        if self.penB.isChecked() or (not self.pipetteB.isChecked() and not 
+           self.fillB.isChecked() and not self.moveB.isChecked()):
             self.project.tool = "pen"
             self.pipetteB.setChecked(False)
             self.fillB.setChecked(False)
             self.penB.setChecked(True)
+            self.moveB.setChecked(False)
 
     def pipette_tool_clicked(self):
-        if self.pipetteB.isChecked() or (not self.penB.isChecked() and not self.fillB.isChecked()):
+        if self.pipetteB.isChecked() or (not self.penB.isChecked() and not 
+           self.fillB.isChecked() and not self.moveB.isChecked()):
             self.project.tool = "pipette"
             self.penB.setChecked(False)
             self.fillB.setChecked(False)
             self.pipetteB.setChecked(True)
+            self.moveB.setChecked(False)
 
     def fill_tool_clicked(self):
-        if self.fillB.isChecked() or (not self.penB.isChecked() and not self.pipetteB.isChecked()):
+        if self.fillB.isChecked() or (not self.penB.isChecked() and not 
+           self.pipetteB.isChecked() and not self.moveB.isChecked()):
             self.project.tool = "fill"
             self.fillB.setChecked(True)
             self.pipetteB.setChecked(False)
             self.penB.setChecked(False)
+            self.moveB.setChecked(False)
+            
+    def move_tool_clicked(self):
+        if self.moveB.isChecked() or (not self.penB.isChecked() and not 
+           self.pipetteB.isChecked() and not self.fillB.isChecked()):
+            self.project.tool = "move"
+            self.fillB.setChecked(False)
+            self.pipetteB.setChecked(False)
+            self.penB.setChecked(False)
+            self.moveB.setChecked(True)
 
     def pen_chooser_clicked(self, text):
         self.project.pen = self.penDict[str(text)]
@@ -545,7 +597,53 @@ class Project(QtCore.QObject):
         self.url = None
         self.undoList = []
         self.redoList = []
+        
+    ######## undo/redo #################################################
+    def save_to_undo(self, obj):
+        if obj == "layer":
+            pass
+        elif obj == "canvas":
+            canvas = self.get_canvas()
+            self.undoList.append(("canvas", (self.currentFrame, self.currentLayer), Canvas(self, canvas)))
+        elif obj == "canvas_size":
+            pass
+        elif obj == "color":
+            pass
+            
+        if len(self.undoList) > 50:
+            self.undoList.pop(0)
+        self.redoList = []
 
+    def undo(self):
+        if len(self.undoList) > 0:
+            toUndo = self.undoList.pop(-1)
+            if toUndo[0] == "canvas":
+                self.currentFrame = toUndo[1][0]
+                self.currentlayer = toUndo[1][1]
+                canvas = self.get_canvas()
+                self.redoList.append(("canvas", (self.currentFrame, self.currentLayer), Canvas(self, canvas)))
+                canvas.swap(toUndo[2])
+                
+            if len(self.redoList) > 50:
+                self.redoList.pop(0)
+            self.update_view.emit()
+            self.update_timeline.emit()
+
+    def redo(self):
+        if len(self.redoList) > 0:
+            toRedo = self.redoList.pop(-1)
+            if toRedo[0] == "canvas":
+                self.currentFrame = toRedo[1][0]
+                self.currentlayer = toRedo[1][1]
+                canvas = self.get_canvas()
+                self.undoList.append(("canvas", (self.currentFrame, self.currentLayer), Canvas(self, canvas)))
+                canvas.swap(toRedo[2])
+            
+            if len(self.undoList) > 50:
+                self.undoList.pop(0)
+            self.update_view.emit()
+            self.update_timeline.emit()
+            
     def make_canvas(self, canvas=False):
         """ make a new canvas 
             or a copy of arg:canvas """
@@ -569,7 +667,7 @@ class Project(QtCore.QObject):
         else:
             return {"frames" : [self.make_canvas(), ], "pos" : 0, "visible" : True, "lock" : False, "name": name}
         
-    def get_true_frame_list(self):
+    def get_canvas_list(self):
         """ return the list of all layer's canvas at self.currentFrame """
         tf = []
         for l in self.frames:
@@ -583,7 +681,7 @@ class Project(QtCore.QObject):
                 tf.append(0)
         return tf
         
-    def get_true_frame(self, index=False, getIndex=False):
+    def get_canvas(self, index=False, getIndex=False):
         """ return the current canvas by defaut
             if arg:index, the canvas at (frame, layer)
             if arg:getIndex, the index of canvas in self.frame """
@@ -732,13 +830,23 @@ class MainWindow(QtGui.QMainWindow):
     def exit_action(self):
         QtGui.qApp.quit()
 
+    #~ def undo(self):
+        #~ self.project.undo()
+        #~ self.project.update_view.emit()
+        #~ self.project.update_timeline.emit()
+#~ 
+    #~ def redo(self):
+        #~ self.project.redo()
+        #~ self.project.update_view.emit()
+        #~ self.project.update_timeline.emit()
+        
     def undo(self):
-        canvas = self.project.get_true_frame()
+        canvas = self.project.get_canvas()
         canvas.undo()
         self.project.update_view.emit()
 
     def redo(self):
-        canvas = self.project.get_true_frame()
+        canvas = self.project.get_canvas()
         canvas.redo()
         self.project.update_view.emit()
 
