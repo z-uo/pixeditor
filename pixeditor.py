@@ -381,10 +381,8 @@ class PaletteCanvas(QtGui.QWidget):
             if n == self.parent.project.color:
                 p.fillRect (x, y, 20, 20, self.black)
                 p.fillRect (x+1, y+1, 18, 18, self.white)
-            if i == 0:
-                p.drawPixmap(x+2, y+2, self.alpha)
-            else:
-                p.fillRect(x+2, y+2, 16, 16, QtGui.QBrush(QtGui.QColor(i)))
+            p.drawPixmap(x+2, y+2, self.alpha)
+            p.fillRect(x+2, y+2, 16, 16, QtGui.QBrush(QtGui.QColor().fromRgba(i)))
 
     def mousePressEvent(self, event):
         if (event.button() == QtCore.Qt.LeftButton):
