@@ -82,7 +82,6 @@ class LayersCanvas(QtGui.QWidget):
                 self.update()
         elif (event.type() == QtCore.QEvent.MouseButtonDblClick and
                        event.button()==QtCore.Qt.LeftButton):
-            print "dble clic"
             item = self.layer_at(event.y())
             if item is not None:
                 self.parent.renameLayer(item)
@@ -597,7 +596,7 @@ class Timeline(QtGui.QWidget):
             otherNames.append(i["name"])
         ok, nName = RenameLayerDialog(name, otherNames).get_return()
         if ok:
-            self.project.frames[l]["name"] = nName
+            self.project.frames[l]["name"] = str(nName)
             self.project.update_timeline.emit()
 
     ######## Play ######################################################

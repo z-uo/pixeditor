@@ -101,40 +101,38 @@ class Scene(QtGui.QGraphicsView):
         self.setBackgroundBrush(QtGui.QBrush(QtGui.QColor(150, 150, 150)))
         self.bg = self.scene.addPixmap(Bg(w, h))
 
-        self.pixmapList = []
         self.itemList = []
         self.canvasList = []
         self.change_frame()
         self.project.update_view.connect(self.change_frame)
         
     def change_frame(self):
-        if (int(self.scene.sceneRect().width()) != self.project.size[0] or
-            int(self.scene.sceneRect().height()) != self.project.size[1]):
-            self.change_size()
+        w, h = self.project.size[0], self.project.size[1]
+        if (int(self.scene.sceneRect().width()) != w or
+            int(self.scene.sceneRect().height()) != h):
+            self.scene.setSceneRect(0, 0, w, h)
+            self.bg.setPixmap(Bg(w, h))
             
         self.canvasList = self.project.get_canvas_list()
         if len(self.itemList) != len(self.canvasList):
             for i in self.itemList:
                 self.scene.removeItem(i)
-            self.pixmapList = []
             self.itemList = []
             for i in self.canvasList:
                 p = QtGui.QPixmap(self.scene.width(), self.scene.height())
-                p.fill(QtGui.QColor(0, 0, 0, 0))
-                self.pixmapList.append(p)
                 self.itemList.append(self.scene.addPixmap(p))
+            z = 100
+            for i in self.itemList:
+                i.setZValue(z)
+                z -= 1
+            
         for n, i in enumerate(self.canvasList):
-            n = len(self.canvasList) - 1 - n
             if i:
-                self.pixmapList[n].convertFromImage(i)
+                self.itemList[n].setVisible(True)
+                self.itemList[n].pixmap().convertFromImage(i)
+                self.itemList[n].update()
             else:
-                self.pixmapList[n].fill(QtGui.QColor(0, 0, 0, 0))
-            self.itemList[n].setPixmap(self.pixmapList[n])
-
-    def change_size(self):
-        w, h = self.project.size[0], self.project.size[1]
-        self.scene.setSceneRect(0, 0, w, h)
-        self.bg.setPixmap(Bg(w, h))
+                self.itemList[n].setVisible(False)
 
     def wheelEvent(self, event):
         if event.delta() > 0:
@@ -151,10 +149,9 @@ class Scene(QtGui.QGraphicsView):
         
     def pointToInt(self, point):
         return QtCore.QPoint(int(point.x()), int(point.y()))
-
+        
     def mousePressEvent(self, event):
         l = self.project.currentLayer
-        l2 = len(self.canvasList) - 1 - self.project.currentLayer
         # pan
         if event.buttons() == QtCore.Qt.MidButton:
             self.startScroll = (self.horizontalScrollBar().value(),
@@ -168,14 +165,13 @@ class Scene(QtGui.QGraphicsView):
                 self.lastPos = pos
             else:
                 self.canvasList[l].clic(pos)
-                self.pixmapList[l2].convertFromImage(self.canvasList[l])
-                self.itemList[l2].setPixmap(self.pixmapList[l2])
+                self.itemList[l].pixmap().convertFromImage(self.canvasList[l])
+                self.itemList[l].update()
         else:
             return QtGui.QGraphicsView.mousePressEvent(self, event)
 
     def mouseMoveEvent(self, event):
         l = self.project.currentLayer
-        l2 = len(self.canvasList) - 1 - self.project.currentLayer
         # pan
         if event.buttons() == QtCore.Qt.MidButton:
             globalPos = QtGui.QCursor.pos()
@@ -188,26 +184,25 @@ class Scene(QtGui.QGraphicsView):
             pos = self.pointToInt(self.mapToScene(event.pos()))
             if self.project.tool == "move":
                 dif = pos - self.lastPos
-                intPos = self.pointToInt(self.itemList[l2].pos())
-                self.itemList[l2].setPos(QtCore.QPointF(intPos + dif))
+                intPos = self.pointToInt(self.itemList[l].pos())
+                self.itemList[l].setPos(QtCore.QPointF(intPos + dif))
                 self.lastPos = pos
             else:
                 self.canvasList[l].move(pos)
-                self.pixmapList[l2].convertFromImage(self.canvasList[l])
-                self.itemList[l2].setPixmap(self.pixmapList[l2])
+                self.itemList[l].pixmap().convertFromImage(self.canvasList[l])
+                self.itemList[l].update()
         else:
             return QtGui.QGraphicsView.mouseMoveEvent(self, event)
             
     def mouseReleaseEvent(self, event):
         if event.button() == QtCore.Qt.LeftButton and self.project.tool == "move":
             l = self.project.currentLayer
-            l2 = len(self.canvasList) - 1 - self.project.currentLayer
-            if self.canvasList[l] and self.itemList[l2].pos():
-                offset = (int(self.itemList[l2].pos().x()), int(self.itemList[l2].pos().y()))
+            if self.canvasList[l] and self.itemList[l].pos():
+                offset = (int(self.itemList[l].pos().x()), int(self.itemList[l].pos().y()))
                 self.canvasList[l].load_from_list(self.canvasList[l].return_as_list(), 
                                                   self.canvasList[l].width(),
                                                   offset)
-                self.itemList[l2].setPos(QtCore.QPointF(0, 0))
+                self.itemList[l].setPos(QtCore.QPointF(0, 0))
                 self.change_frame()
         else:
             return QtGui.QGraphicsView.mouseReleaseEvent(self, event)
@@ -482,6 +477,20 @@ class ToolsWidget(QtGui.QWidget):
         self.addColorB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/color_add.png")))
         self.addColorB.clicked.connect(self.add_color_clicked)
         self.addColorB.setToolTip("add color")
+        self.onionSkinPrevB = QtGui.QToolButton()
+        self.onionSkinPrevB.setAutoRaise(True)
+        self.onionSkinPrevB.setCheckable(True)
+        self.onionSkinPrevB.setIconSize(QtCore.QSize(24, 24)) 
+        self.onionSkinPrevB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/onionskin_prev.png")))
+        self.onionSkinPrevB.clicked.connect(self.onionskin_prev_clicked)
+        self.onionSkinPrevB.setToolTip("onion skin - previous frame")
+        self.onionSkinNextB = QtGui.QToolButton()
+        self.onionSkinNextB.setAutoRaise(True)
+        self.onionSkinNextB.setCheckable(True)
+        self.onionSkinNextB.setIconSize(QtCore.QSize(24, 24)) 
+        self.onionSkinNextB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/onionskin_next.png")))
+        self.onionSkinNextB.clicked.connect(self.onionskin_next_clicked)
+        self.onionSkinNextB.setToolTip("onion skin - next frame")
         
         ### Layout ###
         layout = QtGui.QGridLayout()
@@ -494,6 +503,8 @@ class ToolsWidget(QtGui.QWidget):
         layout.addWidget(self.penW, 1, 0, 1, 4)
         layout.addWidget(self.paletteCanvas, 2, 0, 1, 4)
         layout.addWidget(self.addColorB, 3, 0)
+        layout.addWidget(self.onionSkinPrevB, 3, 2)
+        layout.addWidget(self.onionSkinNextB, 3, 3)
         self.setLayout(layout)
 
     def showEvent(self, event):
@@ -570,7 +581,18 @@ class ToolsWidget(QtGui.QWidget):
     def select_color(self, n):
         self.project.color = n
         self.paletteCanvas.update()
-
+    
+    def onionskin_prev_clicked(self):
+        if self.onionSkinPrevB.isChecked():
+            self.project.onionSkinPrev = True
+        else:
+            self.project.onionSkinPrev = False
+        
+    def onionskin_next_clicked(self):
+        if self.onionSkinNextB.isChecked():
+            self.project.onionSkinNext = True
+        else:
+            self.project.onionSkinNext = False
 
 class Project(QtCore.QObject):
     """ store all data that need to be saved"""
@@ -590,6 +612,8 @@ class Project(QtCore.QObject):
         self.currentFrame = 0
         self.currentLayer = 0
         self.playing = False
+        self.onionSkinPrev = False
+        self.onionSkinNext = False
         
         # TODO
         self.url = None
