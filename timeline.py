@@ -644,6 +644,7 @@ class Timeline(QtGui.QWidget):
         self.playFrameB.state = "play"
         self.playFrameB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_play.png")))
         self.project.playing = False
+        self.project.update_view.emit()
         
     def animate(self):
         if self.fps != self.project.fps:

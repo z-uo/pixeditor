@@ -83,26 +83,39 @@ class Scene(QtGui.QGraphicsView):
     def __init__(self, project):
         QtGui.QGraphicsView.__init__(self)
         self.project = project
-
-        # the canvas to draw on
-        self.canvas = False
         self.zoomN = 1
-
+        # scene
         self.scene = QtGui.QGraphicsScene(self)
         self.scene.setItemIndexMethod(QtGui.QGraphicsScene.NoIndex)
         self.setScene(self.scene)
         self.setTransformationAnchor(QtGui.QGraphicsView.AnchorUnderMouse)
         self.setResizeAnchor(QtGui.QGraphicsView.AnchorViewCenter)
         self.setMinimumSize(400, 400)
-        
-        w, h = self.project.size[0], self.project.size[1]
-        self.scene.setSceneRect(0, 0, w, h)
-
+        self.scene.setSceneRect(0, 0, self.project.size[0], self.project.size[1])
+        # background
         self.setBackgroundBrush(QtGui.QBrush(QtGui.QColor(150, 150, 150)))
-        self.bg = self.scene.addPixmap(Bg(w, h))
-
+        self.bg = self.scene.addPixmap(Bg(self.scene.width(), self.scene.height()))
+        # frames
         self.itemList = []
         self.canvasList = []
+        # OnionSkin
+        p = QtGui.QPixmap(self.scene.width(), self.scene.height())
+        self.onionPrevItem = self.scene.addPixmap(p)
+        self.onionPrevItem.setZValue(101)
+        self.onionPrevItem.setOpacity(0.5)
+        self.onionPrevItem.hide()
+        p = QtGui.QPixmap(self.scene.width(), self.scene.height())
+        self.onionNextItem = self.scene.addPixmap(p)
+        self.onionNextItem.setZValue(102)
+        self.onionNextItem.setOpacity(0.5)
+        self.onionNextItem.hide()
+        # pen
+        #~ self.pen = Canvas(self.project, self.project.size[0], self.project.size[1])
+        #~ p = QtGui.QPixmap()
+        #~ p.convertFromImage(self.pen)
+        #~ self.penItem = self.scene.addPixmap(p)
+        #~ self.penItem.setZValue(103)
+        
         self.change_frame()
         self.project.update_view.connect(self.change_frame)
         
@@ -133,6 +146,26 @@ class Scene(QtGui.QGraphicsView):
                 self.itemList[n].update()
             else:
                 self.itemList[n].setVisible(False)
+                
+        if self.project.onionSkinPrev and not self.project.playing:
+            prev = self.project.get_prev_canvas()
+            if prev:
+                self.onionPrevItem.pixmap().convertFromImage(prev)
+                self.onionPrevItem.show()
+            else:
+                self.onionPrevItem.hide()
+        else:
+            self.onionPrevItem.hide()
+            
+        if self.project.onionSkinNext and not self.project.playing:
+            nex = self.project.get_next_canvas()
+            if nex:
+                self.onionNextItem.pixmap().convertFromImage(nex)
+                self.onionNextItem.show()
+            else:
+                self.onionNextItem.hide()
+        else:
+            self.onionNextItem.hide()
 
     def wheelEvent(self, event):
         if event.delta() > 0:
@@ -171,6 +204,14 @@ class Scene(QtGui.QGraphicsView):
             return QtGui.QGraphicsView.mousePressEvent(self, event)
 
     def mouseMoveEvent(self, event):
+        #~ self.pen.fill(0)
+        #~ pos = self.pointToInt(self.mapToScene(event.pos()))
+        #~ print pos
+        #~ print event.scenePos()
+        #~ self.pen.draw_point(pos)
+        #~ self.penItem.pixmap().convertFromImage(self.pen)
+        #~ self.penItem.update()
+        
         l = self.project.currentLayer
         # pan
         if event.buttons() == QtCore.Qt.MidButton:
@@ -587,12 +628,14 @@ class ToolsWidget(QtGui.QWidget):
             self.project.onionSkinPrev = True
         else:
             self.project.onionSkinPrev = False
+        self.project.update_view.emit()
         
     def onionskin_next_clicked(self):
         if self.onionSkinNextB.isChecked():
             self.project.onionSkinNext = True
         else:
             self.project.onionSkinNext = False
+        self.project.update_view.emit()
 
 class Project(QtCore.QObject):
     """ store all data that need to be saved"""
@@ -720,6 +763,38 @@ class Project(QtCore.QObject):
                 else:
                     return self.frames[l]["frames"][f]
             f -= 1
+        return False
+        
+    def get_prev_canvas(self):
+        f = self.get_canvas(False, True)
+        l = self.currentLayer
+        if f:
+            f = f[0]
+            for i in reversed(xrange(f)):
+                if self.frames[l]["frames"][i]:
+                    return self.frames[l]["frames"][i]
+        return False
+        #~ f = self.currentFrameget_canvas(self, index=False, getIndex=False)
+        #~ l = self.currentLayer
+        #~ if f < len(self.frames[l]["frames"]):
+            #~ if self.frames[l]["frames"][f]:
+                #~ toPass = True
+            #~ else:
+                #~ toPass = False
+            #~ for i in reversed(xrange(f)):
+                #~ if self.frames[l]["frames"][i]:
+                    #~ if toPass:
+                        #~ return self.frames[l]["frames"][i]
+                    #~ else:
+                        #~ toPass = True
+        
+    def get_next_canvas(self):
+        f = self.currentFrame
+        l = self.currentLayer
+        if f < len(self.frames[l]["frames"]):
+                for i in xrange(f+1, len(self.frames[l]["frames"])):
+                    if self.frames[l]["frames"][i]:
+                        return self.frames[l]["frames"][i]
         return False
         
     def get_all_canvas(self):
