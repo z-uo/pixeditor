@@ -17,32 +17,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-# DONE add play function
-# DONE add custom framerate, stop button, repeat
-# DONE add still image in timeline > gerer supression
-# DONE always one frame selected
-# DONE bug when deleting the last frame
-# DONE duplicate frame (make a still frame drawable)
-# DONE clear frame (create new on a still frame)
-# DONE add new canvas / save / open / export
-# DONE add palette
-# DONE add palette: change color on doubleclic
-# DONE add indexed color
-# DONE add custom brushes
-# DONE add shortcut to change frames
-# DONE add undeo redo (work only on canvas)
-
-# DONE add pipette
-# DONE add fill
-# DONE add resize canvas
-# bug save filename
 # add more control on palette
 # add a tool to make lines (iso...)
-# add move frame content
-# add icones with update on mouserelese
-# add copy paste move frame
-# add onionskin
-# add layers
 # add choice between a gif or png transparency mode
 # add a cursor layer (pixel who will be paint) grid
 # add animated gif export
@@ -71,12 +47,21 @@ class Bg(QtGui.QPixmap):
     def __init__(self, w, h):
         QtGui.QPixmap.__init__(self, w, h)
         self.brush = QtGui.QBrush(QtGui.QPixmap("icons/bg.png"))
-        self.fill(QtGui.QColor(255, 255, 255, 0))
-        self.paintEvent()
-
-    def paintEvent(self, ev=None):
+        self.fill(QtGui.QColor(0, 0, 0, 0))
         p = QtGui.QPainter(self)
-        p.fillRect (0, 0, self.width(), self.height(), self.brush)
+        p.fillRect (0,0, w, h, self.brush)
+    
+class Border(QtGui.QPixmap):
+    """ background of the scene"""
+    def __init__(self, w, h):
+        QtGui.QPixmap.__init__(self, w+2, h+2)
+        self.fill(QtGui.QColor(255, 255, 255, 0))
+        p = QtGui.QPainter(self)
+        p.setPen(QtGui.QPen(QtGui.QColor(0, 0, 0)))
+        p.drawLine (0, 0, w+1, 0)
+        p.drawLine (w+1, 0, w+1, h+1)
+        p.drawLine (w+1, h+1, 0, h+1)
+        p.drawLine (0, h, 0, 0)
 
 class Scene(QtGui.QGraphicsView):
     """ Display, zoom, pan..."""
@@ -84,48 +69,69 @@ class Scene(QtGui.QGraphicsView):
         QtGui.QGraphicsView.__init__(self)
         self.project = project
         self.zoomN = 1
+        w, h = self.project.size[0], self.project.size[1]
         # scene
         self.scene = QtGui.QGraphicsScene(self)
         self.scene.setItemIndexMethod(QtGui.QGraphicsScene.NoIndex)
         self.setScene(self.scene)
-        self.setTransformationAnchor(QtGui.QGraphicsView.AnchorUnderMouse)
+        self.setTransformationAnchor(
+                QtGui.QGraphicsView.AnchorUnderMouse)
         self.setResizeAnchor(QtGui.QGraphicsView.AnchorViewCenter)
         self.setMinimumSize(400, 400)
-        self.scene.setSceneRect(0, 0, self.project.size[0], self.project.size[1])
+        self.scene.setSceneRect(0, 0, w, h)
         # background
         self.setBackgroundBrush(QtGui.QBrush(QtGui.QColor(150, 150, 150)))
-        self.bg = self.scene.addPixmap(Bg(self.scene.width(), self.scene.height()))
+        self.bg = self.scene.addPixmap(Bg(w, h))
+        self.border = self.scene.addPixmap(Border(w, h))
+        self.border.setPos(-1, -1)
         # frames
         self.itemList = []
         self.canvasList = []
         # OnionSkin
-        p = QtGui.QPixmap(self.scene.width(), self.scene.height())
+        p = QtGui.QPixmap(w, h)
         self.onionPrevItem = self.scene.addPixmap(p)
         self.onionPrevItem.setZValue(101)
         self.onionPrevItem.setOpacity(0.5)
         self.onionPrevItem.hide()
-        p = QtGui.QPixmap(self.scene.width(), self.scene.height())
+        p = QtGui.QPixmap(w, h)
         self.onionNextItem = self.scene.addPixmap(p)
         self.onionNextItem.setZValue(102)
         self.onionNextItem.setOpacity(0.5)
         self.onionNextItem.hide()
         # pen
-        #~ self.pen = Canvas(self.project, self.project.size[0], self.project.size[1])
-        #~ p = QtGui.QPixmap()
-        #~ p.convertFromImage(self.pen)
-        #~ self.penItem = self.scene.addPixmap(p)
-        #~ self.penItem.setZValue(103)
+        self.penItem = QtGui.QGraphicsRectItem(0, 0, 1, 1)
+        self.penItem.setBrush(QtGui.QBrush(QtGui.QColor(0, 0, 0, 0)))
+        self.penItem.setPen(QtGui.QPen(QtCore.Qt.NoPen))
+        self.scene.addItem(self.penItem)
+        self.penItem.setZValue(103)
+        self.penItem.hide()
+        self.project.pen_changed.connect(self.change_pen)
+        self.project.tool_changed.connect(self.change_pen)
+        self.change_pen()
         
-        self.change_frame()
         self.project.update_view.connect(self.change_frame)
+        self.change_frame()
+        
+    def change_pen(self):
+        for i in self.penItem.childItems():
+                self.scene.removeItem(i)
+        if self.project.tool == "pen":
+            pen = QtGui.QPen()
+            pen.setWidth(0.1)
+            for i in self.project.pen:
+                p = QtGui.QGraphicsRectItem(i[0], i[1], 1, 1, self.penItem)
+                p.setPen(pen)
+                p.setBrush(QtGui.QBrush(QtGui.QColor(0, 0, 0, 0)))
         
     def change_frame(self):
+        # resize scene if needed
         w, h = self.project.size[0], self.project.size[1]
         if (int(self.scene.sceneRect().width()) != w or
             int(self.scene.sceneRect().height()) != h):
             self.scene.setSceneRect(0, 0, w, h)
             self.bg.setPixmap(Bg(w, h))
-            
+            self.border.setPixmap(Border(w, h))
+        # init item hanging canvas if needed
         self.canvasList = self.project.get_canvas_list()
         if len(self.itemList) != len(self.canvasList):
             for i in self.itemList:
@@ -138,7 +144,7 @@ class Scene(QtGui.QGraphicsView):
             for i in self.itemList:
                 i.setZValue(z)
                 z -= 1
-            
+        # updates canvas
         for n, i in enumerate(self.canvasList):
             if i:
                 self.itemList[n].setVisible(True)
@@ -146,7 +152,7 @@ class Scene(QtGui.QGraphicsView):
                 self.itemList[n].update()
             else:
                 self.itemList[n].setVisible(False)
-                
+        # onionskin
         if self.project.onionSkinPrev and not self.project.playing:
             prev = self.project.get_prev_canvas()
             if prev:
@@ -156,7 +162,6 @@ class Scene(QtGui.QGraphicsView):
                 self.onionPrevItem.hide()
         else:
             self.onionPrevItem.hide()
-            
         if self.project.onionSkinNext and not self.project.playing:
             nex = self.project.get_next_canvas()
             if nex:
@@ -178,10 +183,14 @@ class Scene(QtGui.QGraphicsView):
         if n < 1 or n > 32:
             return
         self.zoomN = n
+        self.penItem.hide()
         self.scale(factor, factor)
         
     def pointToInt(self, point):
         return QtCore.QPoint(int(point.x()), int(point.y()))
+        
+    def pointToFloat(self, point):
+        return QtCore.QPointF(int(point.x()), int(point.y()))
         
     def mousePressEvent(self, event):
         l = self.project.currentLayer
@@ -202,16 +211,16 @@ class Scene(QtGui.QGraphicsView):
                 self.itemList[l].update()
         else:
             return QtGui.QGraphicsView.mousePressEvent(self, event)
-
-    def mouseMoveEvent(self, event):
-        #~ self.pen.fill(0)
-        #~ pos = self.pointToInt(self.mapToScene(event.pos()))
-        #~ print pos
-        #~ print event.scenePos()
-        #~ self.pen.draw_point(pos)
-        #~ self.penItem.pixmap().convertFromImage(self.pen)
-        #~ self.penItem.update()
+            
+    def enterEvent(self, event):
+        self.penItem.show()
         
+    def leaveEvent(self, event):
+        self.penItem.hide()
+        
+    def mouseMoveEvent(self, event):
+        self.penItem.show()
+        self.penItem.setPos(self.pointToFloat(self.mapToScene(event.pos())))
         l = self.project.currentLayer
         # pan
         if event.buttons() == QtCore.Qt.MidButton:
@@ -251,7 +260,7 @@ class Scene(QtGui.QGraphicsView):
 
 class Canvas(QtGui.QImage):
     """ Canvas for drawing"""
-    def __init__(self, project, w, h=None, col=None):
+    def __init__(self, project, w, h=None):
         self.project = project
         if not h:
             QtGui.QImage.__init__(self, w)
@@ -354,7 +363,8 @@ class Canvas(QtGui.QImage):
                 l.append((x, y-1))
 
     def clic(self, point):
-        if (self.project.tool == "pen" or self.project.tool == "fill") and QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier:
+        if ((self.project.tool == "pen" or self.project.tool == "fill") and 
+             QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier):
             if self.rect().contains(point):
                 self.project.color = self.pixelIndex(point)
                 self.project.update_palette.emit()
@@ -379,7 +389,8 @@ class Canvas(QtGui.QImage):
             self.lastPoint = False
 
     def move(self, point):
-        if (self.project.tool == "pen" or self.project.tool == "fill") and QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier:
+        if ((self.project.tool == "pen" or self.project.tool == "fill") and 
+             QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier):
             if self.rect().contains(point):
                 self.project.color = self.pixelIndex(point)
                 self.project.update_palette.emit()
@@ -560,6 +571,7 @@ class ToolsWidget(QtGui.QWidget):
             self.fillB.setChecked(False)
             self.penB.setChecked(True)
             self.moveB.setChecked(False)
+            self.project.tool_changed.emit()
 
     def pipette_tool_clicked(self):
         if self.pipetteB.isChecked() or (not self.penB.isChecked() and not 
@@ -569,6 +581,7 @@ class ToolsWidget(QtGui.QWidget):
             self.fillB.setChecked(False)
             self.pipetteB.setChecked(True)
             self.moveB.setChecked(False)
+            self.project.tool_changed.emit()
 
     def fill_tool_clicked(self):
         if self.fillB.isChecked() or (not self.penB.isChecked() and not 
@@ -578,6 +591,7 @@ class ToolsWidget(QtGui.QWidget):
             self.pipetteB.setChecked(False)
             self.penB.setChecked(False)
             self.moveB.setChecked(False)
+            self.project.tool_changed.emit()
             
     def move_tool_clicked(self):
         if self.moveB.isChecked() or (not self.penB.isChecked() and not 
@@ -587,9 +601,11 @@ class ToolsWidget(QtGui.QWidget):
             self.pipetteB.setChecked(False)
             self.penB.setChecked(False)
             self.moveB.setChecked(True)
+            self.project.tool_changed.emit()
 
     def pen_chooser_clicked(self, text):
         self.project.pen = self.penDict[str(text)]
+        self.project.pen_changed.emit()
     
     ######## Color #####################################################
     def change_canvas_colortable(self):
@@ -642,6 +658,8 @@ class Project(QtCore.QObject):
     update_view = QtCore.pyqtSignal()
     update_palette = QtCore.pyqtSignal()
     update_timeline = QtCore.pyqtSignal()
+    pen_changed = QtCore.pyqtSignal()
+    tool_changed = QtCore.pyqtSignal()
     def __init__(self, parent):
         QtCore.QObject.__init__(self)
         self.parent = parent
@@ -715,7 +733,7 @@ class Project(QtCore.QObject):
         if canvas:
             return Canvas(self, canvas)
         else:
-            return Canvas(self, self.size[0], self.size[1], self.colorTable)
+            return Canvas(self, self.size[0], self.size[1])
             
     def make_layer(self, layer=False):
         """ make a new empty layer by default
@@ -730,7 +748,11 @@ class Project(QtCore.QObject):
                     l[i] = Canvas(self, f)
             return l
         else:
-            return {"frames" : [self.make_canvas(), ], "pos" : 0, "visible" : True, "lock" : False, "name": name}
+            return {"frames" : [self.make_canvas(), ], 
+                    "pos" : 0, 
+                    "visible" : True, 
+                    "lock" : False, 
+                    "name": name}
         
     def get_canvas_list(self):
         """ return the list of all layer's canvas at self.currentFrame """
@@ -766,6 +788,7 @@ class Project(QtCore.QObject):
         return False
         
     def get_prev_canvas(self):
+        """ return the previous canvas (if any) for onionskin """
         f = self.get_canvas(False, True)
         l = self.currentLayer
         if f:
@@ -774,27 +797,15 @@ class Project(QtCore.QObject):
                 if self.frames[l]["frames"][i]:
                     return self.frames[l]["frames"][i]
         return False
-        #~ f = self.currentFrameget_canvas(self, index=False, getIndex=False)
-        #~ l = self.currentLayer
-        #~ if f < len(self.frames[l]["frames"]):
-            #~ if self.frames[l]["frames"][f]:
-                #~ toPass = True
-            #~ else:
-                #~ toPass = False
-            #~ for i in reversed(xrange(f)):
-                #~ if self.frames[l]["frames"][i]:
-                    #~ if toPass:
-                        #~ return self.frames[l]["frames"][i]
-                    #~ else:
-                        #~ toPass = True
         
     def get_next_canvas(self):
+        """ return the next canvas (if any) for onionskin """
         f = self.currentFrame
         l = self.currentLayer
         if f < len(self.frames[l]["frames"]):
-                for i in xrange(f+1, len(self.frames[l]["frames"])):
-                    if self.frames[l]["frames"][i]:
-                        return self.frames[l]["frames"][i]
+            for i in xrange(f+1, len(self.frames[l]["frames"])):
+                if self.frames[l]["frames"][i]:
+                    return self.frames[l]["frames"][i]
         return False
         
     def get_all_canvas(self):
@@ -805,7 +816,6 @@ class Project(QtCore.QObject):
                 if f:
                     canvas.append(f)
         return canvas
-        #~ return [[f for f in l["frames"]] for l in self.frames]
         
 class MainWindow(QtGui.QMainWindow):
     """ Main windows of the application """
