@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
 
+# Python 3 Compatibility
+from __future__ import print_function
+from platform import python_version_tuple
+if int(python_version_tuple()[0]) >= 3:
+    xrange = range
+
 from PyQt4 import QtCore
 from PyQt4 import QtGui
 from PyQt4 import Qt
@@ -19,7 +25,7 @@ def open_pix(url=None):
             save.close()
             return size, colors, frames
         except IOError:
-            print "Can't open file"
+            print("Can't open file")
             return False, False, False
         return False, False, False
         
@@ -32,7 +38,7 @@ def return_canvas(save):
     framesElem = saveElem.find("frames")
     frames = []
     for layerElem in framesElem:
-        print layerElem.attrib["name"]
+        print(layerElem.attrib["name"])
         layer = {"frames": [], "name": str(layerElem.attrib["name"]), "pos" : 0, "visible" : True, "lock" : False}
         for f in layerElem.itertext():
             if f == "0":
@@ -87,7 +93,7 @@ Should I save your animation as :
         save.close()
         return True
     except IOError:
-        print "Can't open file"
+        print("Can't open file")
         return False
         
 def return_pix(project):
@@ -107,7 +113,10 @@ def return_pix(project):
                 fElem.text = "0"
             else:
                 fElem.text = ','.join(str(p) for p in f.return_as_list())
-    return ET.tostring(saveElem)
+    if int(python_version_tuple()[0]) >= 3:
+        return ET.tostring(saveElem, encoding="unicode")
+    else:
+        return ET.tostring(saveElem)
     
 def return_old_pix(size, color, frames):
     saveElem = ET.Element("pix", version="0,1")
@@ -162,11 +171,19 @@ def return_old_pix(size, color, frames):
                 #~ i[1].save(i[0])
 
 def export(project, url=None):
-    url = QtGui.QFileDialog.getSaveFileName(None, "export (.png or .nanim)", "", "Png files (*.png);;Nanim files (*.nanim)")
+    # nanim requires google.protobuf, which is Python 2.x only
+    if int(python_version_tuple()[0]) >= 3:
+        url = QtGui.QFileDialog.getSaveFileName(
+            None, "export (.png)", "", "PNG files (*.png)")
+    else:
+        url = QtGui.QFileDialog.getSaveFileName(
+            None, "export (.png or .nanim)", "",
+            "Png files (*.png);;Nanim files (*.nanim)")
     if url:
-        if url.endsWith("png"):
+        # In Python 3.x, getSaveFileName returns a str, not a QString
+        if str(url).endswith("png"):
             export_png(project, url)
-        elif url.endsWith("nanim"):
+        elif str(url).endswith("nanim"):
             export_nanim(project, url)
 
 def export_png(project, url):
@@ -203,8 +220,10 @@ def export_nanim(project, url):
         import google.protobuf
     except ImportError:
         message = QtGui.QMessageBox()
-        message.setWindowTitle("Import error")
-        message.setText("You need google protobuf to export as nanim.\nYou can download it at :\nhttps://code.google.com/p/protobuf/downloads/list");
+        message.setWindowTitle("Export error")
+        # Set text format to rich text
+        message.setTextFormat(1)
+        message.setText("You need google protobuf to export as nanim.\nYou can download it at :\n<a href='https://code.google.com/p/protobuf/downloads/list'>https://code.google.com/p/protobuf/downloads/list</a>");
         message.setIcon(QtGui.QMessageBox.Warning)
         message.addButton("Ok", QtGui.QMessageBox.AcceptRole)
         message.exec_();
