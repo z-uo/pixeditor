@@ -48,7 +48,12 @@
 # add animated gif export
 
 
+# Python 3 Compatibility
 from __future__ import division
+from platform import python_version_tuple
+if int(python_version_tuple()[0]) >= 3:
+    xrange = range
+
 import sys
 import os
 from PyQt4 import QtCore
@@ -832,7 +837,7 @@ class MainWindow(QtGui.QMainWindow):
         saveAction = QtGui.QAction('&Save', self)
         saveAction.setShortcut('Ctrl+S')
         saveAction.triggered.connect(self.save_action)
-        exportAction = QtGui.QAction('&export', self)
+        exportAction = QtGui.QAction('E&xport', self)
         exportAction.setShortcut('Ctrl+E')
         exportAction.triggered.connect(self.export_action)
         exitAction = QtGui.QAction('&Exit', self)
