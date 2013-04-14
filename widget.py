@@ -1,14 +1,22 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
 
-
-import sys
-import os
 from PyQt4 import QtCore
 from PyQt4 import QtGui
-from PyQt4 import Qt
 
-class Button(QtGui.QWidget):
+    
+class Button(QtGui.QToolButton):
+    """ button """
+    def __init__(self, tooltip, iconUrl, connection, checkable=False):
+        QtGui.QToolButton.__init__(self)
+        self.setToolTip(tooltip)
+        self.setAutoRaise(True)
+        self.setCheckable(checkable)
+        self.setIconSize(QtCore.QSize(24, 24)) 
+        self.setIcon(QtGui.QIcon(QtGui.QPixmap(iconUrl)))
+        self.clicked.connect(connection)
+        
+class AnimatedButton(QtGui.QWidget):
     def __init__(self):
         QtGui.QWidget.__init__(self)
         self.setFixedSize(24, 24)

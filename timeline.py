@@ -6,10 +6,7 @@ from PyQt4 import QtGui
 from PyQt4 import QtCore
 from PyQt4 import Qt
 from dialogs import RenameLayerDialog
-
-# change widgetsize on frame/layer change
-# copy/paste > frame lenght as object
-# organize layers
+from widget import Button
 
 class Viewer(QtGui.QScrollArea):
     """ QScrollArea you can move with midbutton"""
@@ -38,12 +35,13 @@ class Viewer(QtGui.QScrollArea):
             self.resyzing.emit((event.size().width(), event.size().height()))
         return QtGui.QScrollArea.event(self, event)
 
+
 class LayersCanvas(QtGui.QWidget):
     """ Widget containing the canvas list """
     def __init__(self, parent):
         QtGui.QWidget.__init__(self)
         self.parent = parent
-        self.setFixedWidth(60)
+        self.setFixedWidth(100)
         
         self.white = QtGui.QBrush(QtGui.QColor(255, 255, 255))
         self.black = QtGui.QBrush(QtGui.QColor(0, 0, 0))
@@ -51,12 +49,15 @@ class LayersCanvas(QtGui.QWidget):
         self.font = QtGui.QFont('SansSerif', 8, QtGui.QFont.Normal)
         self.layerH = 20
         self.margeH = 22
+        self.visibleList = []
         
     def paintEvent(self, ev=''):
         lH, mH = self.layerH, self.margeH
         p = QtGui.QPainter(self)
         p.setPen(QtGui.QPen(self.black))
+        p.setBrush(QtGui.QBrush(self.white))
         p.setFont(self.font)
+        self.visibleList = []
         
         # background
         p.fillRect (0, 0, self.width(), self.height(), self.grey)
@@ -72,6 +73,11 @@ class LayersCanvas(QtGui.QWidget):
             #~ y = (i * lH) + mH
             p.drawText(4, y-6, layer["name"])
             p.drawLine (0, y-1, self.width(), y-1)
+            rect = QtCore.QRect(82, y-19, 15, 15)
+            self.visibleList.append(rect)
+            p.drawRect(rect)
+            if layer["visible"]:
+                p.fillRect(84, y-17, 12, 12, self.black)
         
     def event(self, event):
         if (event.type() == QtCore.QEvent.MouseButtonPress and
@@ -79,6 +85,12 @@ class LayersCanvas(QtGui.QWidget):
             item = self.layer_at(event.y())
             if item is not None:
                 self.parent.project.currentLayer = item
+                if self.visibleList[item].contains(event.pos()):
+                    if self.parent.project.frames[item]["visible"]:
+                        self.parent.project.frames[item]["visible"] = False
+                    else: 
+                        self.parent.project.frames[item]["visible"] = True
+                    self.parent.project.update_view.emit()
                 self.update()
         elif (event.type() == QtCore.QEvent.MouseButtonDblClick and
                        event.button()==QtCore.Qt.LeftButton):
@@ -259,7 +271,6 @@ class TimelineCanvas(QtGui.QWidget):
         return None
         
         
-########################################################################
 class Timeline(QtGui.QWidget):
     """ widget containing timeline, layers and all their buttons """
     def __init__(self, project):
@@ -302,72 +313,22 @@ class Timeline(QtGui.QWidget):
         shortpaste.setKey(QtGui.QKeySequence(QtCore.Qt.CTRL + QtCore.Qt.Key_V))
         shortpaste.activated.connect(self.paste)
         
-        ### adding and deleting images ###
-        self.addFrameB = QtGui.QToolButton()
-        self.addFrameB.setAutoRaise(True)
-        self.addFrameB.setIconSize(QtCore.QSize(24, 24)) 
-        self.addFrameB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_add.png")))
-        self.addFrameB.clicked.connect(self.add_frame_clicked)
-        self.addFrameB.setToolTip("add frame")
-        self.dupFrameB = QtGui.QToolButton()
-        self.dupFrameB.setAutoRaise(True)
-        self.dupFrameB.setIconSize(QtCore.QSize(24, 24)) 
-        self.dupFrameB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_dup.png")))
-        self.dupFrameB.clicked.connect(self.duplicate_frame_clicked)
-        self.dupFrameB.setToolTip("duplicate frame")
-        self.delFrameB = QtGui.QToolButton()
-        self.delFrameB.setAutoRaise(True)
-        self.delFrameB.setIconSize(QtCore.QSize(24, 24)) 
-        self.delFrameB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_del.png")))
-        self.delFrameB.clicked.connect(self.delete_frame_clicked)
-        self.delFrameB.setToolTip("delete frame")
-        self.clearFrameB = QtGui.QToolButton()
-        self.clearFrameB.setAutoRaise(True)
-        self.clearFrameB.setIconSize(QtCore.QSize(24, 24)) 
-        self.clearFrameB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/frame_clear.png")))
-        self.clearFrameB.clicked.connect(self.clear_frame_clicked)
-        self.clearFrameB.setToolTip("clear frame")
-
         ### adding and deleting layers ###
-        self.addLayerB = QtGui.QToolButton()
-        self.addLayerB.setAutoRaise(True)
-        self.addLayerB.setIconSize(QtCore.QSize(24, 24)) 
-        self.addLayerB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/layer_add.png")))
-        self.addLayerB.clicked.connect(self.add_layer_clicked)
-        self.addLayerB.setToolTip("add layer")
-        self.dupLayerB = QtGui.QToolButton()
-        self.dupLayerB.setAutoRaise(True)
-        self.dupLayerB.setIconSize(QtCore.QSize(24, 24)) 
-        self.dupLayerB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/layer_dup.png")))
-        self.dupLayerB.clicked.connect(self.duplicate_layer_clicked)
-        self.dupLayerB.setToolTip("duplicate layer")
-        self.delLayerB = QtGui.QToolButton()
-        self.delLayerB.setAutoRaise(True)
-        self.delLayerB.setIconSize(QtCore.QSize(24, 24)) 
-        self.delLayerB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/layer_del.png")))
-        self.delLayerB.clicked.connect(self.delete_layer_clicked)
-        self.delLayerB.setToolTip("delete layer")
-        self.upLayerB = QtGui.QToolButton()
-        self.upLayerB.setAutoRaise(True)
-        self.upLayerB.setIconSize(QtCore.QSize(24, 24)) 
-        self.upLayerB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/layer_up.png")))
-        self.upLayerB.clicked.connect(self.up_layer_clicked)
-        self.upLayerB.setToolTip("move up layer")
-        self.downLayerB = QtGui.QToolButton()
-        self.downLayerB.setAutoRaise(True)
-        self.downLayerB.setIconSize(QtCore.QSize(24, 24)) 
-        self.downLayerB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/layer_down.png")))
-        self.downLayerB.clicked.connect(self.down_layer_clicked)
-        self.downLayerB.setToolTip("move down layer")
+        self.addLayerB = Button("add layer", "icons/layer_add.png", self.add_layer_clicked)
+        self.dupLayerB = Button("duplicate layer", "icons/layer_dup.png", self.duplicate_layer_clicked)
+        self.delLayerB = Button("delete layer", "icons/layer_del.png", self.delete_layer_clicked)
+        self.upLayerB = Button("move up layer", "icons/layer_up.png", self.up_layer_clicked)
+        self.downLayerB = Button("move down layer", "icons/layer_down.png", self.down_layer_clicked)
+        
+        ### adding and deleting images ###
+        self.addFrameB = Button("add frame", "icons/frame_add.png", self.add_frame_clicked)
+        self.dupFrameB = Button("duplicate frame", "icons/frame_dup.png", self.duplicate_frame_clicked)
+        self.delFrameB = Button("delete frame", "icons/frame_del.png", self.delete_frame_clicked)
+        self.clearFrameB = Button("clear frame", "icons/frame_clear.png", self.clear_frame_clicked)
         
         ### play the animation ###
-        self.playFrameB = QtGui.QToolButton()
+        self.playFrameB = Button("play / pause", "icons/play_play.png", self.play_pause_clicked)
         self.playFrameB.state = "play"
-        self.playFrameB.setAutoRaise(True)
-        self.playFrameB.setIconSize(QtCore.QSize(24, 24)) 
-        self.playFrameB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_play.png")))
-        self.playFrameB.clicked.connect(self.play_pause_clicked)
-        self.playFrameB.setToolTip("play / pause")
         self.fpsL = QtGui.QLabel("fps")
         self.fpsW = QtGui.QLineEdit(self)
         self.fpsW.setText(str(12))
@@ -376,13 +337,8 @@ class Timeline(QtGui.QWidget):
         self.fpsW.setValidator(valid)
         self.fpsW.textChanged.connect(self.fps_changed)
 
-        self.repeatB = QtGui.QToolButton()
+        self.repeatB = Button("no repeat / repeat", "icons/play_no_repeat.png", self.repeat_clicked)
         self.repeatB.state = False
-        self.repeatB.setAutoRaise(True)
-        self.repeatB.setIconSize(QtCore.QSize(24, 24)) 
-        self.repeatB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_no_repeat.png")))
-        self.repeatB.clicked.connect(self.repeat_clicked)
-        self.repeatB.setToolTip("no repeat / repeat")
 
         ### layout ###
         layout = QtGui.QGridLayout()
@@ -390,8 +346,6 @@ class Timeline(QtGui.QWidget):
         layout.addWidget(self.addLayerB, 0, 0)
         layout.addWidget(self.dupLayerB, 1, 0)
         layout.addWidget(self.delLayerB, 2, 0)
-        #~ layout.addWidget(self.upLayerB, 3, 0)
-        #~ layout.addWidget(self.downLayerB, 4, 0)
         layout.addWidget(self.layersV, 0, 1, 5, 3)
         layout.addWidget(self.upLayerB, 5, 1)
         layout.addWidget(self.downLayerB, 5, 2)
