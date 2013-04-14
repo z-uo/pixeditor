@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
 
+# Python 3 Compatibility
+from __future__ import print_function
+
 from PyQt4 import QtCore
 from PyQt4 import QtGui
 
@@ -51,6 +54,6 @@ class AnimatedButton(QtGui.QWidget):
         self.update()
     def anim(self):
         self.i = (self.i+1) % len(self.li)
-        print self.i
+        print(self.i)
         self.pix = self.li[self.i]
         self.update()

@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 #-*- coding: utf-8 -*-
 
+# Python 3 Compatibility
 from __future__ import division
+from platform import python_version_tuple
+if int(python_version_tuple()[0]) >= 3:
+    xrange = range
+
 from PyQt4 import QtGui
 from PyQt4 import QtCore
 from PyQt4 import Qt
