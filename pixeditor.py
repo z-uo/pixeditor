@@ -17,10 +17,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-# add more control on palette
+# bug on duplicate layer
 # add a tool to make lines (iso...)
 # add choice between a gif or png transparency mode
-# add a cursor layer (pixel who will be paint) grid
+# add a grid
 # add animated gif export
 
 
@@ -47,9 +47,6 @@ DEFAUT_COLORTABLE = (QtGui.qRgba(0, 0, 0, 0), QtGui.qRgba(0, 0, 0, 255))
 DEFAUT_PEN = ((0, 0),)
 DEFAUT_TOOL = "pen"
         
-import array
-import time
-
         
 class Bg(QtGui.QPixmap):
     """ background of the scene"""
@@ -272,12 +269,19 @@ class Scene(QtGui.QGraphicsView):
 
 class Canvas(QtGui.QImage):
     """ Canvas for drawing"""
-    def __init__(self, project, w, h=None):
+    def __init__(self, project, arg):
+        """ arg can be:
+                a Canvas instance : it make a copie
+                a url string : it load the image
+                a size tuple : it make a new canvas """
         self.project = project
-        if not h:
-            QtGui.QImage.__init__(self, w)
-        else:
-            QtGui.QImage.__init__(self, w, h, QtGui.QImage.Format_Indexed8)
+        if isinstance(arg, Canvas):
+            QtGui.QImage.__init__(self, arg)
+        elif type(arg) is str:
+            QtGui.QImage.__init__(self)
+            self.load(arg)
+        elif type(arg) is tuple:
+            QtGui.QImage.__init__(self, arg[0], arg[1], QtGui.QImage.Format_Indexed8)
             self.setColorTable(self.project.colorTable)
             self.fill(0)
 
@@ -749,13 +753,13 @@ class Project(QtCore.QObject):
         if canvas:
             return Canvas(self, canvas)
         else:
-            return Canvas(self, self.size[0], self.size[1])
+            return Canvas(self, self.size)
             
     def make_layer(self, layer=False):
         """ make a new empty layer by default
             or a copy of arg:layer """
         name = "Layer %s" %(len(self.frames)+1)
-        if layer:
+        if layer and type(layer) == dict:
             l = dict(layer)
             l["name"] = name
             l["frames"] = list(layer["frames"])
@@ -763,6 +767,12 @@ class Project(QtCore.QObject):
                 if f:
                     l[i] = Canvas(self, f)
             return l
+        elif layer and type(layer) == list:
+            return {"frames" : layer, 
+                    "pos" : 0, 
+                    "visible" : True, 
+                    "lock" : False, 
+                    "name": name}
         else:
             return {"frames" : [self.make_canvas(), ], 
                     "pos" : 0, 
@@ -861,6 +871,9 @@ class MainWindow(QtGui.QMainWindow):
         exportAction = QtGui.QAction('E&xport', self)
         exportAction.setShortcut('Ctrl+E')
         exportAction.triggered.connect(self.export_action)
+        importAction = QtGui.QAction('I&mport', self)
+        importAction.setShortcut('Ctrl+I')
+        importAction.triggered.connect(self.import_action)
         exitAction = QtGui.QAction('&Exit', self)
         exitAction.setShortcut('Ctrl+Q')
         exitAction.triggered.connect(self.exit_action)
@@ -871,6 +884,7 @@ class MainWindow(QtGui.QMainWindow):
         fileMenu.addAction(importAction)
         fileMenu.addAction(saveAction)
         fileMenu.addAction(exportAction)
+        fileMenu.addAction(importAction)
         fileMenu.addAction(exitAction)
 
         ### shortcuts ###
@@ -922,7 +936,7 @@ class MainWindow(QtGui.QMainWindow):
                 for x, f in enumerate(l["frames"]):
                     if f:
                         li = f.return_as_list()
-                        nf = Canvas(self.project, newSize[0], newSize[1])
+                        nf = Canvas(self.project, newSize)
                         nf.load_from_list(li, exSize[0], offset)
                         self.project.frames[y]["frames"][x] = nf
             self.project.size = newSize
@@ -936,7 +950,7 @@ class MainWindow(QtGui.QMainWindow):
             for y, l in enumerate(frames):
                 for x, f in enumerate(l["frames"]):
                     if f:
-                        nf = Canvas(self.project, size[0], size[1])
+                        nf = Canvas(self.project, size)
                         nf.load_from_list(f)
                         frames[y]["frames"][x] = nf
             self.project.frames = frames
@@ -949,6 +963,46 @@ class MainWindow(QtGui.QMainWindow):
 
     def export_action(self):
         export(self.project)
+        
+    def import_action(self):
+        urls = QtGui.QFileDialog.getOpenFileNames(None, "open png", "", "Png files (*.png );;All files (*)")
+        imgs = []
+        colorTable = []
+        canceled = []
+        size = False
+        for i in urls:
+            img = Canvas(self.project, str(i))
+            print(img.colorTable())
+            if img.colorTable():
+                if not colorTable:
+                    colorTable = img.colorTable()
+                else:
+                    img.setColorTable(colorTable)
+                if not size:
+                    size = (img.size().width(), img.size().height())
+                else:
+                    if img.size().width() != size[0] or img.size().height() != size[1]:
+                        exWidth = img.size().width()
+                        li = img.return_as_list()
+                        img = Canvas(self.project, size)
+                        img.load_from_list(li, exWidth)
+                imgs.append(img)
+            else: 
+                canceled.append(img)
+        if canceled:
+            message = QtGui.QMessageBox()
+            message.setWindowTitle("Import error")
+            message.setText("Some files aren't in indexed color, I can't import them");
+            message.setIcon(QtGui.QMessageBox.Warning)
+            message.addButton("Ok", QtGui.QMessageBox.AcceptRole)
+            message.exec_();
+        if imgs and colorTable and size:
+            self.project.size = size
+            self.project.colorTable = colorTable
+            self.project.frames.append(self.project.make_layer(imgs))
+        self.project.update_view.emit()
+        self.project.update_palette.emit()
+        self.project.update_timeline.emit()
 
     def exit_action(self):
         QtGui.qApp.quit()
