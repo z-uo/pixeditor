@@ -17,7 +17,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-# bug on duplicate layer
 # add a tool to make lines (iso...)
 # add choice between a gif or png transparency mode
 # add a grid
@@ -757,24 +756,27 @@ class Project(QtCore.QObject):
             
     def make_layer(self, layer=False):
         """ make a new empty layer by default
-            or a copy of arg:layer """
+            if arg:layer is a layer : make a copy of it
+            if arg:layer is a list of canvas, make a layer with it"""
         name = "Layer %s" %(len(self.frames)+1)
-        if layer and type(layer) == dict:
-            l = dict(layer)
-            l["name"] = name
-            l["frames"] = list(layer["frames"])
-            for i,  f in enumerate(l["frames"]):
-                if f:
-                    l[i] = Canvas(self, f)
-            return l
-        elif layer and type(layer) == list:
-            return {"frames" : layer, 
+        if not layer:
+            return {"frames" : [self.make_canvas(), ], 
                     "pos" : 0, 
                     "visible" : True, 
                     "lock" : False, 
                     "name": name}
-        else:
-            return {"frames" : [self.make_canvas(), ], 
+        elif layer and type(layer) == dict:
+            l = dict(layer)
+            l["name"] = name
+            l["frames"] = []
+            for i in layer["frames"]:
+                if i:
+                    l["frames"].append(Canvas(self, i))
+                else:
+                    l["frames"].append(0)
+            return l
+        elif layer and type(layer) == list:
+            return {"frames" : layer, 
                     "pos" : 0, 
                     "visible" : True, 
                     "lock" : False, 
