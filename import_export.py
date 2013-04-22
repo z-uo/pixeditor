@@ -151,31 +151,34 @@ def import_png(project):
         size = False
         for i in urls:
             img = Canvas(project, str(i))
+
             if img.colorTable():
                 if not colorTable:
                     colorTable = img.colorTable()
                 else:
                     img.setColorTable(colorTable)
+
+            elif colorTable:
+                img = Canvas(project, img.convertToFormat(
+                    QtGui.QImage.Format_Indexed8, colorTable))
+
             else:
-                if not colorTable:
-                    print("No color table found, attempting to sniff")
-                    colorTable = img.sniffColorTable()
-                    if colorTable:
-                        print("Sniffing successful")
-                        img = Canvas(project, img.convertToFormat(
-                            QtGui.QImage.Format_Indexed8, colorTable))
-                    else:
-                        print("Sniffing failed, attempting to index")
-                        success, algorithm = IndexingAlgorithmDialog().get_return()
-                        if not success:
-                            canceled.append(img)
-                            continue
-                        img = Canvas(project, img.convertToFormat(
-                            QtGui.QImage.Format_Indexed8, algorithm))
-                        colorTable = img.colorTable()
-                else:
+                print("No color table found, attempting to sniff")
+                colorTable = img.sniffColorTable()
+                if colorTable:
+                    print("Sniffing successful")
                     img = Canvas(project, img.convertToFormat(
                         QtGui.QImage.Format_Indexed8, colorTable))
+                else:
+                    print("Sniffing failed, attempting to index")
+                    success, algorithm = IndexingAlgorithmDialog().get_return()
+                    if not success:
+                        canceled.append(img)
+                        continue
+                    img = Canvas(project, img.convertToFormat(
+                        QtGui.QImage.Format_Indexed8, algorithm))
+                    colorTable = img.colorTable()
+
             if not size:
                 size = (img.size().width(), img.size().height())
             else:
