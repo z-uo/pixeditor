@@ -13,6 +13,8 @@ from PyQt4 import Qt
 import os
 import xml.etree.ElementTree as ET
 
+from pixeditor import Canvas
+from dialogs import IndexingAlgorithmDialog
 
 ######## open ##########################################################
 def open_pix(url=None):
@@ -27,8 +29,8 @@ def open_pix(url=None):
         except IOError:
             print("Can't open file")
             return False, False, False
-        return False, False, False
-        
+    return False, False, False
+
 def return_canvas(save):
     saveElem = ET.parse(save).getroot()
     sizeElem = saveElem.find("size").attrib
@@ -95,7 +97,7 @@ Should I save your animation as :
     except IOError:
         print("Can't open file")
         return False
-        
+
 def return_pix(project):
     saveElem = ET.Element("pix", version="0.2")
     sizeElem = ET.SubElement(saveElem, "size")
@@ -117,7 +119,7 @@ def return_pix(project):
         return ET.tostring(saveElem, encoding="unicode")
     else:
         return ET.tostring(saveElem)
-    
+
 def return_old_pix(size, color, frames):
     saveElem = ET.Element("pix", version="0,1")
     sizeElem = ET.SubElement(saveElem, "size")
@@ -137,6 +139,71 @@ def return_old_pix(size, color, frames):
                     l.append(frame.pixelIndex(x, y))
             f.text = ','.join(str(p) for p in l)
     return ET.tostring(saveElem)
+
+######## import ########################################################
+
+def import_png(project):
+        urls = QtGui.QFileDialog.getOpenFileNames(
+            None, "Import PNG", "", "PNG files (*.png );;All files (*)")
+        imgs = []
+        colorTable = []
+        canceled = []
+        size = False
+        for i in urls:
+            img = Canvas(project, str(i))
+
+            if img.colorTable():
+                if not colorTable:
+                    colorTable = img.colorTable()
+                else:
+                    img.setColorTable(colorTable)
+
+            elif colorTable:
+                img = Canvas(project, img.convertToFormat(
+                    QtGui.QImage.Format_Indexed8, colorTable))
+
+            else:
+                print("No color table found, attempting to sniff")
+                colorTable = img.sniffColorTable()
+                if colorTable:
+                    print("Sniffing successful")
+                    img = Canvas(project, img.convertToFormat(
+                        QtGui.QImage.Format_Indexed8, colorTable))
+                else:
+                    print("Sniffing failed, attempting to index")
+                    success, algorithm = IndexingAlgorithmDialog().get_return()
+                    if not success:
+                        canceled.append(img)
+                        continue
+                    img = Canvas(project, img.convertToFormat(
+                        QtGui.QImage.Format_Indexed8, algorithm))
+                    colorTable = img.colorTable()
+
+            if not size:
+                size = (img.size().width(), img.size().height())
+            else:
+                if img.size().width() != size[0] or img.size().height() != size[1]:
+                    exWidth = img.size().width()
+                    li = img.return_as_list()
+                    img = Canvas(project, size)
+                    img.load_from_list(li, exWidth)
+            imgs.append(img)
+
+        if canceled:
+            message = QtGui.QMessageBox()
+            message.setWindowTitle("Import error")
+            message.setText("Failed to import some non-indexed files.");
+            message.setIcon(QtGui.QMessageBox.Warning)
+            message.addButton("Ok", QtGui.QMessageBox.AcceptRole)
+            message.exec_();
+
+        if imgs and colorTable and size:
+            project.size = size
+            project.colorTable = colorTable
+            project.frames.append(project.make_layer(imgs))
+        project.update_view.emit()
+        project.update_palette.emit()
+        project.update_timeline.emit()
 
 ######## export ########################################################
 #~ def export_png_old(frames, url=None):
