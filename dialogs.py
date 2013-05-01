@@ -183,12 +183,12 @@ class ResizeDialog(QtGui.QDialog):
             return True , (self.w, self.h), (self.wOffset, self.hOffset)
         else:
             return False, None, None
-            
+
 class RenameLayerDialog(QtGui.QDialog):
     def __init__(self, name, otherNames=[]):
         QtGui.QDialog.__init__(self)
         self.setWindowTitle("rename layer")
-        
+
         self.name = name
         self.otherNames = otherNames
         ### instructions ###
@@ -233,6 +233,87 @@ class RenameLayerDialog(QtGui.QDialog):
             return True , self.name
         else:
             return False, None
+
+class IndexingAlgorithmDialog(QtGui.QDialog):
+    def __init__(self, alpha=True):
+        QtGui.QDialog.__init__(self)
+        self.setWindowTitle("Import PNG")
+
+        self.alpha = alpha
+
+        self.infoLabel = QtGui.QLabel(
+            """\
+            Some of the selected files are not indexed.
+            Please select an indexing algorithm.\
+            """)
+
+        self.colorLabel = QtGui.QLabel("Color indexing algorithm:")
+        self.colorCombo = QtGui.QComboBox(self)
+        self.colorCombo.addItems(["Closest Color",
+                                  "Ordered Dither",
+                                  "Diffuse Dither"])
+
+        if alpha:
+            self.alphaLabel = QtGui.QLabel("Alpha indexing algorithm:")
+            self.alphaCombo = QtGui.QComboBox(self)
+            self.alphaCombo.addItems(["No Dithering",
+                                      "Ordered Dither",
+                                      "Diffuse Dither"])
+
+        self.cancelButton = QtGui.QPushButton("Cancel", self)
+        self.cancelButton.clicked.connect(self.cancel_clicked)
+        self.acceptButton = QtGui.QPushButton("Convert", self)
+        self.acceptButton.clicked.connect(self.accept_clicked)
+        self.acceptButton.setFocus()
+
+        okBox = QtGui.QHBoxLayout()
+        okBox.addStretch(0)
+        okBox.addWidget(self.cancelButton)
+        okBox.addWidget(self.acceptButton)
+
+        vBox = QtGui.QVBoxLayout()
+        vBox.addWidget(self.infoLabel)
+        vBox.addWidget(self.colorLabel)
+        vBox.addWidget(self.colorCombo)
+        if alpha:
+            vBox.addWidget(self.alphaLabel)
+            vBox.addWidget(self.alphaCombo)
+        vBox.addLayout(okBox)
+
+        self.setLayout(vBox)
+        self.exec_()
+
+    def cancel_clicked(self):
+        self.reject()
+
+    def accept_clicked(self):
+        self.algorithm = 0
+
+        idx = self.colorCombo.currentIndex()
+        if idx == 0:
+            self.algorithm |= QtCore.Qt.ThresholdDither
+        elif idx == 1:
+            self.algorithm |= QtCore.Qt.OrderedDither
+        elif idx == 2:
+            self.algorithm |= QtCore.Qt.DiffuseDither
+
+        if self.alpha:
+            idx = self.alphaCombo.currentIndex()
+            if idx == 0:
+                self.algorithm |= QtCore.Qt.ThresholdAlphaDither
+            elif idx == 1:
+                self.algorithm |= QtCore.Qt.OrderedAlphaDither
+            elif idx == 2:
+                self.algorithm |= QtCore.Qt.DiffuseAlphaDither
+
+        self.accept()
+
+    def get_return(self):
+        if self.result():
+            return True, self.algorithm
+        else:
+            return False, None
+
 
 if __name__ == '__main__':
     import sys
