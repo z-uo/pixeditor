@@ -397,41 +397,32 @@ class Canvas(QtGui.QImage):
                 l.append((x, y-1))
 
     def clic(self, point):
-        if ((self.project.tool == "pen" or self.project.tool == "fill") and
+        if  (self.project.tool == "pipette" or
+             (self.project.tool == "pen" or self.project.tool == "fill") and
              QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier):
             if self.rect().contains(point):
-                self.project.color = self.pixelIndex(point)
-                self.project.update_palette.emit()
-            self.lastPoint = False
+                self.project.set_color(self.pixelIndex(point))
+                self.lastPoint = False
         elif self.project.tool == "pen":
             self.save_to_undo()
-            #~ self.project.save_to_undo("canvas")
             if QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ShiftModifier and self.lastPoint:
                 self.draw_line(point)
             else:
                 self.draw_point(point)
             self.lastPoint = point
-        elif self.rect().contains(point):
-            col = self.pixelIndex(point)
-            if self.project.tool == "pipette":
-                self.project.set_color(col)
-            elif self.project.tool == "fill" and self.project.color != col:
-                self.save_to_undo()
-                #~ self.project.save_to_undo("canvas")
-                self.flood_fill(point, col)
+        elif (self.rect().contains(point) and self.project.tool == "fill" and 
+              self.project.color != self.pixelIndex(point)):
+            self.save_to_undo()
+            self.flood_fill(point, self.pixelIndex(point))
             self.lastPoint = False
 
     def move(self, point):
-        if ((self.project.tool == "pen" or self.project.tool == "fill") and
+        if  (self.project.tool == "pipette" or
+             (self.project.tool == "pen" or self.project.tool == "fill") and
              QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier):
             if self.rect().contains(point):
-                self.project.color = self.pixelIndex(point)
-                self.project.update_palette.emit()
-            self.lastPoint = False
-        elif self.project.tool == "pipette":
-            if self.rect().contains(point):
                 self.project.set_color(self.pixelIndex(point))
-            self.lastPoint = False
+                self.lastPoint = False
         elif self.project.tool == "pen":
             if self.lastPoint:
                 self.draw_line(point)
