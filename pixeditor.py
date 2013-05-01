@@ -20,7 +20,6 @@
 # add a dialog to export png
 # save the url for export and save (add a save button)
 # add a "are you sure you want to quit?" dialog
-# bug pen color and pipette
 # make a global undo redo
 # add a preference dialog
 # add a tool to make lines (iso...)
@@ -699,6 +698,10 @@ class Project(QtCore.QObject):
         self.onionSkinNext = False
 
         # TODO
+        self.pref = {"background_color" : QtGui.QColor(150, 150, 150),
+                     "grid" : False}
+        self.file = {"url" : None,
+                     "saved" : False}
         self.url = None
         self.undoList = []
         self.redoList = []
@@ -866,37 +869,75 @@ class MainWindow(QtGui.QMainWindow):
         self.timeline = Timeline(self.project)
         self.scene = Scene(self.project)
 
-        ### Menu ###
-        newAction = QtGui.QAction('&New', self)
-        newAction.setShortcut('Ctrl+N')
-        newAction.triggered.connect(self.new_action)
-        resizeAction = QtGui.QAction('&Resize', self)
-        resizeAction.setShortcut('Ctrl+R')
-        resizeAction.triggered.connect(self.resize_action)
-        importAction = QtGui.QAction('&Open', self)
-        importAction.setShortcut('Ctrl+O')
-        importAction.triggered.connect(self.open_action)
-        saveAction = QtGui.QAction('&Save', self)
-        saveAction.setShortcut('Ctrl+S')
-        saveAction.triggered.connect(self.save_action)
-        exportAction = QtGui.QAction('E&xport', self)
-        exportAction.setShortcut('Ctrl+E')
-        exportAction.triggered.connect(self.export_action)
-        importAction = QtGui.QAction('I&mport', self)
-        importAction.setShortcut('Ctrl+I')
-        importAction.triggered.connect(self.import_action)
-        exitAction = QtGui.QAction('&Exit', self)
-        exitAction.setShortcut('Ctrl+Q')
-        exitAction.triggered.connect(self.exit_action)
+        ### Menu file ###
         menubar = self.menuBar()
-        fileMenu = menubar.addMenu('&File')
-        fileMenu.addAction(newAction)
-        fileMenu.addAction(resizeAction)
-        fileMenu.addAction(importAction)
+        openAction = QtGui.QAction('Open', self)
+        openAction.triggered.connect(self.open_action)
+        saveAsAction = QtGui.QAction('Save as', self)
+        saveAsAction.triggered.connect(self.save_action)
+        saveAction = QtGui.QAction('Save', self)
+        saveAction.triggered.connect(self.save_action)
+        saveAction.setShortcut('Ctrl+S')
+        saveAction.setEnabled(False)
+        
+        importAction = QtGui.QAction('Import', self)
+        importAction.triggered.connect(self.import_action)
+        exportAction = QtGui.QAction('Export', self)
+        exportAction.triggered.connect(self.export_action)
+        exportAction.setShortcut('Ctrl+E')
+        
+        exitAction = QtGui.QAction('Exit', self)
+        exitAction.triggered.connect(self.exit_action)
+        exitAction.setShortcut('Ctrl+Q')
+        
+        fileMenu = menubar.addMenu('File')
+        fileMenu.addAction(openAction)
+        fileMenu.addAction(saveAsAction)
         fileMenu.addAction(saveAction)
-        fileMenu.addAction(exportAction)
+        fileMenu.addSeparator()
         fileMenu.addAction(importAction)
+        fileMenu.addAction(exportAction)
+        fileMenu.addSeparator()
         fileMenu.addAction(exitAction)
+        
+        ### Edit project ###
+        undoAction = QtGui.QAction('Undo', self)
+        undoAction.triggered.connect(self.undo)
+        undoAction.setShortcut('Ctrl+Z')
+        redoAction = QtGui.QAction('Redo', self)
+        redoAction.triggered.connect(self.redo)
+        redoAction.setShortcut('Ctrl+Y')
+        
+        cutAction = QtGui.QAction('Cut', self)
+        cutAction.triggered.connect(self.timeline.cut)
+        cutAction.setShortcut('Ctrl+X')
+        copyAction = QtGui.QAction('Copy', self)
+        copyAction.triggered.connect(self.timeline.copy)
+        copyAction.setShortcut('Ctrl+C')
+        pasteAction = QtGui.QAction('Paste', self)
+        pasteAction.triggered.connect(self.timeline.paste)
+        pasteAction.setShortcut('Ctrl+V')
+        
+        editMenu = menubar.addMenu('Edit')
+        editMenu.addAction(undoAction)
+        editMenu.addAction(redoAction)
+        editMenu.addSeparator()
+        editMenu.addAction(cutAction)
+        editMenu.addAction(copyAction)
+        editMenu.addAction(pasteAction)
+        
+        ### Menu project ###
+        newAction = QtGui.QAction('New', self)
+        newAction.triggered.connect(self.new_action)
+        resizeAction = QtGui.QAction('Resize', self)
+        resizeAction.triggered.connect(self.resize_action)
+        prefAction = QtGui.QAction('Preference', self)
+        prefAction.setEnabled(False)
+        
+        projectMenu = menubar.addMenu('Project')
+        projectMenu.addAction(newAction)
+        projectMenu.addAction(resizeAction)
+        projectMenu.addAction(prefAction)
 
         ### shortcuts ###
         shortcut = QtGui.QShortcut(self)
@@ -911,12 +952,6 @@ class MainWindow(QtGui.QMainWindow):
         shortcut4 = QtGui.QShortcut(self)
         shortcut4.setKey(QtCore.Qt.Key_Down)
         shortcut4.activated.connect(lambda : self.select_layer(1))
-        shortcut3 = QtGui.QShortcut(self)
-        shortcut3.setKey(QtGui.QKeySequence(QtCore.Qt.CTRL + QtCore.Qt.Key_Z))
-        shortcut3.activated.connect(self.undo)
-        shortcut4 = QtGui.QShortcut(self)
-        shortcut4.setKey(QtGui.QKeySequence(QtCore.Qt.CTRL + QtCore.Qt.Key_Y))
-        shortcut4.activated.connect(self.redo)
 
         ### layout #####################################################
         splitter = QtGui.QSplitter()
@@ -979,7 +1014,15 @@ class MainWindow(QtGui.QMainWindow):
         import_png(self.project)
 
     def exit_action(self):
-        QtGui.qApp.quit()
+        message = QtGui.QMessageBox()
+        message.setWindowTitle("Quit?")
+        message.setText("Are you sure you want to quit?");
+        message.setIcon(QtGui.QMessageBox.Warning)
+        message.addButton("Cancel", QtGui.QMessageBox.RejectRole)
+        message.addButton("Yes", QtGui.QMessageBox.AcceptRole)
+        ret = message.exec_();
+        if ret:
+            QtGui.qApp.quit()
 
     #~ def undo(self):
         #~ self.project.undo()

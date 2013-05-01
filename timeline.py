@@ -307,17 +307,6 @@ class Timeline(QtGui.QWidget):
         self.project.update_timeline.connect(self.timelineCanvas.update)
         self.project.update_timeline.connect(self.layersCanvas.update)
         
-        ### shortcuts ###
-        shortcut = QtGui.QShortcut(self)
-        shortcut.setKey(QtGui.QKeySequence(QtCore.Qt.CTRL + QtCore.Qt.Key_X))
-        shortcut.activated.connect(self.cut)
-        shortcopy = QtGui.QShortcut(self)
-        shortcopy.setKey(QtGui.QKeySequence(QtCore.Qt.CTRL + QtCore.Qt.Key_C))
-        shortcopy.activated.connect(self.copy)
-        shortpaste = QtGui.QShortcut(self)
-        shortpaste.setKey(QtGui.QKeySequence(QtCore.Qt.CTRL + QtCore.Qt.Key_V))
-        shortpaste.activated.connect(self.paste)
-        
         ### adding and deleting layers ###
         self.addLayerB = Button("add layer", "icons/layer_add.png", self.add_layer_clicked)
         self.dupLayerB = Button("duplicate layer", "icons/layer_dup.png", self.duplicate_layer_clicked)
