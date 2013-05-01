@@ -205,38 +205,6 @@ def import_png(project):
         project.update_palette.emit()
         project.update_timeline.emit()
 
-######## export ########################################################
-#~ def export_png_old(frames, url=None):
-    #~ url = QtGui.QFileDialog.getSaveFileName(None, "Export animation as png", "", "Png files (*.png )")
-    #~ if url:
-        #~ url = os.path.splitext(str(url))[0]
-        #~ files = []
-        #~ fnexist = False
-        #~ for n, im in enumerate(frames, 1):
-            #~ fn = "%s%s.png" %(url, n)
-            #~ if os.path.isfile(fn):
-                #~ fnexist = True
-            #~ if im:
-                #~ files.append((fn, im))
-                #~ sim = im
-            #~ else:
-#~ #                sim.save(fn)
-                #~ files.append((fn, sim))
-        #~ if fnexist:
-            #~ message = QtGui.QMessageBox()
-            #~ message.setWindowTitle("Overwrite?")
-            #~ message.setText("Some filename allready exist.\nDo you want to overwrite them?");
-            #~ message.setIcon(QtGui.QMessageBox.Warning)
-            #~ message.addButton("Cancel", QtGui.QMessageBox.RejectRole)
-            #~ message.addButton("Overwrite", QtGui.QMessageBox.AcceptRole)
-            #~ ret = message.exec_();
-            #~ if ret:
-                #~ for i in files:
-                    #~ i[1].save(i[0])
-        #~ else:
-            #~ for i in files:
-                #~ i[1].save(i[0])
-
 def export(project, url=None):
     # nanim requires google.protobuf, which is Python 2.x only
     if int(python_version_tuple()[0]) >= 3:

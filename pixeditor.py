@@ -16,7 +16,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
+# add space in palette (256 color)
+# add a dialog to export png
+# save the url for export and save (add a save button)
+# add a "are you sure you want to quit?" dialog
+# bug pen color and pipette
+# make a global undo redo
+# add a preference dialog
 # add a tool to make lines (iso...)
 # add choice between a gif or png transparency mode
 # add a grid
@@ -56,18 +62,6 @@ class Bg(QtGui.QPixmap):
         p = QtGui.QPainter(self)
         p.fillRect (0,0, w, h, self.brush)
 
-class Border(QtGui.QPixmap):
-    """ background of the scene"""
-    def __init__(self, w, h):
-        QtGui.QPixmap.__init__(self, w+2, h+2)
-        self.fill(QtGui.QColor(255, 255, 255, 0))
-        p = QtGui.QPainter(self)
-        p.setPen(QtGui.QPen(QtGui.QColor(70, 70, 70)))
-        p.drawLine (0, 0, w+1, 0)
-        p.drawLine (w+1, 0, w+1, h+1)
-        p.drawLine (w+1, h+1, 0, h+1)
-        p.drawLine (0, h, 0, 0)
-
 class Scene(QtGui.QGraphicsView):
     """ Display, zoom, pan..."""
     def __init__(self, project):
@@ -87,8 +81,6 @@ class Scene(QtGui.QGraphicsView):
         # background
         self.setBackgroundBrush(QtGui.QBrush(QtGui.QColor(150, 150, 150)))
         self.bg = self.scene.addPixmap(Bg(w, h))
-        self.border = self.scene.addPixmap(Border(w, h))
-        self.border.setPos(-1, -1)
         # frames
         self.itemList = []
         self.canvasList = []
@@ -136,7 +128,6 @@ class Scene(QtGui.QGraphicsView):
             int(self.scene.sceneRect().height()) != h):
             self.scene.setSceneRect(0, 0, w, h)
             self.bg.setPixmap(Bg(w, h))
-            self.border.setPixmap(Border(w, h))
         # init item hanging canvas if needed
         self.canvasList = self.project.get_canvas_list()
         if len(self.itemList) != len(self.canvasList):
