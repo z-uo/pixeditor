@@ -16,10 +16,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+# bug with onionskin when changing layer
+# bug when moving and deleting color
+# add onionskin with first frame when in the last frame
+# add merge layer
 # add space in palette (256 color)
 # add a dialog to export png
 # save the url for export and save (add a save button)
-# add a "are you sure you want to quit?" dialog
 # make a global undo redo
 # add a preference dialog
 # add a tool to make lines (iso...)
@@ -299,7 +302,7 @@ class Canvas(QtGui.QImage):
             for x in xrange(self.width()):
                 l.append(self.pixelIndex(x, y))
         return l
-
+    
     def merge_color(self, exCol, newCol):
         for y in xrange(self.height()):
             for x in xrange(self.width()):
@@ -797,8 +800,8 @@ class Project(QtCore.QObject):
     def get_canvas_list(self):
         """ return the list of all layer's canvas at self.currentFrame """
         tf = []
+        f = self.currentFrame
         for l in self.frames:
-            f = self.currentFrame
             while 0 <= f < len(l["frames"]):
                 if l["frames"][f]:
                     tf.append(l["frames"][f])
@@ -869,7 +872,7 @@ class MainWindow(QtGui.QMainWindow):
         self.timeline = Timeline(self.project)
         self.scene = Scene(self.project)
 
-        ### Menu file ###
+        ### File menu ###
         menubar = self.menuBar()
         openAction = QtGui.QAction('Open', self)
         openAction.triggered.connect(self.open_action)
@@ -900,7 +903,7 @@ class MainWindow(QtGui.QMainWindow):
         fileMenu.addSeparator()
         fileMenu.addAction(exitAction)
         
-        ### Edit project ###
+        ### Edit menu ###
         undoAction = QtGui.QAction('Undo', self)
         undoAction.triggered.connect(self.undo)
         undoAction.setShortcut('Ctrl+Z')
@@ -926,9 +929,11 @@ class MainWindow(QtGui.QMainWindow):
         editMenu.addAction(copyAction)
         editMenu.addAction(pasteAction)
         
-        ### Menu project ###
+        ### project menu ###
         newAction = QtGui.QAction('New', self)
         newAction.triggered.connect(self.new_action)
+        cropAction = QtGui.QAction('Crop', self)
+        cropAction.triggered.connect(self.crop_action)
         resizeAction = QtGui.QAction('Resize', self)
         resizeAction.triggered.connect(self.resize_action)
         prefAction = QtGui.QAction('Preference', self)
@@ -936,6 +941,7 @@ class MainWindow(QtGui.QMainWindow):
         
         projectMenu = menubar.addMenu('Project')
         projectMenu.addAction(newAction)
+        projectMenu.addAction(cropAction)
         projectMenu.addAction(resizeAction)
         projectMenu.addAction(prefAction)
 
@@ -962,32 +968,8 @@ class MainWindow(QtGui.QMainWindow):
         splitter2.addWidget(self.timeline)
         self.setCentralWidget(splitter2)
         self.show()
-
-    def new_action(self):
-        ok, w, h = NewDialog().get_return()
-        if ok:
-            self.project.color = DEFAUT_COLOR
-            self.project.colorTable = list(DEFAUT_COLORTABLE)
-            self.project.size = (w, h)
-            self.project.frames = [self.project.make_layer()]
-            self.project.update_view.emit()
-            self.project.update_palette.emit()
-            self.project.update_timeline.emit()
-
-    def resize_action(self):
-        exSize = self.project.size
-        ok, newSize, offset = ResizeDialog(exSize).get_return()
-        if ok:
-            for y, l in enumerate(self.project.frames):
-                for x, f in enumerate(l["frames"]):
-                    if f:
-                        li = f.return_as_list()
-                        nf = Canvas(self.project, newSize)
-                        nf.load_from_list(li, exSize[0], offset)
-                        self.project.frames[y]["frames"][x] = nf
-            self.project.size = newSize
-            self.project.update_view.emit()
-
+        
+    ######## File menu #################################################
     def open_action(self):
         size, colors, frames = open_pix()
         if size and colors and frames:
@@ -1007,11 +989,11 @@ class MainWindow(QtGui.QMainWindow):
     def save_action(self):
         save_pix(self.project)
 
-    def export_action(self):
-        export(self.project)
-
     def import_action(self):
         import_png(self.project)
+        
+    def export_action(self):
+        export(self.project)
 
     def exit_action(self):
         message = QtGui.QMessageBox()
@@ -1024,6 +1006,7 @@ class MainWindow(QtGui.QMainWindow):
         if ret:
             QtGui.qApp.quit()
 
+    ######## Edit menu #################################################
     #~ def undo(self):
         #~ self.project.undo()
         #~ self.project.update_view.emit()
@@ -1043,7 +1026,48 @@ class MainWindow(QtGui.QMainWindow):
         canvas = self.project.get_canvas()
         canvas.redo()
         self.project.update_view.emit()
+        
+    ######## Project menu ##############################################
+    def new_action(self):
+        ok, w, h = NewDialog().get_return()
+        if ok:
+            self.project.color = DEFAUT_COLOR
+            self.project.colorTable = list(DEFAUT_COLORTABLE)
+            self.project.size = (w, h)
+            self.project.frames = [self.project.make_layer()]
+            self.project.update_view.emit()
+            self.project.update_palette.emit()
+            self.project.update_timeline.emit()
 
+    def crop_action(self):
+        exSize = self.project.size
+        ok, newSize, offset = CropDialog(exSize).get_return()
+        if ok:
+            for y, l in enumerate(self.project.frames):
+                for x, f in enumerate(l["frames"]):
+                    if f:
+                        li = f.return_as_list()
+                        nf = Canvas(self.project, newSize)
+                        nf.load_from_list(li, exSize[0], offset)
+                        self.project.frames[y]["frames"][x] = nf
+            self.project.size = newSize
+            self.project.update_view.emit()
+
+    def resize_action(self):
+        exSize = self.project.size
+        ok, factor = ResizeDialog(exSize).get_return()
+        if ok and factor != 1:
+            newSize = (int(exSize[0]*factor), int(exSize[1]*factor))
+            for y, l in enumerate(self.project.frames):
+                for x, f in enumerate(l["frames"]):
+                    if f:
+                        nf = Canvas(self.project, f.scaled(newSize[0], newSize[1]))
+                        self.project.frames[y]["frames"][x] = nf
+            self.project.size = newSize
+            self.project.update_view.emit()
+            
+
+    ######## Shortcuts #################################################
     def select_frame(self, n):
         maxF = max([len(l["frames"]) for l in self.project.frames])
         if 0 <= self.project.currentFrame+n < maxF:
