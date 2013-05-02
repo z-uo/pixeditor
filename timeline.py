@@ -97,6 +97,7 @@ class LayersCanvas(QtGui.QWidget):
                         self.parent.project.frames[item]["visible"] = True
                     self.parent.project.update_view.emit()
                 self.update()
+                self.parent.project.update_view.emit()
         elif (event.type() == QtCore.QEvent.MouseButtonDblClick and
                        event.button()==QtCore.Qt.LeftButton):
             item = self.layer_at(event.y())

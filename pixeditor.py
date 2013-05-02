@@ -16,7 +16,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# bug with onionskin when changing layer
 # bug when moving and deleting color
 # add onionskin with first frame when in the last frame
 # add merge layer
