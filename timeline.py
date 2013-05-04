@@ -252,6 +252,8 @@ class TimelineCanvas(QtGui.QWidget):
     def strech(self, f):
         if self.strechFrame:
             sl, sf = self.strechFrame[0], self.strechFrame[1]
+            if f != sf:
+                self.parent.project.save_to_undo("frames")
             while f > sf:
                 self.parent.project.frames[sl]["frames"].insert(sf+1, 0)
                 sf += 1
@@ -401,6 +403,7 @@ class Timeline(QtGui.QWidget):
     ######## Copy ######################################################
     def cut(self):
         if self.selection:
+            self.project.save_to_undo("frames")
             l = self.selection[0]
             f1, f2 = self.selection[1], self.selection[2]
             if f2 < f1:
@@ -438,6 +441,7 @@ class Timeline(QtGui.QWidget):
         
     def paste(self):
         if self.toPaste:
+            self.project.save_to_undo("frames")
             f = self.project.currentFrame
             l = self.project.currentLayer
             while f > len(self.project.frames[l]["frames"]):
@@ -449,6 +453,7 @@ class Timeline(QtGui.QWidget):
             
     ######## Buttons ###################################################
     def add_frame_clicked(self):
+        self.project.save_to_undo("frames")
         layer = self.project.frames[self.project.currentLayer]["frames"]
         frame = self.project.currentFrame
         while frame >= len(layer):
@@ -461,6 +466,7 @@ class Timeline(QtGui.QWidget):
         self.project.update_view.emit()
         
     def duplicate_frame_clicked(self):
+        self.project.save_to_undo("frames")
         layer = self.project.frames[self.project.currentLayer]["frames"]
         frame = self.project.currentFrame
         while frame >= len(layer):
@@ -474,6 +480,7 @@ class Timeline(QtGui.QWidget):
         self.project.update_view.emit()
         
     def delete_frame_clicked(self):
+        self.project.save_to_undo("frames")
         layer = self.project.frames[self.project.currentLayer]["frames"]
         frame = self.project.currentFrame
         if frame >= len(layer):
@@ -496,6 +503,7 @@ class Timeline(QtGui.QWidget):
             self.project.update_view.emit()
         
     def add_layer_clicked(self):
+        self.project.save_to_undo("frames")
         self.project.frames.insert(self.project.currentLayer + 1, 
                                    self.project.make_layer())
         self.project.currentLayer += 1
@@ -503,6 +511,7 @@ class Timeline(QtGui.QWidget):
         self.project.update_view.emit()
         
     def duplicate_layer_clicked(self):
+        self.project.save_to_undo("frames")
         self.project.frames.insert(self.project.currentLayer + 1,
                 self.project.make_layer(
                 self.project.frames[self.project.currentLayer]))
@@ -511,6 +520,7 @@ class Timeline(QtGui.QWidget):
         self.project.update_view.emit()
         
     def delete_layer_clicked(self):
+        self.project.save_to_undo("frames")
         del self.project.frames[self.project.currentLayer]
         self.project.currentLayer = 0
         if not self.project.frames:
@@ -519,6 +529,7 @@ class Timeline(QtGui.QWidget):
         self.project.update_view.emit()
         
     def up_layer_clicked(self):
+        self.project.save_to_undo("frames")
         l = self.project.currentLayer
         f = self.project.frames
         if l > 0:
@@ -528,6 +539,7 @@ class Timeline(QtGui.QWidget):
             self.project.update_timeline.emit()
         
     def down_layer_clicked(self):
+        self.project.save_to_undo("frames")
         l = self.project.currentLayer
         f = self.project.frames
         if l < len(f)-1:
@@ -537,6 +549,7 @@ class Timeline(QtGui.QWidget):
             self.project.update_timeline.emit()
     
     def renameLayer(self, l):
+        self.project.save_to_undo("frames")
         name = self.project.frames[l]["name"]
         otherNames = []
         for n, i in enumerate(self.project.frames):

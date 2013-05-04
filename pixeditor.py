@@ -63,6 +63,7 @@ class Bg(QtGui.QPixmap):
         p = QtGui.QPainter(self)
         p.fillRect (0,0, w, h, self.brush)
 
+
 class Scene(QtGui.QGraphicsView):
     """ Display, zoom, pan..."""
     def __init__(self, project):
@@ -339,7 +340,7 @@ class Canvas(QtGui.QImage):
 
     ######## draw ######################################################
     def clear(self):
-        self.save_to_undo()
+        self.project.save_to_undo("canvas")
         self.fill(0)
 
     def draw_line(self, p2):
@@ -405,7 +406,7 @@ class Canvas(QtGui.QImage):
                 self.project.set_color(self.pixelIndex(point))
                 self.lastPoint = False
         elif self.project.tool == "pen":
-            self.save_to_undo()
+            self.project.save_to_undo("canvas")
             if QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ShiftModifier and self.lastPoint:
                 self.draw_line(point)
             else:
@@ -413,7 +414,7 @@ class Canvas(QtGui.QImage):
             self.lastPoint = point
         elif (self.rect().contains(point) and self.project.tool == "fill" and 
               self.project.color != self.pixelIndex(point)):
-            self.save_to_undo()
+            self.project.save_to_undo("canvas")
             self.flood_fill(point, self.pixelIndex(point))
             self.lastPoint = False
 
@@ -613,6 +614,7 @@ class ToolsWidget(QtGui.QWidget):
         color, ok = QtGui.QColorDialog.getRgba(col)
         if not ok:
             return
+        self.project.save_to_undo("colorTable")
         self.project.colorTable[n] = color
         for i in self.project.get_all_canvas():
             i.setColorTable(self.project.colorTable)
@@ -627,6 +629,7 @@ class ToolsWidget(QtGui.QWidget):
             color, ok = QtGui.QColorDialog.getRgba(col)
             if not ok:
                 return
+            self.project.save_to_undo("colorTable_frames")
             self.project.colorTable.append(color)
             self.project.set_color(len(self.project.colorTable)-1)
             for i in self.project.get_all_canvas():
@@ -636,6 +639,7 @@ class ToolsWidget(QtGui.QWidget):
     def del_color_clicked(self):
         col, table = self.project.color, self.project.colorTable
         if col != 0:
+            self.project.save_to_undo("colorTable_frames")
             table.pop(col)
             for i in self.project.get_all_canvas():
                 i.merge_color(col, 0)
@@ -646,6 +650,7 @@ class ToolsWidget(QtGui.QWidget):
     def move_color_left_clicked(self):
         col, table = self.project.color, self.project.colorTable
         if col != 0:
+            self.project.save_to_undo("colorTable_frames")
             table[col], table[col-1] = table[col-1], table[col]
             for i in self.project.get_all_canvas():
                 i.swap_color(col, col-1)
@@ -655,6 +660,7 @@ class ToolsWidget(QtGui.QWidget):
     def move_color_right_clicked(self):
         col, table = self.project.color, self.project.colorTable
         if col != len(table)-1:
+            self.project.save_to_undo("colorTable_frames")
             table[col], table[col+1] = table[col+1], table[col]
             for i in self.project.get_all_canvas():
                 i.swap_color(col, col+1)
@@ -674,6 +680,7 @@ class ToolsWidget(QtGui.QWidget):
         else:
             self.project.onionSkinNext = False
         self.project.update_view.emit()
+
 
 class Project(QtCore.QObject):
     """ store all data that need to be saved"""
@@ -713,52 +720,125 @@ class Project(QtCore.QObject):
         self.color_changed.emit()
         self.update_palette.emit()
 
-
     ######## undo/redo #################################################
-    def save_to_undo(self, obj):
-        if obj == "layer":
-            pass
-        elif obj == "canvas":
-            canvas = self.get_canvas()
-            self.undoList.append(("canvas", (self.currentFrame, self.currentLayer), Canvas(self, canvas)))
-        elif obj == "canvas_size":
-            pass
-        elif obj == "color":
-            pass
+    def save_to_undo(self, obj, save=False):
+        if not save:
+            doList = self.undoList
+            self.redoList = []
+        elif save == "redoList":
+            doList = self.redoList
+        elif save == "undoList":
+            doList = self.undoList
+            
+        if obj == "canvas":
+            doList.append(("canvas", 
+                          (self.currentFrame, self.currentLayer), 
+                          Canvas(self, self.get_canvas())))
+        elif obj == "frames":
+            frames = list(self.frames)
+            for y, l in enumerate(frames):
+                frames[y] = dict(l)
+                frames[y]["frames"] = list(l["frames"])
+            doList.append(("frames", 
+                          (self.currentFrame, self.currentLayer), 
+                          frames))
+        elif obj == "size":
+            frames = list(self.frames)
+            for y, l in enumerate(frames):
+                frames[y] = dict(l)
+                frames[y]["frames"] = list(l["frames"])
+                for x, f in enumerate(frames[y]["frames"]):
+                    if f:
+                        frames[y][x] = Canvas(self, f)
+            doList.append(("size", 
+                          (self.currentFrame, self.currentLayer), 
+                          (frames, tuple(self.size))))
+        elif obj == "colorTable":
+            doList.append(("colorTable", 
+                          (self.currentFrame, self.currentLayer), 
+                          list(self.colorTable)))
+        elif obj == "colorTable_frames":
+            print(frames)
+            frames = list(self.frames)
+            for y, l in enumerate(frames):
+                frames[y] = dict(l)
+                frames[y]["frames"] = list(l["frames"])
+            doList.append(("frames", 
+                          (self.currentFrame, self.currentLayer), 
+                          (frames, list(self.colorTable))))
 
-        if len(self.undoList) > 50:
-            self.undoList.pop(0)
-        self.redoList = []
+        if len(doList) > 50:
+            doList.pop(0)
 
     def undo(self):
         if len(self.undoList) > 0:
             toUndo = self.undoList.pop(-1)
-            if toUndo[0] == "canvas":
-                self.currentFrame = toUndo[1][0]
-                self.currentlayer = toUndo[1][1]
+            obj = toUndo[0]
+            current = toUndo[1]
+            save = toUndo[2]
+            self.currentFrame = current[0]
+            self.currentLayer = current[1]
+            if obj == "canvas":
+                self.save_to_undo("canvas", "redoList")
                 canvas = self.get_canvas()
-                self.redoList.append(("canvas", (self.currentFrame, self.currentLayer), Canvas(self, canvas)))
-                canvas.swap(toUndo[2])
-
-            if len(self.redoList) > 50:
-                self.redoList.pop(0)
+                canvas.swap(save)
+            elif obj == "frames":
+                self.save_to_undo("frames", "redoList")
+                self.frames = save
+            elif obj == "size":
+                self.save_to_undo("size", "redoList")
+                self.frames = save[0]
+                self.size = save[1]
+            elif obj == "colorTable":
+                self.save_to_undo("colorTable", "redoList")
+                self.colorTable = save
+                for i in self.get_all_canvas():
+                    i.setColorTable(self.colorTable)
+            elif obj == "colorTable_frames":
+                self.save_to_undo("colorTable_frames", "redoList")
+                self.frames = save[0]
+                self.colorTable = save[1]
+                for i in self.get_all_canvas():
+                    i.setColorTable(self.colorTable)
+                
             self.update_view.emit()
             self.update_timeline.emit()
+            self.update_palette.emit()
 
     def redo(self):
         if len(self.redoList) > 0:
             toRedo = self.redoList.pop(-1)
-            if toRedo[0] == "canvas":
-                self.currentFrame = toRedo[1][0]
-                self.currentlayer = toRedo[1][1]
+            obj = toRedo[0]
+            current = toRedo[1]
+            save = toRedo[2]
+            self.currentFrame = current[0]
+            self.currentLayer = current[1]
+            if obj == "canvas":
+                self.save_to_undo("canvas", "undoList")
                 canvas = self.get_canvas()
-                self.undoList.append(("canvas", (self.currentFrame, self.currentLayer), Canvas(self, canvas)))
-                canvas.swap(toRedo[2])
+                canvas.swap(save)
+            elif obj == "frames":
+                self.save_to_undo("frames", "undoList")
+                self.frames = save
+            elif obj == "size":
+                self.save_to_undo("size", "undoList")
+                self.frames = save[0]
+                self.size = save[1]
+            elif obj == "colorTable":
+                self.save_to_undo("colorTable", "undoList")
+                self.colorTable = save
+                for i in self.get_all_canvas():
+                    i.setColorTable(self.colorTable)
+            elif obj == "colorTable_frames":
+                self.save_to_undo("colorTable_frames", "undoList")
+                self.frames = save[0]
+                self.colorTable = save[1]
+                for i in self.get_all_canvas():
+                    i.setColorTable(self.colorTable)
 
-            if len(self.undoList) > 50:
-                self.undoList.pop(0)
             self.update_view.emit()
             self.update_timeline.emit()
+            self.update_palette.emit()
 
     def make_canvas(self, canvas=False):
         """ make a new canvas
@@ -795,7 +875,7 @@ class Project(QtCore.QObject):
                     "visible" : True,
                     "lock" : False,
                     "name": name}
-
+        
     def get_canvas_list(self):
         """ return the list of all layer's canvas at self.currentFrame """
         tf = []
@@ -852,12 +932,11 @@ class Project(QtCore.QObject):
 
     def get_all_canvas(self):
         """ retrun all canvas from self.frames """
-        canvas = []
         for l in self.frames:
             for f in l["frames"]:
                 if f:
-                    canvas.append(f)
-        return canvas
+                    yield f
+
 
 class MainWindow(QtGui.QMainWindow):
     """ Main windows of the application """
@@ -909,6 +988,12 @@ class MainWindow(QtGui.QMainWindow):
         redoAction = QtGui.QAction('Redo', self)
         redoAction.triggered.connect(self.redo)
         redoAction.setShortcut('Ctrl+Y')
+        #~ globalUndoAction = QtGui.QAction('global undo', self)
+        #~ globalUndoAction.triggered.connect(self.global_undo)
+        #~ globalUndoAction.setShortcut('Ctrl+SHIFT+Z')
+        #~ globalRedoAction = QtGui.QAction('Global Redo', self)
+        #~ globalRedoAction.triggered.connect(self.global_redo)
+        #~ globalRedoAction.setShortcut('Ctrl+SHIFT+Y')
         
         cutAction = QtGui.QAction('Cut', self)
         cutAction.triggered.connect(self.timeline.cut)
@@ -923,6 +1008,8 @@ class MainWindow(QtGui.QMainWindow):
         editMenu = menubar.addMenu('Edit')
         editMenu.addAction(undoAction)
         editMenu.addAction(redoAction)
+        #~ editMenu.addAction(globalUndoAction)
+        #~ editMenu.addAction(globalRedoAction)
         editMenu.addSeparator()
         editMenu.addAction(cutAction)
         editMenu.addAction(copyAction)
@@ -1007,24 +1094,24 @@ class MainWindow(QtGui.QMainWindow):
 
     ######## Edit menu #################################################
     #~ def undo(self):
-        #~ self.project.undo()
+        #~ self.project.get_canvas().undo()
         #~ self.project.update_view.emit()
-        #~ self.project.update_timeline.emit()
-#~
+#~ 
     #~ def redo(self):
-        #~ self.project.redo()
+        #~ self.project.get_canvas().redo()
         #~ self.project.update_view.emit()
-        #~ self.project.update_timeline.emit()
-
+        
     def undo(self):
-        canvas = self.project.get_canvas()
-        canvas.undo()
+        print ("global undo")
+        self.project.undo()
         self.project.update_view.emit()
+        self.project.update_timeline.emit()
 
     def redo(self):
-        canvas = self.project.get_canvas()
-        canvas.redo()
+        print ("global redo")
+        self.project.redo()
         self.project.update_view.emit()
+        self.project.update_timeline.emit()
         
     ######## Project menu ##############################################
     def new_action(self):
@@ -1042,6 +1129,7 @@ class MainWindow(QtGui.QMainWindow):
         exSize = self.project.size
         ok, newSize, offset = CropDialog(exSize).get_return()
         if ok:
+            self.project.save_to_undo("canvas_size")
             for y, l in enumerate(self.project.frames):
                 for x, f in enumerate(l["frames"]):
                     if f:
@@ -1056,6 +1144,7 @@ class MainWindow(QtGui.QMainWindow):
         exSize = self.project.size
         ok, factor = ResizeDialog(exSize).get_return()
         if ok and factor != 1:
+            self.project.save_to_undo("canvas_size")
             newSize = (int(exSize[0]*factor), int(exSize[1]*factor))
             for y, l in enumerate(self.project.frames):
                 for x, f in enumerate(l["frames"]):
