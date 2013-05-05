@@ -56,12 +56,20 @@ DEFAUT_TOOL = "pen"
 
 class Bg(QtGui.QPixmap):
     """ background of the scene"""
-    def __init__(self, w, h):
+    def __init__(self, w, h, size):
         QtGui.QPixmap.__init__(self, w, h)
-        self.brush = QtGui.QBrush(QtGui.QPixmap("icons/bg.png"))
         self.fill(QtGui.QColor(0, 0, 0, 0))
         p = QtGui.QPainter(self)
-        p.fillRect (0,0, w, h, self.brush)
+        brush = QtGui.QBrush(QtGui.QColor(0, 0, 0, 30))
+        if size:
+            bol = True
+            for x in xrange(0, w, size):
+                for y in xrange(0, h, size*2):
+                    if bol:
+                        p.fillRect (x, y, size, size, brush)
+                    else:
+                        p.fillRect (x, y+size, size, size, brush)
+                bol = not bol
 
 
 class Scene(QtGui.QGraphicsView):
@@ -81,8 +89,8 @@ class Scene(QtGui.QGraphicsView):
         self.setMinimumSize(400, 400)
         self.scene.setSceneRect(0, 0, w, h)
         # background
-        self.setBackgroundBrush(QtGui.QBrush(QtGui.QColor(150, 150, 150)))
-        self.bg = self.scene.addPixmap(Bg(w, h))
+        self.setBackgroundBrush(QtGui.QBrush(self.project.pref["bg_color"]))
+        self.bg = self.scene.addPixmap(Bg(w, h, self.project.pref["bg_size"]))
         # frames
         self.itemList = []
         self.canvasList = []
@@ -110,6 +118,7 @@ class Scene(QtGui.QGraphicsView):
         self.change_pen()
 
         self.project.update_view.connect(self.change_frame)
+        self.project.update_background.connect(self.update_background)
         self.change_frame()
 
     def change_pen(self):
@@ -122,14 +131,19 @@ class Scene(QtGui.QGraphicsView):
                 p = QtGui.QGraphicsRectItem(i[0], i[1], 1, 1, self.penItem)
                 p.setPen(pen)
                 p.setBrush(brush)
-
+                
+    def update_background(self):
+        self.setBackgroundBrush(QtGui.QBrush(self.project.pref["bg_color"]))
+        self.bg.setPixmap(Bg(self.project.size[0], self.project.size[1], 
+                             self.project.pref["bg_size"]))
+        
     def change_frame(self):
         # resize scene if needed
         w, h = self.project.size[0], self.project.size[1]
         if (int(self.scene.sceneRect().width()) != w or
             int(self.scene.sceneRect().height()) != h):
             self.scene.setSceneRect(0, 0, w, h)
-            self.bg.setPixmap(Bg(w, h))
+            self.update_background()
         # init item hanging canvas if needed
         self.canvasList = self.project.get_canvas_list()
         if len(self.itemList) != len(self.canvasList):
@@ -452,11 +466,16 @@ class PaletteCanvas(QtGui.QWidget):
         QtGui.QWidget.__init__(self)
         self.parent = parent
         self.setFixedSize(164, 324)
-        self.background = QtGui.QBrush(QtGui.QColor(150, 150, 150))
+        self.background = QtGui.QBrush(self.parent.project.pref["bg_color"])
         self.alpha = QtGui.QPixmap("icons/color_alpha.png")
         self.black = QtGui.QBrush(QtGui.QColor(0, 0, 0))
         self.white = QtGui.QBrush(QtGui.QColor(255, 255, 255))
-
+        self.parent.project.update_background.connect(self.update_background)
+        
+    def update_background(self):
+         self.background = QtGui.QBrush(self.parent.project.pref["bg_color"])
+         self.update()
+         
     def paintEvent(self, ev=''):
         p = QtGui.QPainter(self)
         p.fillRect (0, 0, self.width(), self.height(), self.background)
@@ -687,6 +706,7 @@ class Project(QtCore.QObject):
     update_view = QtCore.pyqtSignal()
     update_palette = QtCore.pyqtSignal()
     update_timeline = QtCore.pyqtSignal()
+    update_background = QtCore.pyqtSignal()
     pen_changed = QtCore.pyqtSignal()
     tool_changed = QtCore.pyqtSignal()
     color_changed = QtCore.pyqtSignal()
@@ -707,11 +727,10 @@ class Project(QtCore.QObject):
         self.onionSkinNext = False
 
         # TODO
-        self.pref = {"background_color" : QtGui.QColor(150, 150, 150),
-                     "grid" : False}
+        self.pref = {"bg_color" : QtGui.QColor(150, 150, 150),
+                     "bg_size" : 16}
         self.file = {"url" : None,
                      "saved" : False}
-        self.url = None
         self.undoList = []
         self.redoList = []
 
@@ -1016,7 +1035,7 @@ class MainWindow(QtGui.QMainWindow):
         resizeAction = QtGui.QAction('Resize', self)
         resizeAction.triggered.connect(self.resize_action)
         prefAction = QtGui.QAction('Preference', self)
-        prefAction.setEnabled(False)
+        prefAction.triggered.connect(self.pref_action)
         
         projectMenu = menubar.addMenu('Project')
         projectMenu.addAction(newAction)
@@ -1149,6 +1168,13 @@ class MainWindow(QtGui.QMainWindow):
             self.project.size = newSize
             self.project.update_view.emit()
             
+    def pref_action(self):
+        ok, color, size = PrefDialog(self.project.pref["bg_color"],
+                                     self.project.pref["bg_size"]).get_return()
+        if ok:
+            self.project.pref["bg_color"] = color
+            self.project.pref["bg_size"] = size
+            self.project.update_background.emit()
 
     ######## Shortcuts #################################################
     def select_frame(self, n):

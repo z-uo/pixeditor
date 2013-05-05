@@ -5,6 +5,75 @@ from PyQt4 import QtCore
 from PyQt4 import QtGui
 from PyQt4 import Qt
 
+class PrefDialog(QtGui.QDialog):
+    def __init__(self, color, size):
+        QtGui.QDialog.__init__(self)
+        self.setWindowTitle("preferences")
+        self.color = color
+        self.size = size
+        ### color ###
+        self.colorL = QtGui.QLabel("background color :")
+        self.colorIcon = QtGui.QPixmap(16, 16)
+        self.colorIcon.fill(self.color)
+        self.colorW = QtGui.QToolButton(self)
+        self.colorW.setAutoRaise(True)
+        self.colorW.setIcon(QtGui.QIcon(self.colorIcon))
+        self.colorW.clicked.connect(self.color_clicked)
+        ### size ###
+        self.sizeL = QtGui.QLabel("background size :")
+        self.sizeW = QtGui.QLineEdit(str(self.size), self)
+        self.sizeW.setValidator(QtGui.QIntValidator(self.sizeW))
+        ### apply, undo ###
+        self.cancelW = QtGui.QPushButton('cancel', self)
+        self.cancelW.clicked.connect(self.cancel_clicked)
+        self.okW = QtGui.QPushButton('ok', self)
+        self.okW.clicked.connect(self.ok_clicked)
+        self.okW.setDefault(True)
+
+        grid = QtGui.QGridLayout()
+        grid.setSpacing(4)
+        grid.addWidget(self.colorL, 0, 0)
+        grid.addWidget(self.colorW, 0, 1)
+        grid.addWidget(self.sizeL, 1, 0)
+        grid.addWidget(self.sizeW, 1, 1)
+
+        okBox = QtGui.QHBoxLayout()
+        okBox.addStretch(0)
+        okBox.addWidget(self.cancelW)
+        okBox.addWidget(self.okW)
+
+        vBox = QtGui.QVBoxLayout()
+        vBox.addLayout(grid)
+        vBox.addStretch(0)
+        vBox.addLayout(okBox)
+
+        self.setLayout(vBox)
+        self.exec_()
+        
+    def color_clicked(self):
+        color = QtGui.QColorDialog.getColor(self.color)
+        if self.color.isValid():
+            self.color = color
+            self.colorIcon.fill(self.color)
+            self.colorW.setIcon(QtGui.QIcon(self.colorIcon))
+        
+    def ok_clicked(self):
+        try:
+            self.size = int(self.sizeW.text())
+        except ValueError:
+            self.size = 0
+        self.accept()
+
+    def cancel_clicked(self):
+        self.reject()
+
+    def get_return(self):
+        if self.result():
+            return True , self.color, self.size
+        else:
+            return False, None, None
+
+
 class NewDialog(QtGui.QDialog):
     def __init__(self, w=64, h=64):
         QtGui.QDialog.__init__(self)
@@ -183,8 +252,8 @@ class CropDialog(QtGui.QDialog):
             return True , (self.w, self.h), (self.wOffset, self.hOffset)
         else:
             return False, None, None
-            
-            
+
+
 class ResizeDialog(QtGui.QDialog):
     def __init__(self, size):
         QtGui.QDialog.__init__(self)
@@ -312,6 +381,7 @@ class RenameLayerDialog(QtGui.QDialog):
         else:
             return False, None
 
+
 class IndexingAlgorithmDialog(QtGui.QDialog):
     def __init__(self, alpha=True):
         QtGui.QDialog.__init__(self)
@@ -397,5 +467,6 @@ if __name__ == '__main__':
     import sys
     app = QtGui.QApplication(sys.argv)
     #~ mainWin = RenameLayerDialog("layer 1")
-    mainWin = ResizeDialog((24, 32))
+    #~ mainWin = ResizeDialog((24, 32))
+    mainWin = PrefDialog(QtGui.QColor(150, 150, 150), 16)
     sys.exit(app.exec_())
