@@ -25,11 +25,11 @@ def open_pix(url=None):
             save = open(url, "r")
             size, colors, frames = return_canvas(save)
             save.close()
-            return size, colors, frames
+            return size, colors, frames, url
         except IOError:
             print("Can't open file")
-            return False, False, False
-    return False, False, False
+            return False, False, False, False
+    return False, False, False, False
 
 def return_canvas(save):
     saveElem = ET.parse(save).getroot()
@@ -51,7 +51,7 @@ def return_canvas(save):
     return size, colors, frames
 
 ######## save ##########################################################
-def save_pix(project, pixurl=None):
+def save_pix_as(project, pixurl=None):
     if not pixurl:
         directory = ""
         repeat = True
@@ -89,11 +89,15 @@ Should I save your animation as :
                         repeat = False
             else:
                 return False
+    return save_pix(project, str(pixurl))
+    
+def save_pix(project, url):
     try:
-        save = open(str(pixurl), "w")
+        save = open(url, "w")
         save.write(return_pix(project))
         save.close()
-        return True
+        print("saved")
+        return url
     except IOError:
         print("Can't open file")
         return False

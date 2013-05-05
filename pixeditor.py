@@ -943,7 +943,7 @@ class MainWindow(QtGui.QMainWindow):
     currentFrameChanged = QtCore.pyqtSignal(object)
     def __init__(self):
         QtGui.QMainWindow.__init__(self)
-        self.setWindowTitle("pixeditor")
+        self.setWindowTitle("pixeditor | untitled")
 
         self.project = Project(self)
         self.toolsWidget = ToolsWidget(self.project)
@@ -955,11 +955,10 @@ class MainWindow(QtGui.QMainWindow):
         openAction = QtGui.QAction('Open', self)
         openAction.triggered.connect(self.open_action)
         saveAsAction = QtGui.QAction('Save as', self)
-        saveAsAction.triggered.connect(self.save_action)
+        saveAsAction.triggered.connect(self.save_as_action)
         saveAction = QtGui.QAction('Save', self)
         saveAction.triggered.connect(self.save_action)
         saveAction.setShortcut('Ctrl+S')
-        saveAction.setEnabled(False)
         
         importAction = QtGui.QAction('Import', self)
         importAction.triggered.connect(self.import_action)
@@ -988,12 +987,6 @@ class MainWindow(QtGui.QMainWindow):
         redoAction = QtGui.QAction('Redo', self)
         redoAction.triggered.connect(self.redo)
         redoAction.setShortcut('Ctrl+Y')
-        #~ globalUndoAction = QtGui.QAction('global undo', self)
-        #~ globalUndoAction.triggered.connect(self.global_undo)
-        #~ globalUndoAction.setShortcut('Ctrl+SHIFT+Z')
-        #~ globalRedoAction = QtGui.QAction('Global Redo', self)
-        #~ globalRedoAction.triggered.connect(self.global_redo)
-        #~ globalRedoAction.setShortcut('Ctrl+SHIFT+Y')
         
         cutAction = QtGui.QAction('Cut', self)
         cutAction.triggered.connect(self.timeline.cut)
@@ -1008,8 +1001,6 @@ class MainWindow(QtGui.QMainWindow):
         editMenu = menubar.addMenu('Edit')
         editMenu.addAction(undoAction)
         editMenu.addAction(redoAction)
-        #~ editMenu.addAction(globalUndoAction)
-        #~ editMenu.addAction(globalRedoAction)
         editMenu.addSeparator()
         editMenu.addAction(cutAction)
         editMenu.addAction(copyAction)
@@ -1057,8 +1048,10 @@ class MainWindow(QtGui.QMainWindow):
         
     ######## File menu #################################################
     def open_action(self):
-        size, colors, frames = open_pix()
-        if size and colors and frames:
+        size, colors, frames, url = open_pix()
+        if size and colors and frames and url:
+            self.setWindowTitle("pixeditor | %s" %(os.path.basename(url)))
+            self.project.file["url"] = url
             self.project.size = size
             self.project.colorTable = colors
             for y, l in enumerate(frames):
@@ -1072,8 +1065,17 @@ class MainWindow(QtGui.QMainWindow):
             self.project.update_palette.emit()
             self.project.update_timeline.emit()
 
+    def save_as_action(self):
+        url = save_pix_as(self.project)
+        if url:
+            self.project.file["url"] = url
+            self.setWindowTitle("pixeditor | %s" %(os.path.basename(url)))
+        
     def save_action(self):
-        save_pix(self.project)
+        if self.project.file["url"]:
+            save_pix(self.project, self.project.file["url"])
+        else:
+            self.save_as_action()
 
     def import_action(self):
         import_png(self.project)
@@ -1093,22 +1095,12 @@ class MainWindow(QtGui.QMainWindow):
             QtGui.qApp.quit()
 
     ######## Edit menu #################################################
-    #~ def undo(self):
-        #~ self.project.get_canvas().undo()
-        #~ self.project.update_view.emit()
-#~ 
-    #~ def redo(self):
-        #~ self.project.get_canvas().redo()
-        #~ self.project.update_view.emit()
-        
     def undo(self):
-        print ("global undo")
         self.project.undo()
         self.project.update_view.emit()
         self.project.update_timeline.emit()
 
     def redo(self):
-        print ("global redo")
         self.project.redo()
         self.project.update_view.emit()
         self.project.update_timeline.emit()
@@ -1124,6 +1116,7 @@ class MainWindow(QtGui.QMainWindow):
             self.project.update_view.emit()
             self.project.update_palette.emit()
             self.project.update_timeline.emit()
+            self.setWindowTitle("pixeditor | untitled")
 
     def crop_action(self):
         exSize = self.project.size
