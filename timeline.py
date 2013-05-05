@@ -504,18 +504,16 @@ class Timeline(QtGui.QWidget):
         
     def add_layer_clicked(self):
         self.project.save_to_undo("frames")
-        self.project.frames.insert(self.project.currentLayer + 1, 
+        self.project.frames.insert(self.project.currentLayer, 
                                    self.project.make_layer())
-        self.project.currentLayer += 1
         self.adjust_size()
         self.project.update_view.emit()
         
     def duplicate_layer_clicked(self):
         self.project.save_to_undo("frames")
-        self.project.frames.insert(self.project.currentLayer + 1,
+        self.project.frames.insert(self.project.currentLayer,
                 self.project.make_layer(
                 self.project.frames[self.project.currentLayer]))
-        self.project.currentLayer += 1
         self.adjust_size()
         self.project.update_view.emit()
         

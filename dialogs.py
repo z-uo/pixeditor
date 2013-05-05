@@ -279,7 +279,7 @@ class RenameLayerDialog(QtGui.QDialog):
         self.cancelW.clicked.connect(self.cancel_clicked)
         self.renameW = QtGui.QPushButton('rename', self)
         self.renameW.clicked.connect(self.rename_clicked)
-
+        self.renameW.setDefault(True)
         okBox = QtGui.QHBoxLayout()
         okBox.addStretch(0)
         okBox.addWidget(self.cancelW)
