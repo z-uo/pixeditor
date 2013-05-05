@@ -758,12 +758,14 @@ class Project(QtCore.QObject):
                           (self.currentFrame, self.currentLayer), 
                           list(self.colorTable)))
         elif obj == "colorTable_frames":
-            print(frames)
             frames = list(self.frames)
             for y, l in enumerate(frames):
                 frames[y] = dict(l)
                 frames[y]["frames"] = list(l["frames"])
-            doList.append(("frames", 
+                for x, f in enumerate(frames[y]["frames"]):
+                    if f:
+                        frames[y]["frames"][x] = Canvas(self, f)
+            doList.append(("colorTable_frames", 
                           (self.currentFrame, self.currentLayer), 
                           (frames, list(self.colorTable))))
 
