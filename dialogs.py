@@ -4,6 +4,8 @@
 from PyQt4 import QtCore
 from PyQt4 import QtGui
 from PyQt4 import Qt
+from colorPicker import ColorDialog
+
 
 class PrefDialog(QtGui.QDialog):
     def __init__(self, color, size):
@@ -51,7 +53,7 @@ class PrefDialog(QtGui.QDialog):
         self.exec_()
         
     def color_clicked(self):
-        color = QtGui.QColorDialog.getColor(self.color)
+        ok, color = ColorDialog(self.color).get_QColor()
         if self.color.isValid():
             self.color = color
             self.colorIcon.fill(self.color)

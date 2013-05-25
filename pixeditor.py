@@ -46,6 +46,7 @@ from dialogs import *
 from import_export import *
 from timeline import *
 from widget import *
+from colorPicker import ColorDialog
 
 DEFAUT_COLOR = 1
 DEFAUT_SIZE = (64, 64)
@@ -630,7 +631,7 @@ class ToolsWidget(QtGui.QWidget):
     ######## Color #####################################################
     def edit_color(self, n):
         col = self.project.colorTable[self.project.color]
-        color, ok = QtGui.QColorDialog.getRgba(col)
+        ok, color = ColorDialog(col).get_rgba()
         if not ok:
             return
         self.project.save_to_undo("colorTable")
@@ -645,7 +646,7 @@ class ToolsWidget(QtGui.QWidget):
         """ select a color and add it to the palette"""
         if not len(self.project.colorTable) >= 128:
             col = self.project.colorTable[self.project.color]
-            color, ok = QtGui.QColorDialog.getRgba(col)
+            ok, color = ColorDialog(col).get_rgba()
             if not ok:
                 return
             self.project.save_to_undo("colorTable_frames")
@@ -727,7 +728,8 @@ class Project(QtCore.QObject):
         self.onionSkinNext = False
 
         # TODO
-        self.pref = {"bg_color" : QtGui.QColor(150, 150, 150),
+        self.pref = {"color_deph" : "gif",
+                     "bg_color" : QtGui.QColor(150, 150, 150),
                      "bg_size" : 16}
         self.file = {"url" : None,
                      "saved" : False}

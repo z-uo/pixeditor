@@ -124,28 +124,7 @@ def return_pix(project):
     else:
         return ET.tostring(saveElem)
 
-def return_old_pix(size, color, frames):
-    saveElem = ET.Element("pix", version="0,1")
-    sizeElem = ET.SubElement(saveElem, "size")
-    sizeElem.attrib["width"] = str(size[0])
-    sizeElem.attrib["height"] = str(size[1])
-    colorElem = ET.SubElement(saveElem, "colors", lenght=str(len(color)))
-    colorElem.text = ','.join(str(n) for n in color)
-    framesElem = ET.SubElement(saveElem, "frames", lenght=str(len(frames)))
-    for n, frame in enumerate(frames):
-        f = ET.SubElement(framesElem, "f%s" %(n))
-        if not frame:
-            f.text = "0"
-        else:
-            l = []
-            for y in xrange(frame.height()):
-                for x in xrange(frame.width()):
-                    l.append(frame.pixelIndex(x, y))
-            f.text = ','.join(str(p) for p in l)
-    return ET.tostring(saveElem)
-
 ######## import ########################################################
-
 def import_png(project):
         urls = QtGui.QFileDialog.getOpenFileNames(
             None, "Import PNG", "", "PNG files (*.png );;All files (*)")
