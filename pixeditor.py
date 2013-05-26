@@ -44,8 +44,8 @@ from PyQt4 import Qt
 
 from dialogs import *
 from import_export import *
-from timeline import *
-from widget import *
+from timeline import Timeline
+from widget import Background, Button
 from colorPicker import ColorDialog
 
 DEFAUT_COLOR = 1
@@ -53,24 +53,6 @@ DEFAUT_SIZE = (64, 64)
 DEFAUT_COLORTABLE = (QtGui.qRgba(0, 0, 0, 0), QtGui.qRgba(0, 0, 0, 255))
 DEFAUT_PEN = ((0, 0),)
 DEFAUT_TOOL = "pen"
-
-
-class Bg(QtGui.QPixmap):
-    """ background of the scene"""
-    def __init__(self, w, h, size):
-        QtGui.QPixmap.__init__(self, w, h)
-        self.fill(QtGui.QColor(0, 0, 0, 0))
-        p = QtGui.QPainter(self)
-        brush = QtGui.QBrush(QtGui.QColor(0, 0, 0, 30))
-        if size:
-            bol = True
-            for x in xrange(0, w, size):
-                for y in xrange(0, h, size*2):
-                    if bol:
-                        p.fillRect (x, y, size, size, brush)
-                    else:
-                        p.fillRect (x, y+size, size, size, brush)
-                bol = not bol
 
 
 class Scene(QtGui.QGraphicsView):
@@ -91,7 +73,7 @@ class Scene(QtGui.QGraphicsView):
         self.scene.setSceneRect(0, 0, w, h)
         # background
         self.setBackgroundBrush(QtGui.QBrush(self.project.pref["bg_color"]))
-        self.bg = self.scene.addPixmap(Bg(w, h, self.project.pref["bg_size"]))
+        self.bg = self.scene.addPixmap(Background(w, h, self.project.pref["bg_pattern"]))
         # frames
         self.itemList = []
         self.canvasList = []
@@ -135,8 +117,8 @@ class Scene(QtGui.QGraphicsView):
                 
     def update_background(self):
         self.setBackgroundBrush(QtGui.QBrush(self.project.pref["bg_color"]))
-        self.bg.setPixmap(Bg(self.project.size[0], self.project.size[1], 
-                             self.project.pref["bg_size"]))
+        self.bg.setPixmap(Background(self.project.size[0], self.project.size[1], 
+                                     self.project.pref["bg_pattern"]))
         
     def change_frame(self):
         # resize scene if needed
@@ -730,7 +712,7 @@ class Project(QtCore.QObject):
         # TODO
         self.pref = {"color_deph" : "gif",
                      "bg_color" : QtGui.QColor(150, 150, 150),
-                     "bg_size" : 16}
+                     "bg_pattern" : 16}
         self.file = {"url" : None,
                      "saved" : False}
         self.undoList = []
@@ -1036,8 +1018,8 @@ class MainWindow(QtGui.QMainWindow):
         cropAction.triggered.connect(self.crop_action)
         resizeAction = QtGui.QAction('Resize', self)
         resizeAction.triggered.connect(self.resize_action)
-        prefAction = QtGui.QAction('Preference', self)
-        prefAction.triggered.connect(self.pref_action)
+        prefAction = QtGui.QAction('Background', self)
+        prefAction.triggered.connect(self.background_action)
         
         projectMenu = menubar.addMenu('Project')
         projectMenu.addAction(newAction)
@@ -1170,12 +1152,13 @@ class MainWindow(QtGui.QMainWindow):
             self.project.size = newSize
             self.project.update_view.emit()
             
-    def pref_action(self):
-        ok, color, size = PrefDialog(self.project.pref["bg_color"],
-                                     self.project.pref["bg_size"]).get_return()
+    def background_action(self):
+        ok, color, pattern = BackgroundDialog(
+                        self.project.pref["bg_color"],
+                        self.project.pref["bg_pattern"]).get_return()
         if ok:
             self.project.pref["bg_color"] = color
-            self.project.pref["bg_size"] = size
+            self.project.pref["bg_pattern"] = pattern
             self.project.update_background.emit()
 
     ######## Shortcuts #################################################

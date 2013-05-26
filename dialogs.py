@@ -1,30 +1,86 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-
+import os
 from PyQt4 import QtCore
 from PyQt4 import QtGui
 from PyQt4 import Qt
 from colorPicker import ColorDialog
+from widget import Background
 
-
-class PrefDialog(QtGui.QDialog):
-    def __init__(self, color, size):
+class BackgroundDialog(QtGui.QDialog):
+    def __init__(self, color=QtGui.QColor(150, 150, 150), arg=16):
+        """ color: QColor is the background color
+            arg can be
+                int: square pattern, arg is the size
+                str: custom pattern, arg is the filename
+        """
         QtGui.QDialog.__init__(self)
-        self.setWindowTitle("preferences")
-        self.color = color
-        self.size = size
+        self.setWindowTitle("background")
         ### color ###
-        self.colorL = QtGui.QLabel("background color :")
-        self.colorIcon = QtGui.QPixmap(16, 16)
+        self.color = color
+        self.colorL = QtGui.QLabel("color :")
+        self.colorIcon = QtGui.QPixmap(40, 20)
         self.colorIcon.fill(self.color)
         self.colorW = QtGui.QToolButton(self)
         self.colorW.setAutoRaise(True)
         self.colorW.setIcon(QtGui.QIcon(self.colorIcon))
-        self.colorW.clicked.connect(self.color_clicked)
-        ### size ###
-        self.sizeL = QtGui.QLabel("background size :")
-        self.sizeW = QtGui.QLineEdit(str(self.size), self)
+        self.colorW.setIconSize(QtCore.QSize(46, 26))
+        ### preview ###
+        self.preview = QtGui.QPixmap(128, 128)
+        self.preview.fill(self.color)
+        self.previewL = QtGui.QLabel()
+        self.previewL.setPixmap(self.preview)
+        
+        ### square pattern ###
+        self.squareRadio = QtGui.QRadioButton("square", self)
+        self.sizeL = QtGui.QLabel("size :")
+        self.sizeW = QtGui.QLineEdit("16", self)
         self.sizeW.setValidator(QtGui.QIntValidator(self.sizeW))
+        
+        ### file pattern ###
+        self.fileRadio = QtGui.QRadioButton("file", self)
+        ### model to store images ###
+        self.modImgList = QtGui.QStandardItemModel(0, 1)
+        for f in os.listdir("pattern"):
+            if f.endswith(".png"):
+                i = QtGui.QStandardItem(f)
+                i.path = os.path.join("pattern", f)
+                self.modImgList.appendRow(i)
+
+        ### listview to display images ###
+        self.imgList = QtGui.QListView()
+        self.imgList.setModel(self.modImgList)
+        self.imgList.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
+        # select the first one
+        self.fileName = self.modImgList.item(0).path
+        sel = self.modImgList.createIndex(0, 0)
+        self.imgList.selectionModel().select(sel, QtGui.QItemSelectionModel.Select)
+        
+        ### init ###
+        if type(arg) is int:
+            self.pattern = "square"
+            self.squareRadio.setChecked(True)
+            self.size = arg
+            self.sizeW.setText(str(self.size))
+        elif type(arg) is str:
+            self.pattern = "file"
+            self.fileRadio.setChecked(True)
+            for i in range(self.modImgList.rowCount()):
+                if arg == self.modImgList.item(i).path:
+                    self.imgList.selectionModel().clear()
+                    sel = self.modImgList.createIndex(i, 0)
+                    self.imgList.selectionModel().select(sel, QtGui.QItemSelectionModel.Select)
+                    self.fileName = arg
+            self.size = 16
+            
+        ### preview ###
+        self.update_preview()
+        # connect
+        self.colorW.clicked.connect(self.color_clicked)
+        self.squareRadio.toggled.connect(self.radio_toggled)
+        self.sizeW.textChanged.connect(self.size_changed)
+        self.imgList.selectionModel().selectionChanged.connect(self.file_changed)
+        
         ### apply, undo ###
         self.cancelW = QtGui.QPushButton('cancel', self)
         self.cancelW.clicked.connect(self.cancel_clicked)
@@ -34,10 +90,17 @@ class PrefDialog(QtGui.QDialog):
 
         grid = QtGui.QGridLayout()
         grid.setSpacing(4)
-        grid.addWidget(self.colorL, 0, 0)
-        grid.addWidget(self.colorW, 0, 1)
-        grid.addWidget(self.sizeL, 1, 0)
-        grid.addWidget(self.sizeW, 1, 1)
+        grid.addWidget(self.colorL, 0, 1)
+        grid.addWidget(self.colorW, 0, 2)
+        
+        grid.addWidget(self.squareRadio, 1, 0)
+        grid.addWidget(self.sizeL, 1, 1)
+        grid.addWidget(self.sizeW, 1, 2)
+        
+        grid.addWidget(self.fileRadio, 2, 0)
+        grid.addWidget(self.imgList, 2, 1, 2, 2)
+        
+        grid.addWidget(self.previewL, 0, 3, 4, 1)
 
         okBox = QtGui.QHBoxLayout()
         okBox.addStretch(0)
@@ -54,10 +117,42 @@ class PrefDialog(QtGui.QDialog):
         
     def color_clicked(self):
         ok, color = ColorDialog(self.color).get_QColor()
-        if self.color.isValid():
+        if ok:
             self.color = color
             self.colorIcon.fill(self.color)
             self.colorW.setIcon(QtGui.QIcon(self.colorIcon))
+            self.update_preview()
+        
+    def size_changed(self, s):
+        try:
+            self.size = int(s)
+        except ValueError:
+            self.size = 0
+        if self.pattern == "square":
+            self.update_preview()
+        
+    def radio_toggled(self):
+        if self.squareRadio.isChecked():
+            self.pattern = "square"
+        elif self.fileRadio.isChecked():
+            self.pattern = "file"
+        self.update_preview()
+            
+    def file_changed(self):
+        sel = self.imgList.selectionModel().selectedIndexes()[0].row()
+        self.fileName = self.modImgList.item(sel).path
+        if self.pattern == "file":
+            self.update_preview()
+        
+    def update_preview(self):
+        self.preview.fill(self.color)
+        p = QtGui.QPainter(self.preview)
+        if self.pattern == "square":
+            p.drawPixmap(16, 16, Background(96, 96, self.size))
+        elif self.pattern == "file":
+            p.drawPixmap(16, 16, Background(96, 96, self.fileName))
+        self.previewL.setPixmap(self.preview)
+        
         
     def ok_clicked(self):
         try:
@@ -71,7 +166,10 @@ class PrefDialog(QtGui.QDialog):
 
     def get_return(self):
         if self.result():
-            return True , self.color, self.size
+            if self.pattern == "square":
+                return True , self.color, self.size
+            elif self.pattern == "file":
+                return True , self.color, self.fileName
         else:
             return False, None, None
 
@@ -470,5 +568,5 @@ if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)
     #~ mainWin = RenameLayerDialog("layer 1")
     #~ mainWin = ResizeDialog((24, 32))
-    mainWin = PrefDialog(QtGui.QColor(150, 150, 150), 16)
+    mainWin = BackgroundDialog(QtGui.QColor(150, 150, 150), "pattern/iso_20x11.png")
     sys.exit(app.exec_())
