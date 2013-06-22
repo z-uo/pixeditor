@@ -14,7 +14,7 @@ import os
 import xml.etree.ElementTree as ET
 
 from pixeditor import Canvas
-from dialogs import IndexingAlgorithmDialog
+#~ from dialogs import IndexingAlgorithmDialog
 
 ######## open ##########################################################
 def open_pix(url=None):
@@ -23,7 +23,9 @@ def open_pix(url=None):
     if url:
         try:
             save = open(url, "r")
-            size, colors, frames = return_canvas(save)
+            saveElem = ET.parse(save).getroot()
+            if saveElem.attrib["version"] == "0.2":
+                size, colors, frames = return_canvas_02(saveElem)
             save.close()
             return size, colors, frames, url
         except IOError:
@@ -31,8 +33,7 @@ def open_pix(url=None):
             return False, False, False, False
     return False, False, False, False
 
-def return_canvas(save):
-    saveElem = ET.parse(save).getroot()
+def return_canvas_02(saveElem):
     sizeElem = saveElem.find("size").attrib
     size = (int(sizeElem["width"]), int(sizeElem["height"]))
     colorsElem = saveElem.find("colors").text
@@ -40,7 +41,6 @@ def return_canvas(save):
     framesElem = saveElem.find("frames")
     frames = []
     for layerElem in framesElem:
-        print(layerElem.attrib["name"])
         layer = {"frames": [], "name": str(layerElem.attrib["name"]), "pos" : 0, "visible" : True, "lock" : False}
         for f in layerElem.itertext():
             if f == "0":
@@ -126,73 +126,60 @@ def return_pix(project):
 
 ######## import ########################################################
 def import_png(project):
-        urls = QtGui.QFileDialog.getOpenFileNames(
-            None, "Import PNG", "", "PNG files (*.png );;All files (*)")
-        imgs = []
-        colorTable = []
-        canceled = []
-        size = False
-        for i in urls:
-            img = Canvas(project, str(i))
-
-            if img.colorTable():
-                if not colorTable:
-                    colorTable = img.colorTable()
-                else:
-                    img.setColorTable(colorTable)
-
-            elif colorTable:
-                img = Canvas(project, img.convertToFormat(
-                    QtGui.QImage.Format_Indexed8, colorTable))
-
+    urls = QtGui.QFileDialog.getOpenFileNames(
+        None, "Import PNG", "", "PNG files (*.png );;All files (*)")
+    if not urls:
+        return None, None, None
+    imgs = []
+    canceled = []
+    colorTable = []
+    size = QtCore.QSize(0, 0)
+    for i in urls:
+        img = Canvas(project, str(i))
+        if img.format() == QtGui.QImage.Format_Indexed8:
+            colorMixed = img.mix_colortable(colorTable)
+            if colorMixed:
+                colorTable = colorMixed
+                imgs.append(img)
+                size = size.expandedTo(img.size())
             else:
-                print("No color table found, attempting to sniff")
-                colorTable = img.sniffColorTable()
-                if colorTable:
-                    print("Sniffing successful")
-                    img = Canvas(project, img.convertToFormat(
-                        QtGui.QImage.Format_Indexed8, colorTable))
-                else:
-                    print("Sniffing failed, attempting to index")
-                    success, algorithm = IndexingAlgorithmDialog().get_return()
-                    if not success:
-                        canceled.append(img)
-                        continue
-                    img = Canvas(project, img.convertToFormat(
-                        QtGui.QImage.Format_Indexed8, algorithm))
-                    colorTable = img.colorTable()
-
-            if not size:
-                size = (img.size().width(), img.size().height())
+                canceled.append(i)
+        else:
+            colorMixed = img.sniff_colortable(colorTable)
+            if colorMixed:
+                colorTable = colorMixed
+                imgs.append(img)
+                size = size.expandedTo(img.size())
             else:
-                if img.size().width() != size[0] or img.size().height() != size[1]:
-                    exWidth = img.size().width()
-                    li = img.return_as_list()
-                    img = Canvas(project, size)
-                    img.load_from_list(li, exWidth)
-            imgs.append(img)
-
-        if canceled:
-            message = QtGui.QMessageBox()
-            message.setWindowTitle("Import error")
-            message.setText("Failed to import some non-indexed files.");
-            message.setIcon(QtGui.QMessageBox.Warning)
-            message.addButton("Ok", QtGui.QMessageBox.AcceptRole)
-            message.exec_();
-
-        if imgs and colorTable and size:
-            project.size = size
-            project.colorTable = colorTable
-            project.frames.append(project.make_layer(imgs))
-        project.update_view.emit()
-        project.update_palette.emit()
-        project.update_timeline.emit()
+                canceled.append(i)
+            
+    for n, img in enumerate(imgs):
+        img = Canvas(project, img.convertToFormat(QtGui.QImage.Format_Indexed8, colorTable))
+        if img.size() != size:
+            li = img.return_as_list()
+            width = img.width()
+            img = Canvas(project, (size.width(), size.height()), colorTable)
+            img.load_from_list(li, width)
+        imgs[n] = img
+    
+    if canceled:
+        text = "Failed to import some non-indexed files :"
+        for i in canceled:
+            text = "%s\n %s" %(text, i)
+        message = QtGui.QMessageBox()
+        message.setWindowTitle("Import error")
+        message.setText(text);
+        message.setIcon(QtGui.QMessageBox.Warning)
+        message.addButton("Ok", QtGui.QMessageBox.AcceptRole)
+        message.exec_();
+        
+    return imgs, colorTable, size
 
 def export(project, url=None):
     # nanim requires google.protobuf, which is Python 2.x only
     if int(python_version_tuple()[0]) >= 3:
         url = QtGui.QFileDialog.getSaveFileName(
-            None, "export (.png)", "", "PNG files (*.png)")
+            None, "export (.png)", "", "PNG files (*.png)", QtGui.QFileDialog.DontConfirmOverwrite)
     else:
         url = QtGui.QFileDialog.getSaveFileName(
             None, "export (.png or .nanim)", "",
@@ -204,7 +191,7 @@ def export(project, url=None):
         elif str(url).endswith("nanim"):
             export_nanim(project, url)
 
-def export_png(project, url):
+def export_png_all(project, url):
     url = os.path.splitext(str(url))[0]
     files = []
     fnexist = False
@@ -233,6 +220,54 @@ def export_png(project, url):
         for i in files:
             i[1].save(i[0])
 
+def export_png(project, fullUrl=""):
+    isUrl = False
+    while not isUrl:
+        fullUrl = QtGui.QFileDialog.getSaveFileName(
+                None, "export (.png)", fullUrl, "PNG files (*.png)", 
+                QtGui.QFileDialog.DontConfirmOverwrite)
+        if not fullUrl:
+            return
+        isUrl = True
+        url = os.path.splitext(str(fullUrl))[0]
+        nFrames = project.frame_count()
+        for i in range(nFrames):
+            #~ n = "0" * (len(str(nFrames))-len(str(i))) + str(i)
+            #~ fn = "%s%s.png" %(url, n)
+            fn = "%s%s%s.png" %(url, "0"*(len(str(nFrames))-len(str(i))), i)
+            if os.path.isfile(fn):
+                isUrl = False
+                message = QtGui.QMessageBox()
+                message.setWindowTitle("Overwrite?")
+                message.setText("Some filename allready exist.\nDo you want to overwrite them?");
+                message.setIcon(QtGui.QMessageBox.Warning)
+                message.addButton("Cancel", QtGui.QMessageBox.RejectRole)
+                message.addButton("Overwrite", QtGui.QMessageBox.AcceptRole)
+                ret = message.exec_();
+                if ret:
+                    isUrl = True
+                    break
+                else:
+                    isUrl = False
+                    break
+    for i in range(nFrames):
+        fn = "%s%s%s.png" %(url, "0"*(len(str(nFrames))-len(str(i))), i)
+        
+        canvasList = project.get_canvas_list(i)
+        if len(canvasList) == 1:
+            canvas = canvasList[0]
+        else:
+            canvas = QtGui.QImage(project.size[0], project.size[1], QtGui.QImage.Format_ARGB32)
+            canvas.fill(QtGui.QColor(0, 0, 0, 0))
+            p = QtGui.QPainter(canvas)
+            for c in reversed(canvasList):
+                if c:
+                    p.drawImage(0, 0, c)
+            p.end()
+        
+        canvas.save(fn)
+        return fullUrl
+        
 def export_nanim(project, url):
     try:
         import google.protobuf
@@ -286,4 +321,4 @@ def export_nanim(project, url):
 
 if __name__ == '__main__':
     #~ ouverturexml
-    open_pix("/media/donnees/programation/pixeditor/master/test.pix")
+    open_pix("/media/donnees/programation/pixeditor/pix/debzombie.pix")

@@ -258,7 +258,7 @@ class Scene(QtGui.QGraphicsView):
 
 class Canvas(QtGui.QImage):
     """ Canvas for drawing"""
-    def __init__(self, project, arg):
+    def __init__(self, project, arg, col=False):
         """ arg can be:
                 a Canvas/QImage instance to be copied
                 a url string to load the image
@@ -269,6 +269,10 @@ class Canvas(QtGui.QImage):
         elif type(arg) is str:
             QtGui.QImage.__init__(self)
             self.load(arg)
+        elif type(arg) is tuple and type(col) is list:
+            QtGui.QImage.__init__(self, arg[0], arg[1], QtGui.QImage.Format_Indexed8)
+            self.setColorTable(col)
+            self.fill(0)
         elif type(arg) is tuple:
             QtGui.QImage.__init__(self, arg[0], arg[1], QtGui.QImage.Format_Indexed8)
             self.setColorTable(self.project.colorTable)
@@ -339,7 +343,7 @@ class Canvas(QtGui.QImage):
     def clear(self):
         self.project.save_to_undo("canvas")
         self.fill(0)
-
+    
     def draw_line(self, p2):
         p1 = self.lastPoint
         # http://fr.wikipedia.org/wiki/Algorithme_de_trac%C3%A9_de_segment_de_Bresenham
@@ -370,19 +374,6 @@ class Canvas(QtGui.QImage):
                 self.setPixel(p, self.project.color)
 
     def flood_fill(self, point, col):
-        # FIXME: Workaround to fix a nasty bug when importing several
-        # images with different color palettes. A better solution would
-        # be to disallow importing of images if their color palette does
-        # not match, or to try merging palettes where possible.
-        if self.project.color > self.colorCount():
-            msg = QtGui.QMessageBox()
-            msg.setWindowTitle("Color index error")
-            msg.setText("Color index is invalid for this canvas.")
-            msg.setIcon(QtGui.QMessageBox.Critical)
-            msg.addButton("Ok", QtGui.QMessageBox.AcceptRole)
-            msg.exec_()
-            return
-
         l = [(point.x(), point.y())]
         while l:
             p = l.pop(-1)
@@ -430,8 +421,27 @@ class Canvas(QtGui.QImage):
                 self.draw_point(point)
                 self.lastPoint = point
 
-    def sniffColorTable(self):
-        colorTable = []
+    def mix_colortable(self, colorTable):
+        selfColorTable = self.colorTable()
+        colorTable = list(colorTable)
+        for n, i in enumerate(selfColorTable):
+            if i in colorTable:
+                p = colorTable.index(i)
+                selfColorTable[n] = p
+            else: 
+                if len(colorTable) == 256:
+                    return None
+                selfColorTable[n] = len(colorTable)
+                colorTable.append(i)
+        self.setColorTable(colorTable)
+        for y in xrange(self.height()):
+            for x in xrange(self.width()):
+                #~ print(self.pixelIndex(x, y))
+                self.setPixel(x, y, selfColorTable[self.pixelIndex(x, y)])
+        return colorTable
+        
+    def sniff_colortable(self, colorTable):
+        colorTable = list(colorTable)
         for y in xrange(self.height()):
             for x in xrange(self.width()):
                 color = self.pixel(x, y)
@@ -613,7 +623,7 @@ class ToolsWidget(QtGui.QWidget):
     ######## Color #####################################################
     def edit_color(self, n):
         col = self.project.colorTable[self.project.color]
-        ok, color = ColorDialog(col).get_rgba()
+        ok, color = ColorDialog(True, col).get_rgba()
         if not ok:
             return
         self.project.save_to_undo("colorTable")
@@ -628,7 +638,7 @@ class ToolsWidget(QtGui.QWidget):
         """ select a color and add it to the palette"""
         if not len(self.project.colorTable) >= 128:
             col = self.project.colorTable[self.project.color]
-            ok, color = ColorDialog(col).get_rgba()
+            ok, color = ColorDialog(True, col).get_rgba()
             if not ok:
                 return
             self.project.save_to_undo("colorTable_frames")
@@ -714,6 +724,7 @@ class Project(QtCore.QObject):
                      "bg_color" : QtGui.QColor(150, 150, 150),
                      "bg_pattern" : 16}
         self.file = {"url" : None,
+                     "png_url" : None,
                      "saved" : False}
         self.undoList = []
         self.redoList = []
@@ -881,10 +892,11 @@ class Project(QtCore.QObject):
                     "lock" : False,
                     "name": name}
         
-    def get_canvas_list(self):
+    def get_canvas_list(self, f=None):
         """ return the list of all layer's canvas at self.currentFrame """
+        if f is None:
+            f = self.currentFrame
         tf = []
-        f = self.currentFrame
         for l in self.frames:
             while 0 <= f < len(l["frames"]):
                 if l["frames"][f]:
@@ -941,6 +953,13 @@ class Project(QtCore.QObject):
             for f in l["frames"]:
                 if f:
                     yield f
+                    
+    def frame_count(self):
+        n = 0
+        for i in self.frames:
+            if len(i["frames"]) > n:
+                n = len(i["frames"])
+        return n
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -965,8 +984,8 @@ class MainWindow(QtGui.QMainWindow):
         saveAction.triggered.connect(self.save_action)
         saveAction.setShortcut('Ctrl+S')
         
-        importAction = QtGui.QAction('Import', self)
-        importAction.triggered.connect(self.import_action)
+        importAction = QtGui.QAction('Import as new project', self)
+        importAction.triggered.connect(self.import_as_new_action)
         exportAction = QtGui.QAction('Export', self)
         exportAction.triggered.connect(self.export_action)
         exportAction.setShortcut('Ctrl+E')
@@ -1082,11 +1101,19 @@ class MainWindow(QtGui.QMainWindow):
         else:
             self.save_as_action()
 
-    def import_action(self):
-        import_png(self.project)
+    def import_as_new_action(self):
+        imgs, colorTable, size = import_png(self.project)
         
+        if imgs and colorTable and size:
+            self.project.size = (size.width(), size.height())
+            self.project.colorTable = colorTable
+            self.project.frames = [self.project.make_layer(imgs)]
+            self.project.update_view.emit()
+            self.project.update_palette.emit()
+            self.project.update_timeline.emit()
+    
     def export_action(self):
-        export(self.project)
+        export_png(self.project)
 
     def exit_action(self):
         message = QtGui.QMessageBox()

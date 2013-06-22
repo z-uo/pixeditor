@@ -7,6 +7,82 @@ from PyQt4 import Qt
 from colorPicker import ColorDialog
 from widget import Background
 
+class ExportDialog(QtGui.QDialog):
+    def __init__(self, frames=1, mode="file", row=0, column=1):
+        QtGui.QDialog.__init__(self)
+        self.setWindowTitle("export as?")
+        
+        ### multiple files ###
+        self.fileRadio = QtGui.QRadioButton("multiple files", self)
+        ### sprite sheet ###
+        self.sheetRadio = QtGui.QRadioButton("sprite sheet", self)
+        if mode == "file":
+            self.fileRadio.setChecked(True)
+        else:
+            self.sheetRadio.setChecked(True)
+        ### row ###
+        self.rowL = QtGui.QLabel("row")
+        self.rowW = QtGui.QLineEdit(str(row), self)
+        self.rowW.setValidator(QtGui.QIntValidator(self.rowW))
+        self.rowW.textChanged.connect(self.update_size)
+        ### height ###
+        self.columnL = QtGui.QLabel("column")
+        self.columnW = QtGui.QLineEdit(str(column), self)
+        self.columnW.setValidator(QtGui.QIntValidator(self.columnW))
+        self.columnW.textChanged.connect(self.update_size)
+        
+        ### apply, undo ###
+        self.cancelW = QtGui.QPushButton('cancel', self)
+        self.cancelW.clicked.connect(self.cancel_clicked)
+        self.okW = QtGui.QPushButton('ok', self)
+        self.okW.clicked.connect(self.ok_clicked)
+        self.okW.setDefault(True)
+
+        grid = QtGui.QGridLayout()
+        grid.setSpacing(4)
+        grid.addWidget(self.fileRadio, 0, 0)
+        grid.addWidget(self.sheetRadio, 1, 0)
+        
+        grid.addWidget(self.rowL, 1, 1)
+        grid.addWidget(self.rowW, 1, 2)
+        grid.addWidget(self.columnL, 2, 1)
+        grid.addWidget(self.columnW, 2, 2)
+
+        okBox = QtGui.QHBoxLayout()
+        okBox.addStretch(0)
+        okBox.addWidget(self.cancelW)
+        okBox.addWidget(self.okW)
+
+        vBox = QtGui.QVBoxLayout()
+        vBox.addLayout(grid)
+        vBox.addStretch(0)
+        vBox.addLayout(okBox)
+
+        self.setLayout(vBox)
+        self.exec_()
+        
+    def update_size(self):
+        pass
+        
+    def ok_clicked(self):
+        try:
+            self.size = int(self.sizeW.text())
+        except ValueError:
+            self.size = 0
+        self.accept()
+
+    def cancel_clicked(self):
+        self.reject()
+
+    def get_return(self):
+        if self.result():
+            if self.pattern == "square":
+                return True , self.color, self.size
+            elif self.pattern == "file":
+                return True , self.color, self.fileName
+        else:
+            return False, None, None
+
 class BackgroundDialog(QtGui.QDialog):
     def __init__(self, color=QtGui.QColor(150, 150, 150), arg=16):
         """ color: QColor is the background color
@@ -116,7 +192,7 @@ class BackgroundDialog(QtGui.QDialog):
         self.exec_()
         
     def color_clicked(self):
-        ok, color = ColorDialog(self.color).get_QColor()
+        ok, color = ColorDialog(False, self.color).get_QColor()
         if ok:
             self.color = color
             self.colorIcon.fill(self.color)
@@ -172,7 +248,6 @@ class BackgroundDialog(QtGui.QDialog):
                 return True , self.color, self.fileName
         else:
             return False, None, None
-
 
 class NewDialog(QtGui.QDialog):
     def __init__(self, w=64, h=64):
@@ -241,7 +316,6 @@ class NewDialog(QtGui.QDialog):
             return True , self.w, self.h
         else:
             return False, None, None
-
 
 class CropDialog(QtGui.QDialog):
     def __init__(self, size):
@@ -353,7 +427,6 @@ class CropDialog(QtGui.QDialog):
         else:
             return False, None, None
 
-
 class ResizeDialog(QtGui.QDialog):
     def __init__(self, size):
         QtGui.QDialog.__init__(self)
@@ -430,7 +503,6 @@ class ResizeDialog(QtGui.QDialog):
         else:
             return False, None
 
-
 class RenameLayerDialog(QtGui.QDialog):
     def __init__(self, name, otherNames=[]):
         QtGui.QDialog.__init__(self)
@@ -481,92 +553,11 @@ class RenameLayerDialog(QtGui.QDialog):
         else:
             return False, None
 
-
-class IndexingAlgorithmDialog(QtGui.QDialog):
-    def __init__(self, alpha=True):
-        QtGui.QDialog.__init__(self)
-        self.setWindowTitle("Import PNG")
-
-        self.alpha = alpha
-
-        self.infoLabel = QtGui.QLabel(
-            """\
-            Some of the selected files are not indexed.
-            Please select an indexing algorithm.\
-            """)
-
-        self.colorLabel = QtGui.QLabel("Color indexing algorithm:")
-        self.colorCombo = QtGui.QComboBox(self)
-        self.colorCombo.addItems(["Closest Color",
-                                  "Ordered Dither",
-                                  "Diffuse Dither"])
-
-        if alpha:
-            self.alphaLabel = QtGui.QLabel("Alpha indexing algorithm:")
-            self.alphaCombo = QtGui.QComboBox(self)
-            self.alphaCombo.addItems(["No Dithering",
-                                      "Ordered Dither",
-                                      "Diffuse Dither"])
-
-        self.cancelButton = QtGui.QPushButton("Cancel", self)
-        self.cancelButton.clicked.connect(self.cancel_clicked)
-        self.acceptButton = QtGui.QPushButton("Convert", self)
-        self.acceptButton.clicked.connect(self.accept_clicked)
-        self.acceptButton.setFocus()
-
-        okBox = QtGui.QHBoxLayout()
-        okBox.addStretch(0)
-        okBox.addWidget(self.cancelButton)
-        okBox.addWidget(self.acceptButton)
-
-        vBox = QtGui.QVBoxLayout()
-        vBox.addWidget(self.infoLabel)
-        vBox.addWidget(self.colorLabel)
-        vBox.addWidget(self.colorCombo)
-        if alpha:
-            vBox.addWidget(self.alphaLabel)
-            vBox.addWidget(self.alphaCombo)
-        vBox.addLayout(okBox)
-
-        self.setLayout(vBox)
-        self.exec_()
-
-    def cancel_clicked(self):
-        self.reject()
-
-    def accept_clicked(self):
-        self.algorithm = 0
-
-        idx = self.colorCombo.currentIndex()
-        if idx == 0:
-            self.algorithm |= QtCore.Qt.ThresholdDither
-        elif idx == 1:
-            self.algorithm |= QtCore.Qt.OrderedDither
-        elif idx == 2:
-            self.algorithm |= QtCore.Qt.DiffuseDither
-
-        if self.alpha:
-            idx = self.alphaCombo.currentIndex()
-            if idx == 0:
-                self.algorithm |= QtCore.Qt.ThresholdAlphaDither
-            elif idx == 1:
-                self.algorithm |= QtCore.Qt.OrderedAlphaDither
-            elif idx == 2:
-                self.algorithm |= QtCore.Qt.DiffuseAlphaDither
-
-        self.accept()
-
-    def get_return(self):
-        if self.result():
-            return True, self.algorithm
-        else:
-            return False, None
-
-
 if __name__ == '__main__':
     import sys
     app = QtGui.QApplication(sys.argv)
     #~ mainWin = RenameLayerDialog("layer 1")
     #~ mainWin = ResizeDialog((24, 32))
-    mainWin = BackgroundDialog(QtGui.QColor(150, 150, 150), "pattern/iso_20x11.png")
+    #~ mainWin = BackgroundDialog(QtGui.QColor(150, 150, 150), "pattern/iso_20x11.png")
+    mainWin = ExportDialog()
     sys.exit(app.exec_())

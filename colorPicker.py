@@ -213,14 +213,16 @@ class ColorPreview(QtGui.QGraphicsView):
         
 class ColorDialog(QtGui.QDialog):
     color_changed = QtCore.pyqtSignal(QtGui.QColor)
-    def __init__(self, color=None):
+    def __init__(self, alpha=True, color=None):
         QtGui.QDialog.__init__(self)
         self.setWindowTitle("color picker")
-        if color is not None and isinstance(color, QtGui.QColor):
-            self.color = color
-            self.colorPreview = ColorPreview(self, self.color)
-        elif color is not None and type(color) is int:
-            self.color = QtGui.QColor.fromRgba(color)
+        if color is not None:
+            if isinstance(color, QtGui.QColor):
+                self.color = color
+            elif type(color) is int:
+                self.color = QtGui.QColor.fromRgba(color)
+            if not alpha:
+                self.color.setAlpha(255)
             self.colorPreview = ColorPreview(self, self.color)
         else:
             self.color = QtGui.QColor(255, 255, 255)
@@ -228,7 +230,8 @@ class ColorDialog(QtGui.QDialog):
         
         self.satVal = SatVal(self, getHue(self.color), self.color.saturation(), self.color.value())
         self.hue = Hue(self, getHue(self.color))
-        self.alpha = Alpha(self, 255-self.color.alpha())
+        if alpha:
+            self.alpha = Alpha(self, 255-self.color.alpha())
         self.color_changed.connect(self.colorPreview.color_changed)
         
         self.hL = QtGui.QLabel("Hue")
@@ -253,12 +256,13 @@ class ColorDialog(QtGui.QDialog):
         self.vW.setValue(self.color.value())
         self.vW.valueChanged.connect(self.v_changed)
         
-        self.aL = QtGui.QLabel("Alpha")
-        self.aL.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-        self.aW = QtGui.QSpinBox()
-        self.aW.setRange(0, 255)
-        self.aW.setValue(255-self.color.alpha())
-        self.aW.valueChanged.connect(self.a_changed)
+        if alpha:
+            self.aL = QtGui.QLabel("Alpha")
+            self.aL.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+            self.aW = QtGui.QSpinBox()
+            self.aW.setRange(0, 255)
+            self.aW.setValue(255-self.color.alpha())
+            self.aW.valueChanged.connect(self.a_changed)
         
         self.cancelW = QtGui.QPushButton('cancel', self)
         self.cancelW.clicked.connect(self.cancel_clicked)
@@ -270,7 +274,8 @@ class ColorDialog(QtGui.QDialog):
         grid.setSpacing(8)
         grid.addWidget(self.satVal, 0, 0, 6, 1)
         grid.addWidget(self.hue, 0, 1, 6, 1)
-        grid.addWidget(self.alpha, 0, 2, 6, 1)
+        if alpha:
+            grid.addWidget(self.alpha, 0, 2, 6, 1)
         grid.addWidget(self.colorPreview, 0, 3, 1, 2)
         grid.addWidget(self.hL, 1, 3)
         grid.addWidget(self.hW, 1, 4)
@@ -278,8 +283,9 @@ class ColorDialog(QtGui.QDialog):
         grid.addWidget(self.sW, 2, 4)
         grid.addWidget(self.vL, 3, 3)
         grid.addWidget(self.vW, 3, 4)
-        grid.addWidget(self.aL, 4, 3)
-        grid.addWidget(self.aW, 4, 4)
+        if alpha:
+            grid.addWidget(self.aL, 4, 3)
+            grid.addWidget(self.aW, 4, 4)
         grid.setRowStretch(5, 4)
 
         okBox = QtGui.QHBoxLayout()
@@ -362,6 +368,6 @@ class ColorDialog(QtGui.QDialog):
             
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)
-    mainWin = ColorDialog().get_rgba()
+    mainWin = ColorDialog(False).get_rgba()
     print(mainWin)
     sys.exit(app.exec_())
