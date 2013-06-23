@@ -756,6 +756,17 @@ class Project(QtCore.QObject):
             doList.append(("colorTable_frames", 
                           (self.currentFrame, self.currentLayer), 
                           (frames, list(self.colorTable))))
+        elif obj == "all":
+            frames = list(self.frames)
+            for y, l in enumerate(frames):
+                frames[y] = dict(l)
+                frames[y]["frames"] = list(l["frames"])
+                for x, f in enumerate(frames[y]["frames"]):
+                    if f:
+                        frames[y]["frames"][x] = Canvas(self, f)
+            doList.append(("all", 
+                          (self.currentFrame, self.currentLayer), 
+                          (frames, list(self.colorTable), QtCore.QSize(self.size))))
 
         if len(doList) > 50:
             doList.pop(0)
@@ -790,6 +801,13 @@ class Project(QtCore.QObject):
                 self.colorTable = save[1]
                 for i in self.get_all_canvas():
                     i.setColorTable(self.colorTable)
+            elif obj == "all":
+                self.save_to_undo("all", "redoList")
+                self.frames = save[0]
+                self.colorTable = save[1]
+                for i in self.get_all_canvas():
+                    i.setColorTable(self.colorTable)
+                self.size = save[2]
                 
             self.update_view.emit()
             self.update_timeline.emit()
@@ -825,6 +843,13 @@ class Project(QtCore.QObject):
                 self.colorTable = save[1]
                 for i in self.get_all_canvas():
                     i.setColorTable(self.colorTable)
+            elif obj == "all":
+                self.save_to_undo("all", "undolist")
+                self.frames = save[0]
+                self.colorTable = save[1]
+                for i in self.get_all_canvas():
+                    i.setColorTable(self.colorTable)
+                self.size = save[2]
 
             self.update_view.emit()
             self.update_timeline.emit()
@@ -1114,6 +1139,7 @@ class MainWindow(QtGui.QMainWindow):
     def new_action(self):
         size = NewDialog().get_return()
         if size:
+            self.project.save_to_undo("all")
             self.project.color = DEFAUT_COLOR
             self.project.colorTable = list(DEFAUT_COLORTABLE)
             self.project.size = size

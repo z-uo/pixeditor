@@ -306,7 +306,8 @@ class NewDialog(QtGui.QDialog):
         except ValueError:
             self.errorL.setText("ERROR : You must enter a number !")
             return
-        if self.size.isEmpty:
+        print(self.size)
+        if self.size.isEmpty():
             self.errorL.setText("ERROR : The size must be greater than 0 !")
         else:
             self.accept()
