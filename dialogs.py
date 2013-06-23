@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
+
+# Python 3 Compatibility
+from __future__ import division
+from __future__ import print_function
+
 import os
 from PyQt4 import QtCore
 from PyQt4 import QtGui
@@ -250,7 +255,7 @@ class BackgroundDialog(QtGui.QDialog):
             return False, None, None
 
 class NewDialog(QtGui.QDialog):
-    def __init__(self, w=64, h=64):
+    def __init__(self, size=QtCore.QSize(64, 64)):
         QtGui.QDialog.__init__(self)
         self.setWindowTitle("new animation")
 
@@ -258,11 +263,11 @@ class NewDialog(QtGui.QDialog):
         self.instL = QtGui.QLabel("Enter the size of the new animation :")
         ### width ###
         self.wL = QtGui.QLabel("width")
-        self.wW = QtGui.QLineEdit(str(w), self)
+        self.wW = QtGui.QLineEdit(str(size.width()), self)
         self.wW.setValidator(QtGui.QIntValidator(self.wW))
         ### height ###
         self.hL = QtGui.QLabel("height")
-        self.hW = QtGui.QLineEdit(str(h), self)
+        self.hW = QtGui.QLineEdit(str(size.height()), self)
         self.hW.setValidator(QtGui.QIntValidator(self.hW))
         ### error ###
         self.errorL = QtGui.QLabel("")
@@ -296,32 +301,28 @@ class NewDialog(QtGui.QDialog):
 
     def new_clicked(self):
         try:
-            w = int(self.wW.text())
-            h = int(self.hW.text())
+            self.size = QtCore.QSize(int(self.wW.text()), int(self.hW.text()))
         except ValueError:
             self.errorL.setText("ERROR : You must enter a number !")
             return
-        if w > 0 and h > 0:
-            self.w = w
-            self.h = h
-            self.accept()
-        else:
+        if self.size.isEmpty:
             self.errorL.setText("ERROR : The size must be greater than 0 !")
+        else:
+            self.accept()
 
     def cancel_clicked(self):
         self.reject()
 
     def get_return(self):
         if self.result():
-            return True , self.w, self.h
+            return self.size
         else:
-            return False, None, None
+            return None
 
 class CropDialog(QtGui.QDialog):
     def __init__(self, size):
         QtGui.QDialog.__init__(self)
         self.setWindowTitle("crop animation")
-        w, h = size[0], size[1]
 
         ### instructions ###
         self.wL = QtGui.QLabel("width")
@@ -330,13 +331,13 @@ class CropDialog(QtGui.QDialog):
         self.hL.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
         self.actualSizeL = QtGui.QLabel("Actual size")
         self.actualSizeL.setAlignment(QtCore.Qt.AlignCenter)
-        self.actualWL = QtGui.QLabel(str(w))
-        self.actualHL = QtGui.QLabel(str(h))
+        self.actualWL = QtGui.QLabel(str(size.width()))
+        self.actualHL = QtGui.QLabel(str(size.height()))
         self.newSizeL = QtGui.QLabel("New size")
         self.newSizeL.setAlignment(QtCore.Qt.AlignCenter)
-        self.newWW = QtGui.QLineEdit(str(w), self)
+        self.newWW = QtGui.QLineEdit(str(size.width()), self)
         self.newWW.setValidator(QtGui.QIntValidator(self.newWW))
-        self.newHW = QtGui.QLineEdit(str(h), self)
+        self.newHW = QtGui.QLineEdit(str(size.height()), self)
         self.newHW.setValidator(QtGui.QIntValidator(self.newHW))
         ### offset ###
         self.offsetL = QtGui.QLabel("offset")
@@ -408,12 +409,8 @@ class CropDialog(QtGui.QDialog):
             hOffset = int(self.verticalOffsetW.text())
         except ValueError:
             hOffset = 0
-
         if w > 0 and h > 0:
-            self.w = w
-            self.h = h
-            self.wOffset = wOffset
-            self.hOffset = hOffset
+            self.rect = QtCore.QRect(-wOffset, -hOffset, w, h) 
             self.accept()
         else:
             self.errorL.setText("ERROR : The size must be greater than 0 !")
@@ -423,15 +420,15 @@ class CropDialog(QtGui.QDialog):
 
     def get_return(self):
         if self.result():
-            return True , (self.w, self.h), (self.wOffset, self.hOffset)
+            return self.rect
         else:
-            return False, None, None
+            return None
 
 class ResizeDialog(QtGui.QDialog):
     def __init__(self, size):
         QtGui.QDialog.__init__(self)
         self.setWindowTitle("resize animation")
-        self.w, self.h = size[0], size[1]
+        self.w, self.h = size.width(), size.height()
         
         self.factor = 1
         self.factorW = QtGui.QComboBox(self)
@@ -499,9 +496,9 @@ class ResizeDialog(QtGui.QDialog):
 
     def get_return(self):
         if self.result():
-            return True , self.factor
+            return self.factor
         else:
-            return False, None
+            return None
 
 class RenameLayerDialog(QtGui.QDialog):
     def __init__(self, name, otherNames=[]):

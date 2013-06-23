@@ -32,9 +32,7 @@
 
 # Python 3 Compatibility
 from __future__ import division
-from platform import python_version_tuple
-if int(python_version_tuple()[0]) >= 3:
-    xrange = range
+from __future__ import print_function
 
 import sys
 import os
@@ -49,7 +47,7 @@ from widget import Background, Button
 from colorPicker import ColorDialog
 
 DEFAUT_COLOR = 1
-DEFAUT_SIZE = (64, 64)
+DEFAUT_SIZE = QtCore.QSize(64, 64)
 DEFAUT_COLORTABLE = (QtGui.qRgba(0, 0, 0, 0), QtGui.qRgba(0, 0, 0, 255))
 DEFAUT_PEN = ((0, 0),)
 DEFAUT_TOOL = "pen"
@@ -61,7 +59,6 @@ class Scene(QtGui.QGraphicsView):
         QtGui.QGraphicsView.__init__(self)
         self.project = project
         self.zoomN = 1
-        w, h = self.project.size[0], self.project.size[1]
         # scene
         self.scene = QtGui.QGraphicsScene(self)
         self.scene.setItemIndexMethod(QtGui.QGraphicsScene.NoIndex)
@@ -70,20 +67,21 @@ class Scene(QtGui.QGraphicsView):
                 QtGui.QGraphicsView.AnchorUnderMouse)
         self.setResizeAnchor(QtGui.QGraphicsView.AnchorViewCenter)
         self.setMinimumSize(400, 400)
-        self.scene.setSceneRect(0, 0, w, h)
+        self.scene.setSceneRect(0, 0, self.project.size.width(), self.project.size.height())
         # background
         self.setBackgroundBrush(QtGui.QBrush(self.project.pref["bg_color"]))
-        self.bg = self.scene.addPixmap(Background(w, h, self.project.pref["bg_pattern"]))
+        self.bg = self.scene.addPixmap(
+                    Background(self.project.size, self.project.pref["bg_pattern"]))
         # frames
         self.itemList = []
         self.canvasList = []
         # OnionSkin
-        p = QtGui.QPixmap(w, h)
+        p = QtGui.QPixmap(self.project.size)
         self.onionPrevItem = self.scene.addPixmap(p)
         self.onionPrevItem.setZValue(101)
         self.onionPrevItem.setOpacity(0.5)
         self.onionPrevItem.hide()
-        p = QtGui.QPixmap(w, h)
+        p = QtGui.QPixmap(self.project.size)
         self.onionNextItem = self.scene.addPixmap(p)
         self.onionNextItem.setZValue(102)
         self.onionNextItem.setOpacity(0.5)
@@ -117,15 +115,13 @@ class Scene(QtGui.QGraphicsView):
                 
     def update_background(self):
         self.setBackgroundBrush(QtGui.QBrush(self.project.pref["bg_color"]))
-        self.bg.setPixmap(Background(self.project.size[0], self.project.size[1], 
+        self.bg.setPixmap(Background(self.project.size, 
                                      self.project.pref["bg_pattern"]))
         
     def change_frame(self):
         # resize scene if needed
-        w, h = self.project.size[0], self.project.size[1]
-        if (int(self.scene.sceneRect().width()) != w or
-            int(self.scene.sceneRect().height()) != h):
-            self.scene.setSceneRect(0, 0, w, h)
+        if self.scene.sceneRect().size().toSize() != self.project.size:
+            self.scene.setSceneRect(0, 0, self.project.size.width(), self.project.size.height())
             self.update_background()
         # init item hanging canvas if needed
         self.canvasList = self.project.get_canvas_list()
@@ -134,7 +130,7 @@ class Scene(QtGui.QGraphicsView):
                 self.scene.removeItem(i)
             self.itemList = []
             for i in self.canvasList:
-                p = QtGui.QPixmap(self.scene.width(), self.scene.height())
+                p = QtGui.QPixmap(self.project.size)
                 self.itemList.append(self.scene.addPixmap(p))
             z = 100
             for i in self.itemList:
@@ -269,18 +265,16 @@ class Canvas(QtGui.QImage):
         elif type(arg) is str:
             QtGui.QImage.__init__(self)
             self.load(arg)
-        elif type(arg) is tuple and type(col) is list:
-            QtGui.QImage.__init__(self, arg[0], arg[1], QtGui.QImage.Format_Indexed8)
+        elif isinstance(arg, QtCore.QSize) and type(col) is list:
+            QtGui.QImage.__init__(self, arg, QtGui.QImage.Format_Indexed8)
             self.setColorTable(col)
             self.fill(0)
-        elif type(arg) is tuple:
-            QtGui.QImage.__init__(self, arg[0], arg[1], QtGui.QImage.Format_Indexed8)
+        elif isinstance(arg, QtCore.QSize):
+            QtGui.QImage.__init__(self, arg, QtGui.QImage.Format_Indexed8)
             self.setColorTable(self.project.colorTable)
             self.fill(0)
 
         self.lastPoint = False
-        self.undoList = []
-        self.redoList = []
 
     ######## import/export #############################################
     def load_from_list(self, li, exWidth=None, offset=(0, 0)):
@@ -299,45 +293,54 @@ class Canvas(QtGui.QImage):
 
     def return_as_list(self):
         l = []
-        for y in xrange(self.height()):
-            for x in xrange(self.width()):
+        for y in range(self.height()):
+            for x in range(self.width()):
                 l.append(self.pixelIndex(x, y))
         return l
     
     def merge_color(self, exCol, newCol):
-        for y in xrange(self.height()):
-            for x in xrange(self.width()):
+        for y in range(self.height()):
+            for x in range(self.width()):
                 if self.pixelIndex(x, y) == exCol:
                     self.setPixel(x, y, newCol)
 
     def swap_color(self, col1, col2):
-        for y in xrange(self.height()):
-            for x in xrange(self.width()):
+        for y in range(self.height()):
+            for x in range(self.width()):
                 if self.pixelIndex(x, y) == col1:
                     self.setPixel(x, y, col2)
                 elif self.pixelIndex(x, y) == col2:
                     self.setPixel(x, y, col1)
 
-    ######## undo/redo #################################################
-    def save_to_undo(self):
-        self.undoList.append(Canvas(self.project, self))
-        if len(self.undoList) > 50:
-            self.undoList.pop(0)
-        self.redoList = []
-
-    def undo(self):
-        if len(self.undoList) > 0:
-            self.redoList.append(Canvas(self.project, self))
-            if len(self.redoList) > 50:
-                self.redoList.pop(0)
-            self.swap(self.undoList.pop(-1))
-
-    def redo(self):
-        if len(self.redoList) > 0:
-            self.undoList.append(Canvas(self.project, self))
-            if len(self.undoList) > 50:
-                self.undoList.pop(0)
-            self.swap(self.redoList.pop(-1))
+    def mix_colortable(self, colorTable):
+        selfColorTable = self.colorTable()
+        colorTable = list(colorTable)
+        for n, i in enumerate(selfColorTable):
+            if i in colorTable:
+                p = colorTable.index(i)
+                selfColorTable[n] = p
+            else: 
+                if len(colorTable) == 256:
+                    return None
+                selfColorTable[n] = len(colorTable)
+                colorTable.append(i)
+        self.setColorTable(colorTable)
+        for y in range(self.height()):
+            for x in range(self.width()):
+                self.setPixel(x, y, selfColorTable[self.pixelIndex(x, y)])
+        return colorTable
+        
+    def sniff_colortable(self, colorTable):
+        colorTable = list(colorTable)
+        for y in range(self.height()):
+            for x in range(self.width()):
+                color = self.pixel(x, y)
+                if color in colorTable:
+                    continue
+                elif len(colorTable) == 256:
+                    return None
+                colorTable.append(color)
+        return colorTable
 
     ######## draw ######################################################
     def clear(self):
@@ -351,7 +354,7 @@ class Canvas(QtGui.QImage):
         disty = abs(p2.y()-p1.y())
         if distx > disty:
             step = (p2.y()-p1.y()) / (p2.x()-p1.x() or 1)
-            for i in xrange(distx):
+            for i in range(distx):
                 if p1.x() - p2.x() > 0:
                     i = -i
                 x = p1.x() + i
@@ -359,7 +362,7 @@ class Canvas(QtGui.QImage):
                 self.draw_point(QtCore.QPoint(x, y))
         else:
             step = (p2.x()-p1.x()) / (p2.y()-p1.y() or 1)
-            for i in xrange(disty):
+            for i in range(disty):
                 if p1.y() - p2.y() > 0:
                     i = -i
                 y = p1.y() + i
@@ -379,7 +382,6 @@ class Canvas(QtGui.QImage):
             p = l.pop(-1)
             x, y = p[0], p[1]
             if self.rect().contains(x, y) and self.pixelIndex(x, y) == col:
-
                 self.setPixel(QtCore.QPoint(x, y), self.project.color)
                 l.append((x+1, y))
                 l.append((x-1, y))
@@ -420,37 +422,6 @@ class Canvas(QtGui.QImage):
             else:
                 self.draw_point(point)
                 self.lastPoint = point
-
-    def mix_colortable(self, colorTable):
-        selfColorTable = self.colorTable()
-        colorTable = list(colorTable)
-        for n, i in enumerate(selfColorTable):
-            if i in colorTable:
-                p = colorTable.index(i)
-                selfColorTable[n] = p
-            else: 
-                if len(colorTable) == 256:
-                    return None
-                selfColorTable[n] = len(colorTable)
-                colorTable.append(i)
-        self.setColorTable(colorTable)
-        for y in xrange(self.height()):
-            for x in xrange(self.width()):
-                #~ print(self.pixelIndex(x, y))
-                self.setPixel(x, y, selfColorTable[self.pixelIndex(x, y)])
-        return colorTable
-        
-    def sniff_colortable(self, colorTable):
-        colorTable = list(colorTable)
-        for y in xrange(self.height()):
-            for x in xrange(self.width()):
-                color = self.pixel(x, y)
-                if color in colorTable:
-                    continue
-                elif len(colorTable) == 256:
-                    return None
-                colorTable.append(color)
-        return colorTable
 
 
 class PaletteCanvas(QtGui.QWidget):
@@ -706,7 +677,7 @@ class Project(QtCore.QObject):
     def __init__(self, parent):
         QtCore.QObject.__init__(self)
         self.parent = parent
-        self.size = DEFAUT_SIZE
+        self.size = QtCore.QSize(DEFAUT_SIZE)
         self.colorTable = list(DEFAUT_COLORTABLE)
         self.color = DEFAUT_COLOR
         self.pen = DEFAUT_PEN
@@ -766,7 +737,7 @@ class Project(QtCore.QObject):
                         frames[y][x] = Canvas(self, f)
             doList.append(("size", 
                           (self.currentFrame, self.currentLayer), 
-                          (frames, tuple(self.size))))
+                          (frames, QtCore.QSize(self.size))))
         elif obj == "colorTable":
             doList.append(("colorTable", 
                           (self.currentFrame, self.currentLayer), 
@@ -932,7 +903,7 @@ class Project(QtCore.QObject):
         l = self.currentLayer
         if f:
             f = f[0]
-            for i in reversed(xrange(f)):
+            for i in reversed(range(f)):
                 if self.frames[l]["frames"][i]:
                     return self.frames[l]["frames"][i]
         return False
@@ -942,7 +913,7 @@ class Project(QtCore.QObject):
         f = self.currentFrame
         l = self.currentLayer
         if f < len(self.frames[l]["frames"]):
-            for i in xrange(f+1, len(self.frames[l]["frames"])):
+            for i in range(f+1, len(self.frames[l]["frames"])):
                 if self.frames[l]["frames"][i]:
                     return self.frames[l]["frames"][i]
         return False
@@ -1103,9 +1074,8 @@ class MainWindow(QtGui.QMainWindow):
 
     def import_as_new_action(self):
         imgs, colorTable, size = import_png(self.project)
-        
         if imgs and colorTable and size:
-            self.project.size = (size.width(), size.height())
+            self.project.size = size
             self.project.colorTable = colorTable
             self.project.frames = [self.project.make_layer(imgs)]
             self.project.update_view.emit()
@@ -1139,11 +1109,11 @@ class MainWindow(QtGui.QMainWindow):
         
     ######## Project menu ##############################################
     def new_action(self):
-        ok, w, h = NewDialog().get_return()
-        if ok:
+        size = NewDialog().get_return()
+        if size:
             self.project.color = DEFAUT_COLOR
             self.project.colorTable = list(DEFAUT_COLORTABLE)
-            self.project.size = (w, h)
+            self.project.size = size
             self.project.frames = [self.project.make_layer()]
             self.project.update_view.emit()
             self.project.update_palette.emit()
@@ -1151,31 +1121,26 @@ class MainWindow(QtGui.QMainWindow):
             self.setWindowTitle("pixeditor | untitled")
 
     def crop_action(self):
-        exSize = self.project.size
-        ok, newSize, offset = CropDialog(exSize).get_return()
-        if ok:
+        rect = CropDialog(exSize).get_return()
+        if rect:
             self.project.save_to_undo("canvas_size")
             for y, l in enumerate(self.project.frames):
                 for x, f in enumerate(l["frames"]):
                     if f:
-                        li = f.return_as_list()
-                        nf = Canvas(self.project, newSize)
-                        nf.load_from_list(li, exSize[0], offset)
-                        self.project.frames[y]["frames"][x] = nf
-            self.project.size = newSize
+                        self.project.frames[y]["frames"][x] = Canvas(self.project, f.copy(rect))
+            self.project.size = rect.size()
             self.project.update_view.emit()
 
     def resize_action(self):
         exSize = self.project.size
-        ok, factor = ResizeDialog(exSize).get_return()
-        if ok and factor != 1:
+        factor = ResizeDialog(exSize).get_return()
+        if factor != 1:
             self.project.save_to_undo("canvas_size")
-            newSize = (int(exSize[0]*factor), int(exSize[1]*factor))
+            newSize = exSize*factor
             for y, l in enumerate(self.project.frames):
                 for x, f in enumerate(l["frames"]):
                     if f:
-                        nf = Canvas(self.project, f.scaled(newSize[0], newSize[1]))
-                        self.project.frames[y]["frames"][x] = nf
+                        self.project.frames[y]["frames"][x] = Canvas(self.project, f.scaled(newSize))
             self.project.size = newSize
             self.project.update_view.emit()
             

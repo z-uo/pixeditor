@@ -2,7 +2,9 @@
 #-*- coding: utf-8 -*-
 
 # Python 3 Compatibility
+from __future__ import division
 from __future__ import print_function
+
 from PyQt4 import QtCore
 from PyQt4 import QtGui
 
@@ -21,22 +23,21 @@ class Button(QtGui.QToolButton):
 
 class Background(QtGui.QPixmap):
     """ background of the scene"""
-    def __init__(self, w, h, arg=16):
-        QtGui.QPixmap.__init__(self, w, h)
+    def __init__(self, size, arg=16):
+        QtGui.QPixmap.__init__(self, size)
         self.fill(QtGui.QColor(0, 0, 0, 0))
-        if type(arg) is int:
+        if type(arg) is int and arg:
             p = QtGui.QPainter(self)
             brush = QtGui.QBrush(QtGui.QColor(0, 0, 0, 30))
-            if arg:
-                bol = True
-                for x in range(0, w, arg):
-                    for y in range(0, h, arg*2):
-                        if bol:
-                            p.fillRect (x, y, arg, arg, brush)
-                        else:
-                            p.fillRect (x, y+arg, arg, arg, brush)
-                    bol = not bol
-        if type(arg) is str:
+            bol = True
+            for x in range(0, size.width(), arg):
+                for y in range(0, size.height(), arg*2):
+                    if bol:
+                        p.fillRect (x, y, arg, arg, brush)
+                    else:
+                        p.fillRect (x, y+arg, arg, arg, brush)
+                bol = not bol
+        elif type(arg) is str:
             brush = QtGui.QBrush(QtGui.QPixmap(arg))
             p = QtGui.QPainter(self)
-            p.fillRect (0, 0, w, h, brush)
+            p.fillRect (0, 0, size.width(), size.height(), brush)

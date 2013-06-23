@@ -2,10 +2,8 @@
 #-*- coding: utf-8 -*-
 
 # Python 3 Compatibility
+from __future__ import division
 from __future__ import print_function
-from platform import python_version_tuple
-if int(python_version_tuple()[0]) >= 3:
-    xrange = range
 
 from PyQt4 import QtCore
 from PyQt4 import QtGui
@@ -35,7 +33,7 @@ def open_pix(url=None):
 
 def return_canvas_02(saveElem):
     sizeElem = saveElem.find("size").attrib
-    size = (int(sizeElem["width"]), int(sizeElem["height"]))
+    size = QtCore.QSize(int(sizeElem["width"]), int(sizeElem["height"]))
     colorsElem = saveElem.find("colors").text
     colors = [int(n) for n in colorsElem.split(',')]
     framesElem = saveElem.find("frames")
@@ -105,8 +103,8 @@ def save_pix(project, url):
 def return_pix(project):
     saveElem = ET.Element("pix", version="0.2")
     sizeElem = ET.SubElement(saveElem, "size")
-    sizeElem.attrib["width"] = str(project.size[0])
-    sizeElem.attrib["height"] = str(project.size[1])
+    sizeElem.attrib["width"] = str(project.size.width())
+    sizeElem.attrib["height"] = str(project.size.height())
     colorElem = ET.SubElement(saveElem, "colors", lenght=str(len(project.colorTable)))
     colorElem.text = ','.join(str(n) for n in project.colorTable)
     framesElem = ET.SubElement(saveElem, "frames", lenght=str(len(project.frames)))
@@ -152,13 +150,13 @@ def import_png(project):
                 size = size.expandedTo(img.size())
             else:
                 canceled.append(i)
-            
+    colorTable = [QtGui.qRgba(255, 255, 255, 255), QtGui.qRgba(0, 0, 0, 255)]
     for n, img in enumerate(imgs):
         img = Canvas(project, img.convertToFormat(QtGui.QImage.Format_Indexed8, colorTable))
         if img.size() != size:
             li = img.return_as_list()
             width = img.width()
-            img = Canvas(project, (size.width(), size.height()), colorTable)
+            img = Canvas(project, size, colorTable)
             img.load_from_list(li, width)
         imgs[n] = img
     
@@ -257,7 +255,7 @@ def export_png(project, fullUrl=""):
         if len(canvasList) == 1:
             canvas = canvasList[0]
         else:
-            canvas = QtGui.QImage(project.size[0], project.size[1], QtGui.QImage.Format_ARGB32)
+            canvas = QtGui.QImage(project.size, QtGui.QImage.Format_ARGB32)
             canvas.fill(QtGui.QColor(0, 0, 0, 0))
             p = QtGui.QPainter(canvas)
             for c in reversed(canvasList):
@@ -299,8 +297,8 @@ def export_nanim(project, url):
             nimage.name = "img_%d" % i
             i = i + 1
             pixels = bytearray()
-            for y in xrange(im.height()):
-                for x in xrange(im.width()):
+            for y in range(im.height()):
+                for x in range(im.width()):
                     colors = QtGui.QColor(im.pixel(x,y))
                     pixels.append(colors.red())
                     pixels.append(colors.green())

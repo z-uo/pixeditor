@@ -3,9 +3,7 @@
 
 # Python 3 Compatibility
 from __future__ import division
-from platform import python_version_tuple
-if int(python_version_tuple()[0]) >= 3:
-    xrange = range
+from __future__ import print_function
 
 from PyQt4 import QtGui
 from PyQt4 import QtCore
@@ -142,7 +140,7 @@ class TimelineCanvas(QtGui.QWidget):
         p.fillRect (0, 0, self.width(), self.height(), self.grey)
         p.fillRect (0, 0, self.width(), 21, self.white)
         p.drawLine (0, 21, self.width(), 21)
-        for j, i in enumerate(xrange(7, self.width(), fW), 1):
+        for j, i in enumerate(range(7, self.width(), fW), 1):
             p.drawLine (i-7, 19, i-7, 21)
             
             if j % 5 == 0:
