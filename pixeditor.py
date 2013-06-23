@@ -301,8 +301,11 @@ class Canvas(QtGui.QImage):
     def merge_color(self, exCol, newCol):
         for y in range(self.height()):
             for x in range(self.width()):
-                if self.pixelIndex(x, y) == exCol:
+                pixCol = self.pixelIndex(x, y)
+                if pixCol == exCol:
                     self.setPixel(x, y, newCol)
+                elif pixCol > exCol:
+                     self.setPixel(x, y, pixCol-1)
 
     def swap_color(self, col1, col2):
         for y in range(self.height()):

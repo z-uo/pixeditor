@@ -276,6 +276,7 @@ class NewDialog(QtGui.QDialog):
         self.cancelW.clicked.connect(self.cancel_clicked)
         self.newW = QtGui.QPushButton('new', self)
         self.newW.clicked.connect(self.new_clicked)
+        self.newW.setDefault(True)
 
         grid = QtGui.QGridLayout()
         grid.setSpacing(4)
@@ -358,6 +359,7 @@ class CropDialog(QtGui.QDialog):
         self.cancelW.clicked.connect(self.cancel_clicked)
         self.cropW = QtGui.QPushButton('crop', self)
         self.cropW.clicked.connect(self.crop_clicked)
+        self.cropW.setDefault(True)
 
         grid = QtGui.QGridLayout()
         grid.setSpacing(8)
@@ -455,6 +457,7 @@ class ResizeDialog(QtGui.QDialog):
         self.cancelW.clicked.connect(self.cancel_clicked)
         self.resizeW = QtGui.QPushButton('resize', self)
         self.resizeW.clicked.connect(self.resize_clicked)
+        self.resizeW.setDefault(True)
 
         grid = QtGui.QGridLayout()
         grid.setSpacing(8)
