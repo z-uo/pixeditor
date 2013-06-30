@@ -16,17 +16,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# bug when moving and deleting color
-# add onionskin with first frame when in the last frame
+# add onionskin with first frame when in the last frame if loop
 # add merge layer
 # add space in palette (256 color)
 # add a dialog to export png
 # save the url for export and save (add a save button)
-# make a global undo redo
-# add a preference dialog
 # add a tool to make lines (iso...)
-# add choice between a gif or png transparency mode
-# add a grid
 # add animated gif export
 
 
@@ -40,17 +35,12 @@ from PyQt4 import QtCore
 from PyQt4 import QtGui
 from PyQt4 import Qt
 
+from data import Project
 from dialogs import *
 from import_export import *
-from timeline import Timeline
+from timeline import TimelineWidget
 from widget import Background, Button
 from colorPicker import ColorDialog
-
-DEFAUT_COLOR = 1
-DEFAUT_SIZE = QtCore.QSize(64, 64)
-DEFAUT_COLORTABLE = (QtGui.qRgba(0, 0, 0, 0), QtGui.qRgba(0, 0, 0, 255))
-DEFAUT_PEN = ((0, 0),)
-DEFAUT_TOOL = "pen"
 
 
 class Scene(QtGui.QGraphicsView):
@@ -67,11 +57,12 @@ class Scene(QtGui.QGraphicsView):
                 QtGui.QGraphicsView.AnchorUnderMouse)
         self.setResizeAnchor(QtGui.QGraphicsView.AnchorViewCenter)
         self.setMinimumSize(400, 400)
-        self.scene.setSceneRect(0, 0, self.project.size.width(), self.project.size.height())
+        self.scene.setSceneRect(0, 0, 
+                    self.project.size.width(), self.project.size.height())
         # background
-        self.setBackgroundBrush(QtGui.QBrush(self.project.pref["bg_color"]))
+        self.setBackgroundBrush(QtGui.QBrush(self.project.bg_color))
         self.bg = self.scene.addPixmap(
-                    Background(self.project.size, self.project.pref["bg_pattern"]))
+                    Background(self.project.size, self.project.bg_pattern))
         # frames
         self.itemList = []
         self.canvasList = []
@@ -114,53 +105,69 @@ class Scene(QtGui.QGraphicsView):
                 p.setBrush(brush)
                 
     def update_background(self):
-        self.setBackgroundBrush(QtGui.QBrush(self.project.pref["bg_color"]))
+        self.setBackgroundBrush(QtGui.QBrush(self.project.bg_color))
         self.bg.setPixmap(Background(self.project.size, 
-                                     self.project.pref["bg_pattern"]))
+                                     self.project.bg_pattern))
         
     def change_frame(self):
+        self.canvasList = self.project.timeline.get_canvas_list(self.project.curFrame)
         # resize scene if needed
         if self.scene.sceneRect().size().toSize() != self.project.size:
-            self.scene.setSceneRect(0, 0, self.project.size.width(), self.project.size.height())
+            self.scene.setSceneRect(0, 0, 
+                    self.project.size.width(), self.project.size.height())
             self.update_background()
-        # init item hanging canvas if needed
-        self.canvasList = self.project.get_canvas_list()
-        if len(self.itemList) != len(self.canvasList):
-            for i in self.itemList:
-                self.scene.removeItem(i)
-            self.itemList = []
-            for i in self.canvasList:
-                p = QtGui.QPixmap(self.project.size)
-                self.itemList.append(self.scene.addPixmap(p))
-            z = 100
-            for i in self.itemList:
-                i.setZValue(z)
-                z -= 1
+        # add item for layer if needed
+        for i in range(len(self.itemList), len(self.canvasList)):
+            self.itemList.append(self.scene.addPixmap(QtGui.QPixmap(1, 1)))
+            self.itemList[i].setZValue(100 - i)
+        # remove item for layer if needed
+        for i in range(len(self.canvasList), len(self.itemList)):
+            self.scene.removeItem(self.itemList[i])
+            del self.itemList[i]
         # updates canvas
         for n, i in enumerate(self.canvasList):
-            if i and self.project.frames[n]["visible"]:
+            if i and self.project.timeline[n].visible:
                 self.itemList[n].setVisible(True)
                 self.itemList[n].pixmap().convertFromImage(i)
                 self.itemList[n].update()
             else:
                 self.itemList[n].setVisible(False)
         # onionskin
-        if self.project.onionSkinPrev and not self.project.playing:
-            prev = self.project.get_prev_canvas()
-            if prev:
-                self.onionPrevItem.pixmap().convertFromImage(prev)
-                self.onionPrevItem.show()
+        layer = self.project.timeline[self.project.curLayer]
+        if not self.project.playing and self.project.onionSkinPrev:
+            frame = self.project.curFrame
+            prev = False
+            while 0 <= frame < len(layer):
+                if layer[frame]:
+                    if frame == 0 and self.project.loop:
+                        prev = layer.get_canvas(len(layer)-1)
+                    else:
+                        prev = layer.get_canvas(frame-1)
+                    if prev and prev != layer.get_canvas(self.project.curFrame):
+                        self.onionPrevItem.pixmap().convertFromImage(prev)
+                        self.onionPrevItem.show()
+                    break
+                frame -= 1
             else:
                 self.onionPrevItem.hide()
         else:
             self.onionPrevItem.hide()
-        if self.project.onionSkinNext and not self.project.playing:
-            nex = self.project.get_next_canvas()
-            if nex:
-                self.onionNextItem.pixmap().convertFromImage(nex)
-                self.onionNextItem.show()
+        if not self.project.playing and self.project.onionSkinNext:
+            frame = self.project.curFrame + 1
+            nex = False
+            while 0 <= frame < len(layer):
+                if layer[frame]:
+                    self.onionNextItem.pixmap().convertFromImage(layer[frame])
+                    self.onionNextItem.show()
+                    break
+                frame += 1
             else:
-                self.onionNextItem.hide()
+                if (frame == len(layer) and self.project.loop and 
+                    layer[0] != layer.get_canvas(self.project.curFrame)):
+                    self.onionNextItem.pixmap().convertFromImage(layer[0])
+                    self.onionNextItem.show()
+                else:
+                    self.onionNextItem.hide()
         else:
             self.onionNextItem.hide()
 
@@ -185,7 +192,7 @@ class Scene(QtGui.QGraphicsView):
         return QtCore.QPointF(int(point.x()), int(point.y()))
 
     def mousePressEvent(self, event):
-        l = self.project.currentLayer
+        l = self.project.curLayer
         # pan
         if event.buttons() == QtCore.Qt.MidButton:
             self.startScroll = (self.horizontalScrollBar().value(),
@@ -194,7 +201,7 @@ class Scene(QtGui.QGraphicsView):
             self.setDragMode(QtGui.QGraphicsView.NoDrag)
         # draw on canvas
         elif (event.buttons() == QtCore.Qt.LeftButton and
-                self.canvasList[l] and self.project.frames[l]["visible"]):
+                self.canvasList[l] and self.project.timeline[l].visible):
             pos = self.pointToInt(self.mapToScene(event.pos()))
             if self.project.tool == "move":
                 self.lastPos = pos
@@ -214,7 +221,7 @@ class Scene(QtGui.QGraphicsView):
     def mouseMoveEvent(self, event):
         self.penItem.show()
         self.penItem.setPos(self.pointToFloat(self.mapToScene(event.pos())))
-        l = self.project.currentLayer
+        l = self.project.curLayer
         # pan
         if event.buttons() == QtCore.Qt.MidButton:
             globalPos = QtGui.QCursor.pos()
@@ -224,7 +231,7 @@ class Scene(QtGui.QGraphicsView):
                     globalPos.y() + self.lastPos.y())
         # draw on canvas
         elif (event.buttons() == QtCore.Qt.LeftButton
-                and self.canvasList[l] and self.project.frames[l]["visible"]):
+                and self.canvasList[l] and self.project.timeline[l].visible):
             pos = self.pointToInt(self.mapToScene(event.pos()))
             if self.project.tool == "move":
                 dif = pos - self.lastPos
@@ -240,191 +247,17 @@ class Scene(QtGui.QGraphicsView):
 
     def mouseReleaseEvent(self, event):
         if event.button() == QtCore.Qt.LeftButton and self.project.tool == "move":
-            l = self.project.currentLayer
+            l = self.project.curLayer
             if self.canvasList[l] and self.itemList[l].pos():
-                offset = (int(self.itemList[l].pos().x()), int(self.itemList[l].pos().y()))
-                self.canvasList[l].load_from_list(self.canvasList[l].return_as_list(),
-                                                  self.canvasList[l].width(),
-                                                  offset)
+                offset = (int(self.itemList[l].pos().x()), 
+                          int(self.itemList[l].pos().y()))
+                self.canvasList[l].load_from_list(
+                                    self.canvasList[l].return_as_list(),
+                                    self.canvasList[l].width(), offset)
                 self.itemList[l].setPos(QtCore.QPointF(0, 0))
                 self.change_frame()
         else:
             return QtGui.QGraphicsView.mouseReleaseEvent(self, event)
-
-
-class Canvas(QtGui.QImage):
-    """ Canvas for drawing"""
-    def __init__(self, project, arg, col=False):
-        """ arg can be:
-                a Canvas/QImage instance to be copied
-                a url string to load the image
-                a size tuple to create a new canvas """
-        self.project = project
-        if isinstance(arg, QtGui.QImage):
-            QtGui.QImage.__init__(self, arg)
-        elif type(arg) is str:
-            QtGui.QImage.__init__(self)
-            self.load(arg)
-        elif isinstance(arg, QtCore.QSize) and type(col) is list:
-            QtGui.QImage.__init__(self, arg, QtGui.QImage.Format_Indexed8)
-            self.setColorTable(col)
-            self.fill(0)
-        elif isinstance(arg, QtCore.QSize):
-            QtGui.QImage.__init__(self, arg, QtGui.QImage.Format_Indexed8)
-            self.setColorTable(self.project.colorTable)
-            self.fill(0)
-
-        self.lastPoint = False
-
-    ######## import/export #############################################
-    def load_from_list(self, li, exWidth=None, offset=(0, 0)):
-        self.fill(0)
-        if not exWidth:
-            exWidth = self.width()
-        x, y = 0, 0
-        for i in li:
-            nx, ny = x + offset[0], y + offset[1]
-            if self.rect().contains(nx, ny):
-                self.setPixel(QtCore.QPoint(nx, ny), int(i))
-            x += 1
-            if x >= exWidth:
-                x = 0
-                y += 1
-
-    def return_as_list(self):
-        l = []
-        for y in range(self.height()):
-            for x in range(self.width()):
-                l.append(self.pixelIndex(x, y))
-        return l
-    
-    def merge_color(self, exCol, newCol):
-        for y in range(self.height()):
-            for x in range(self.width()):
-                pixCol = self.pixelIndex(x, y)
-                if pixCol == exCol:
-                    self.setPixel(x, y, newCol)
-                elif pixCol > exCol:
-                     self.setPixel(x, y, pixCol-1)
-
-    def swap_color(self, col1, col2):
-        for y in range(self.height()):
-            for x in range(self.width()):
-                if self.pixelIndex(x, y) == col1:
-                    self.setPixel(x, y, col2)
-                elif self.pixelIndex(x, y) == col2:
-                    self.setPixel(x, y, col1)
-
-    def mix_colortable(self, colorTable):
-        selfColorTable = self.colorTable()
-        colorTable = list(colorTable)
-        for n, i in enumerate(selfColorTable):
-            if i in colorTable:
-                p = colorTable.index(i)
-                selfColorTable[n] = p
-            else: 
-                if len(colorTable) == 256:
-                    return None
-                selfColorTable[n] = len(colorTable)
-                colorTable.append(i)
-        self.setColorTable(colorTable)
-        for y in range(self.height()):
-            for x in range(self.width()):
-                self.setPixel(x, y, selfColorTable[self.pixelIndex(x, y)])
-        return colorTable
-        
-    def sniff_colortable(self, colorTable):
-        colorTable = list(colorTable)
-        for y in range(self.height()):
-            for x in range(self.width()):
-                color = self.pixel(x, y)
-                if color in colorTable:
-                    continue
-                elif len(colorTable) == 256:
-                    return None
-                colorTable.append(color)
-        return colorTable
-
-    ######## draw ######################################################
-    def clear(self):
-        self.project.save_to_undo("canvas")
-        self.fill(0)
-    
-    def draw_line(self, p2):
-        p1 = self.lastPoint
-        # http://fr.wikipedia.org/wiki/Algorithme_de_trac%C3%A9_de_segment_de_Bresenham
-        distx = abs(p2.x()-p1.x())
-        disty = abs(p2.y()-p1.y())
-        if distx > disty:
-            step = (p2.y()-p1.y()) / (p2.x()-p1.x() or 1)
-            for i in range(distx):
-                if p1.x() - p2.x() > 0:
-                    i = -i
-                x = p1.x() + i
-                y = int(step * i + p1.y() + 0.5)
-                self.draw_point(QtCore.QPoint(x, y))
-        else:
-            step = (p2.x()-p1.x()) / (p2.y()-p1.y() or 1)
-            for i in range(disty):
-                if p1.y() - p2.y() > 0:
-                    i = -i
-                y = p1.y() + i
-                x = int(step * i + p1.x() + 0.5)
-                self.draw_point(QtCore.QPoint(x, y))
-        self.draw_point(p2)
-
-    def draw_point(self, point):
-        for i, j in self.project.pen:
-            p = QtCore.QPoint(point.x()+i, point.y()+j)
-            if self.rect().contains(p):
-                self.setPixel(p, self.project.color)
-
-    def flood_fill(self, point, col):
-        l = [(point.x(), point.y())]
-        while l:
-            p = l.pop(-1)
-            x, y = p[0], p[1]
-            if self.rect().contains(x, y) and self.pixelIndex(x, y) == col:
-                self.setPixel(QtCore.QPoint(x, y), self.project.color)
-                l.append((x+1, y))
-                l.append((x-1, y))
-                l.append((x, y+1))
-                l.append((x, y-1))
-
-    def clic(self, point):
-        if  (self.project.tool == "pipette" or
-             (self.project.tool == "pen" or self.project.tool == "fill") and
-             QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier):
-            if self.rect().contains(point):
-                self.project.set_color(self.pixelIndex(point))
-                self.lastPoint = False
-        elif self.project.tool == "pen":
-            self.project.save_to_undo("canvas")
-            if QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ShiftModifier and self.lastPoint:
-                self.draw_line(point)
-            else:
-                self.draw_point(point)
-            self.lastPoint = point
-        elif (self.rect().contains(point) and self.project.tool == "fill" and 
-              self.project.color != self.pixelIndex(point)):
-            self.project.save_to_undo("canvas")
-            self.flood_fill(point, self.pixelIndex(point))
-            self.lastPoint = False
-
-    def move(self, point):
-        if  (self.project.tool == "pipette" or
-             (self.project.tool == "pen" or self.project.tool == "fill") and
-             QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier):
-            if self.rect().contains(point):
-                self.project.set_color(self.pixelIndex(point))
-                self.lastPoint = False
-        elif self.project.tool == "pen":
-            if self.lastPoint:
-                self.draw_line(point)
-                self.lastPoint = point
-            else:
-                self.draw_point(point)
-                self.lastPoint = point
 
 
 class PaletteCanvas(QtGui.QWidget):
@@ -433,14 +266,14 @@ class PaletteCanvas(QtGui.QWidget):
         QtGui.QWidget.__init__(self)
         self.parent = parent
         self.setFixedSize(164, 324)
-        self.background = QtGui.QBrush(self.parent.project.pref["bg_color"])
+        self.background = QtGui.QBrush(self.parent.project.bg_color)
         self.alpha = QtGui.QPixmap("icons/color_alpha.png")
         self.black = QtGui.QBrush(QtGui.QColor(0, 0, 0))
         self.white = QtGui.QBrush(QtGui.QColor(255, 255, 255))
         self.parent.project.update_background.connect(self.update_background)
         
     def update_background(self):
-         self.background = QtGui.QBrush(self.parent.project.pref["bg_color"])
+         self.background = QtGui.QBrush(self.parent.project.bg_color)
          self.update()
          
     def paintEvent(self, ev=''):
@@ -523,18 +356,18 @@ class ToolsWidget(QtGui.QWidget):
         self.paletteCanvas = PaletteCanvas(self)
         self.project.update_palette.connect(self.paletteCanvas.update)
         addColorB = Button("add color",
-                "icons/color_add.png", self.add_color_clicked)
+            "icons/color_add.png", self.add_color_clicked)
         delColorB = Button("delete color",
-                "icons/color_del.png", self.del_color_clicked)
+            "icons/color_del.png", self.del_color_clicked)
         moveLeftColorB = Button("move color left",
-                "icons/color_move_left.png", self.move_color_left_clicked)
+            "icons/color_move_left.png", self.move_color_left_clicked)
         moveRightColorB = Button("move color right",
-                "icons/color_move_right.png", self.move_color_right_clicked)
+            "icons/color_move_right.png", self.move_color_right_clicked)
 
         self.onionSkinPrevB = Button("onion skin - previous frame",
-                "icons/onionskin_prev.png", self.onionskin_prev_clicked, True)
+            "icons/onionskin_prev.png", self.onionskin_prev_clicked, True)
         self.onionSkinNextB = Button("onion skin - next frame",
-                "icons/onionskin_next.png", self.onionskin_next_clicked, True)
+            "icons/onionskin_next.png", self.onionskin_next_clicked, True)
 
         ### Layout ###
         layout = QtGui.QGridLayout()
@@ -602,7 +435,7 @@ class ToolsWidget(QtGui.QWidget):
             return
         self.project.save_to_undo("colorTable")
         self.project.colorTable[n] = color
-        for i in self.project.get_all_canvas():
+        for i in self.project.timeline.get_all_canvas():
             i.setColorTable(self.project.colorTable)
         self.project.update_view.emit()
         self.paletteCanvas.update()
@@ -618,7 +451,7 @@ class ToolsWidget(QtGui.QWidget):
             self.project.save_to_undo("colorTable_frames")
             self.project.colorTable.append(color)
             self.project.set_color(len(self.project.colorTable)-1)
-            for i in self.project.get_all_canvas():
+            for i in self.project.timeline.get_all_canvas():
                 i.setColorTable(self.project.colorTable)
             self.project.update_view.emit()
 
@@ -627,7 +460,7 @@ class ToolsWidget(QtGui.QWidget):
         if col != 0:
             self.project.save_to_undo("colorTable_frames")
             table.pop(col)
-            for i in self.project.get_all_canvas():
+            for i in self.project.timeline.get_all_canvas():
                 i.merge_color(col, 0)
                 i.setColorTable(table)
             self.project.set_color(col-1)
@@ -638,7 +471,7 @@ class ToolsWidget(QtGui.QWidget):
         if col != 0:
             self.project.save_to_undo("colorTable_frames")
             table[col], table[col-1] = table[col-1], table[col]
-            for i in self.project.get_all_canvas():
+            for i in self.project.timeline.get_all_canvas():
                 i.swap_color(col, col-1)
                 i.setColorTable(table)
             self.project.set_color(col-1)
@@ -648,317 +481,18 @@ class ToolsWidget(QtGui.QWidget):
         if col != len(table)-1:
             self.project.save_to_undo("colorTable_frames")
             table[col], table[col+1] = table[col+1], table[col]
-            for i in self.project.get_all_canvas():
+            for i in self.project.timeline.get_all_canvas():
                 i.swap_color(col, col+1)
                 i.setColorTable(table)
             self.project.set_color(col+1)
 
     def onionskin_prev_clicked(self):
-        if self.onionSkinPrevB.isChecked():
-            self.project.onionSkinPrev = True
-        else:
-            self.project.onionSkinPrev = False
+        self.project.onionSkinPrev = self.onionSkinPrevB.isChecked()
         self.project.update_view.emit()
 
     def onionskin_next_clicked(self):
-        if self.onionSkinNextB.isChecked():
-            self.project.onionSkinNext = True
-        else:
-            self.project.onionSkinNext = False
+        self.project.onionSkinNext = self.onionSkinNextB.isChecked()
         self.project.update_view.emit()
-
-
-class Project(QtCore.QObject):
-    """ store all data that need to be saved"""
-    update_view = QtCore.pyqtSignal()
-    update_palette = QtCore.pyqtSignal()
-    update_timeline = QtCore.pyqtSignal()
-    update_background = QtCore.pyqtSignal()
-    pen_changed = QtCore.pyqtSignal()
-    tool_changed = QtCore.pyqtSignal()
-    color_changed = QtCore.pyqtSignal()
-    def __init__(self, parent):
-        QtCore.QObject.__init__(self)
-        self.parent = parent
-        self.size = QtCore.QSize(DEFAUT_SIZE)
-        self.colorTable = list(DEFAUT_COLORTABLE)
-        self.color = DEFAUT_COLOR
-        self.pen = DEFAUT_PEN
-        self.tool = DEFAUT_TOOL
-        self.frames = [{"frames" : [self.make_canvas(), ], "pos" : 0, "visible" : True, "lock" : False, "name": "Layer 1"},]
-        self.fps = 12
-        self.currentFrame = 0
-        self.currentLayer = 0
-        self.playing = False
-        self.onionSkinPrev = False
-        self.onionSkinNext = False
-
-        # TODO
-        self.pref = {"color_deph" : "gif",
-                     "bg_color" : QtGui.QColor(150, 150, 150),
-                     "bg_pattern" : 16}
-        self.file = {"url" : None,
-                     "png_url" : None,
-                     "saved" : False}
-        self.undoList = []
-        self.redoList = []
-
-    def set_color(self, color):
-        self.color = color
-        self.color_changed.emit()
-        self.update_palette.emit()
-
-    ######## undo/redo #################################################
-    def save_to_undo(self, obj, save=False):
-        if not save:
-            doList = self.undoList
-            self.redoList = []
-        elif save == "redoList":
-            doList = self.redoList
-        elif save == "undoList":
-            doList = self.undoList
-            
-        if obj == "canvas":
-            doList.append(("canvas", 
-                          (self.currentFrame, self.currentLayer), 
-                          Canvas(self, self.get_canvas())))
-        elif obj == "frames":
-            frames = list(self.frames)
-            for y, l in enumerate(frames):
-                frames[y] = dict(l)
-                frames[y]["frames"] = list(l["frames"])
-            doList.append(("frames", 
-                          (self.currentFrame, self.currentLayer), 
-                          frames))
-        elif obj == "size":
-            frames = list(self.frames)
-            for y, l in enumerate(frames):
-                frames[y] = dict(l)
-                frames[y]["frames"] = list(l["frames"])
-                for x, f in enumerate(frames[y]["frames"]):
-                    if f:
-                        frames[y][x] = Canvas(self, f)
-            doList.append(("size", 
-                          (self.currentFrame, self.currentLayer), 
-                          (frames, QtCore.QSize(self.size))))
-        elif obj == "colorTable":
-            doList.append(("colorTable", 
-                          (self.currentFrame, self.currentLayer), 
-                          list(self.colorTable)))
-        elif obj == "colorTable_frames":
-            frames = list(self.frames)
-            for y, l in enumerate(frames):
-                frames[y] = dict(l)
-                frames[y]["frames"] = list(l["frames"])
-                for x, f in enumerate(frames[y]["frames"]):
-                    if f:
-                        frames[y]["frames"][x] = Canvas(self, f)
-            doList.append(("colorTable_frames", 
-                          (self.currentFrame, self.currentLayer), 
-                          (frames, list(self.colorTable))))
-        elif obj == "all":
-            frames = list(self.frames)
-            for y, l in enumerate(frames):
-                frames[y] = dict(l)
-                frames[y]["frames"] = list(l["frames"])
-                for x, f in enumerate(frames[y]["frames"]):
-                    if f:
-                        frames[y]["frames"][x] = Canvas(self, f)
-            doList.append(("all", 
-                          (self.currentFrame, self.currentLayer), 
-                          (frames, list(self.colorTable), QtCore.QSize(self.size))))
-
-        if len(doList) > 50:
-            doList.pop(0)
-
-    def undo(self):
-        if len(self.undoList) > 0:
-            toUndo = self.undoList.pop(-1)
-            obj = toUndo[0]
-            current = toUndo[1]
-            save = toUndo[2]
-            self.currentFrame = current[0]
-            self.currentLayer = current[1]
-            if obj == "canvas":
-                self.save_to_undo("canvas", "redoList")
-                canvas = self.get_canvas()
-                canvas.swap(save)
-            elif obj == "frames":
-                self.save_to_undo("frames", "redoList")
-                self.frames = save
-            elif obj == "size":
-                self.save_to_undo("size", "redoList")
-                self.frames = save[0]
-                self.size = save[1]
-            elif obj == "colorTable":
-                self.save_to_undo("colorTable", "redoList")
-                self.colorTable = save
-                for i in self.get_all_canvas():
-                    i.setColorTable(self.colorTable)
-            elif obj == "colorTable_frames":
-                self.save_to_undo("colorTable_frames", "redoList")
-                self.frames = save[0]
-                self.colorTable = save[1]
-                for i in self.get_all_canvas():
-                    i.setColorTable(self.colorTable)
-            elif obj == "all":
-                self.save_to_undo("all", "redoList")
-                self.frames = save[0]
-                self.colorTable = save[1]
-                for i in self.get_all_canvas():
-                    i.setColorTable(self.colorTable)
-                self.size = save[2]
-                
-            self.update_view.emit()
-            self.update_timeline.emit()
-            self.update_palette.emit()
-
-    def redo(self):
-        if len(self.redoList) > 0:
-            toRedo = self.redoList.pop(-1)
-            obj = toRedo[0]
-            current = toRedo[1]
-            save = toRedo[2]
-            self.currentFrame = current[0]
-            self.currentLayer = current[1]
-            if obj == "canvas":
-                self.save_to_undo("canvas", "undoList")
-                canvas = self.get_canvas()
-                canvas.swap(save)
-            elif obj == "frames":
-                self.save_to_undo("frames", "undoList")
-                self.frames = save
-            elif obj == "size":
-                self.save_to_undo("size", "undoList")
-                self.frames = save[0]
-                self.size = save[1]
-            elif obj == "colorTable":
-                self.save_to_undo("colorTable", "undoList")
-                self.colorTable = save
-                for i in self.get_all_canvas():
-                    i.setColorTable(self.colorTable)
-            elif obj == "colorTable_frames":
-                self.save_to_undo("colorTable_frames", "undoList")
-                self.frames = save[0]
-                self.colorTable = save[1]
-                for i in self.get_all_canvas():
-                    i.setColorTable(self.colorTable)
-            elif obj == "all":
-                self.save_to_undo("all", "undolist")
-                self.frames = save[0]
-                self.colorTable = save[1]
-                for i in self.get_all_canvas():
-                    i.setColorTable(self.colorTable)
-                self.size = save[2]
-
-            self.update_view.emit()
-            self.update_timeline.emit()
-            self.update_palette.emit()
-
-    def make_canvas(self, canvas=False):
-        """ make a new canvas
-            or a copy of arg:canvas """
-        if canvas:
-            return Canvas(self, canvas)
-        else:
-            return Canvas(self, self.size)
-
-    def make_layer(self, layer=False):
-        """ make a new empty layer by default
-            if arg:layer is a layer : make a copy of it
-            if arg:layer is a list of canvas, make a layer with it"""
-        name = "Layer %s" %(len(self.frames)+1)
-        if not layer:
-            return {"frames" : [self.make_canvas(), ],
-                    "pos" : 0,
-                    "visible" : True,
-                    "lock" : False,
-                    "name": name}
-        elif layer and type(layer) == dict:
-            l = dict(layer)
-            l["name"] = name
-            l["frames"] = []
-            for i in layer["frames"]:
-                if i:
-                    l["frames"].append(Canvas(self, i))
-                else:
-                    l["frames"].append(0)
-            return l
-        elif layer and type(layer) == list:
-            return {"frames" : layer,
-                    "pos" : 0,
-                    "visible" : True,
-                    "lock" : False,
-                    "name": name}
-        
-    def get_canvas_list(self, f=None):
-        """ return the list of all layer's canvas at self.currentFrame """
-        if f is None:
-            f = self.currentFrame
-        tf = []
-        for l in self.frames:
-            while 0 <= f < len(l["frames"]):
-                if l["frames"][f]:
-                    tf.append(l["frames"][f])
-                    break
-                f -= 1
-            else:
-                tf.append(0)
-        return tf
-
-    def get_canvas(self, index=False, getIndex=False):
-        """ return the current canvas by defaut
-            if arg:index, the canvas at (frame, layer)
-            if arg:getIndex, the index of canvas in self.frame """
-        if index:
-            f = index[0]
-            l = index[1]
-        else:
-            f = self.currentFrame
-            l = self.currentLayer
-        while 0 <= f < len(self.frames[l]["frames"]):
-            if self.frames[l]["frames"][f]:
-                if getIndex:
-                    return (f, l)
-                else:
-                    return self.frames[l]["frames"][f]
-            f -= 1
-        return False
-
-    def get_prev_canvas(self):
-        """ return the previous canvas (if any) for onionskin """
-        f = self.get_canvas(False, True)
-        l = self.currentLayer
-        if f:
-            f = f[0]
-            for i in reversed(range(f)):
-                if self.frames[l]["frames"][i]:
-                    return self.frames[l]["frames"][i]
-        return False
-
-    def get_next_canvas(self):
-        """ return the next canvas (if any) for onionskin """
-        f = self.currentFrame
-        l = self.currentLayer
-        if f < len(self.frames[l]["frames"]):
-            for i in range(f+1, len(self.frames[l]["frames"])):
-                if self.frames[l]["frames"][i]:
-                    return self.frames[l]["frames"][i]
-        return False
-
-    def get_all_canvas(self):
-        """ retrun all canvas from self.frames """
-        for l in self.frames:
-            for f in l["frames"]:
-                if f:
-                    yield f
-                    
-    def frame_count(self):
-        n = 0
-        for i in self.frames:
-            if len(i["frames"]) > n:
-                n = len(i["frames"])
-        return n
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -966,11 +500,11 @@ class MainWindow(QtGui.QMainWindow):
     currentFrameChanged = QtCore.pyqtSignal(object)
     def __init__(self):
         QtGui.QMainWindow.__init__(self)
-        self.setWindowTitle("pixeditor | untitled")
+        self.setWindowTitle("pixeditor")
 
         self.project = Project(self)
         self.toolsWidget = ToolsWidget(self.project)
-        self.timeline = Timeline(self.project)
+        self.timelineWidget = TimelineWidget(self.project)
         self.scene = Scene(self.project)
 
         ### File menu ###
@@ -1012,13 +546,13 @@ class MainWindow(QtGui.QMainWindow):
         redoAction.setShortcut('Ctrl+Y')
         
         cutAction = QtGui.QAction('Cut', self)
-        cutAction.triggered.connect(self.timeline.cut)
+        cutAction.triggered.connect(self.timelineWidget.cut)
         cutAction.setShortcut('Ctrl+X')
         copyAction = QtGui.QAction('Copy', self)
-        copyAction.triggered.connect(self.timeline.copy)
+        copyAction.triggered.connect(self.timelineWidget.copy)
         copyAction.setShortcut('Ctrl+C')
         pasteAction = QtGui.QAction('Paste', self)
-        pasteAction.triggered.connect(self.timeline.paste)
+        pasteAction.triggered.connect(self.timelineWidget.paste)
         pasteAction.setShortcut('Ctrl+V')
         
         editMenu = menubar.addMenu('Edit')
@@ -1058,6 +592,9 @@ class MainWindow(QtGui.QMainWindow):
         shortcut4 = QtGui.QShortcut(self)
         shortcut4.setKey(QtCore.Qt.Key_Down)
         shortcut4.activated.connect(lambda : self.select_layer(1))
+        shortcut5 = QtGui.QShortcut(self)
+        shortcut5.setKey(QtCore.Qt.Key_Space)
+        shortcut5.activated.connect(self.timelineWidget.play_pause_clicked)
 
         ### layout #####################################################
         splitter = QtGui.QSplitter()
@@ -1065,25 +602,17 @@ class MainWindow(QtGui.QMainWindow):
         splitter.addWidget(self.scene)
         splitter2 = QtGui.QSplitter(QtCore.Qt.Vertical)
         splitter2.addWidget(splitter)
-        splitter2.addWidget(self.timeline)
+        splitter2.addWidget(self.timelineWidget)
         self.setCentralWidget(splitter2)
         self.show()
         
     ######## File menu #################################################
     def open_action(self):
-        size, colors, frames, url = open_pix()
-        if size and colors and frames and url:
+        size, frames, colorTable, url = open_pix(self.project)
+        if size and frames and colorTable and url:
+            self.project.save_to_undo("all")
             self.setWindowTitle("pixeditor | %s" %(os.path.basename(url)))
-            self.project.file["url"] = url
-            self.project.size = size
-            self.project.colorTable = colors
-            for y, l in enumerate(frames):
-                for x, f in enumerate(l["frames"]):
-                    if f:
-                        nf = Canvas(self.project, size)
-                        nf.load_from_list(f)
-                        frames[y]["frames"][x] = nf
-            self.project.frames = frames
+            self.project.init_project(size, frames, colorTable, url)
             self.project.update_view.emit()
             self.project.update_palette.emit()
             self.project.update_timeline.emit()
@@ -1091,21 +620,21 @@ class MainWindow(QtGui.QMainWindow):
     def save_as_action(self):
         url = save_pix_as(self.project)
         if url:
-            self.project.file["url"] = url
+            self.project.url = url
             self.setWindowTitle("pixeditor | %s" %(os.path.basename(url)))
         
     def save_action(self):
-        if self.project.file["url"]:
-            save_pix(self.project, self.project.file["url"])
+        if self.project.url:
+            save_pix(self.project, self.project.url)
         else:
             self.save_as_action()
 
     def import_as_new_action(self):
-        imgs, colorTable, size = import_png(self.project)
-        if imgs and colorTable and size:
-            self.project.size = size
-            self.project.colorTable = colorTable
-            self.project.frames = [self.project.make_layer(imgs)]
+        size, frames, colorTable = import_png(self.project)
+        if size and frames and colorTable:
+            self.project.save_to_undo("all")
+            self.setWindowTitle("pixeditor")
+            self.project.init_project(size, [{"frames": frames, "name": "import"}], colorTable)
             self.project.update_view.emit()
             self.project.update_palette.emit()
             self.project.update_timeline.emit()
@@ -1140,59 +669,50 @@ class MainWindow(QtGui.QMainWindow):
         size = NewDialog().get_return()
         if size:
             self.project.save_to_undo("all")
-            self.project.color = DEFAUT_COLOR
-            self.project.colorTable = list(DEFAUT_COLORTABLE)
-            self.project.size = size
-            self.project.frames = [self.project.make_layer()]
+            self.project.init_project(size)
             self.project.update_view.emit()
             self.project.update_palette.emit()
             self.project.update_timeline.emit()
-            self.setWindowTitle("pixeditor | untitled")
+            self.setWindowTitle("pixeditor")
 
     def crop_action(self):
-        rect = CropDialog(exSize).get_return()
+        rect = CropDialog(self.project.size).get_return()
         if rect:
-            self.project.save_to_undo("canvas_size")
-            for y, l in enumerate(self.project.frames):
-                for x, f in enumerate(l["frames"]):
-                    if f:
-                        self.project.frames[y]["frames"][x] = Canvas(self.project, f.copy(rect))
+            self.project.timeline.apply_to_all(
+                    lambda c: Canvas(self.project, c.copy(rect)))
             self.project.size = rect.size()
             self.project.update_view.emit()
 
     def resize_action(self):
-        exSize = self.project.size
-        factor = ResizeDialog(exSize).get_return()
-        if factor != 1:
+        factor = ResizeDialog(self.project.size).get_return()
+        if factor and factor != 1:
             self.project.save_to_undo("canvas_size")
-            newSize = exSize*factor
-            for y, l in enumerate(self.project.frames):
-                for x, f in enumerate(l["frames"]):
-                    if f:
-                        self.project.frames[y]["frames"][x] = Canvas(self.project, f.scaled(newSize))
+            newSize = self.project.size*factor
+            self.project.timeline.apply_to_all(
+                    lambda c: Canvas(self.project, c.scaled(newSize)))
             self.project.size = newSize
             self.project.update_view.emit()
             
     def background_action(self):
-        ok, color, pattern = BackgroundDialog(
-                        self.project.pref["bg_color"],
-                        self.project.pref["bg_pattern"]).get_return()
-        if ok:
-            self.project.pref["bg_color"] = color
-            self.project.pref["bg_pattern"] = pattern
+        color, pattern = BackgroundDialog(self.project.bg_color,
+                                self.project.bg_pattern).get_return()
+        if color and pattern:
+            self.project.save_to_undo("background")
+            self.project.bg_color = color
+            self.project.bg_pattern = pattern
             self.project.update_background.emit()
 
     ######## Shortcuts #################################################
     def select_frame(self, n):
-        maxF = max([len(l["frames"]) for l in self.project.frames])
-        if 0 <= self.project.currentFrame+n < maxF:
-            self.project.currentFrame += n
+        maxF = max([len(l) for l in self.project.timeline])
+        if 0 <= self.project.curFrame+n < maxF:
+            self.project.curFrame += n
             self.project.update_timeline.emit()
             self.project.update_view.emit()
 
     def select_layer(self, n):
-        if 0 <= self.project.currentLayer+n < len(self.project.frames):
-            self.project.currentLayer += n
+        if 0 <= self.project.curLayer+n < len(self.project.timeline):
+            self.project.curLayer += n
             self.project.update_timeline.emit()
             self.project.update_view.emit()
 

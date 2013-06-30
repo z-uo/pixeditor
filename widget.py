@@ -41,3 +41,30 @@ class Background(QtGui.QPixmap):
             brush = QtGui.QBrush(QtGui.QPixmap(arg))
             p = QtGui.QPainter(self)
             p.fillRect (0, 0, size.width(), size.height(), brush)
+
+
+class Viewer(QtGui.QScrollArea):
+    """ QScrollArea you can move with midbutton"""
+    resyzing = QtCore.pyqtSignal(tuple)
+    def __init__ (self):
+        QtGui.QScrollArea.__init__(self)
+        
+    def event(self, event):
+        """ capture middle mouse event to move the view """
+        # clic: save position
+        if   (event.type() == QtCore.QEvent.MouseButtonPress and
+              event.button() == QtCore.Qt.MidButton):
+            self.mouseX, self.mouseY = event.x(), event.y()
+            return True
+        # drag: move the scrollbars
+        elif (event.type() == QtCore.QEvent.MouseMove and
+              event.buttons() == QtCore.Qt.MidButton):
+            self.horizontalScrollBar().setValue(
+                self.horizontalScrollBar().value() - (event.x() - self.mouseX))
+            self.verticalScrollBar().setValue(
+                self.verticalScrollBar().value() - (event.y() - self.mouseY))
+            self.mouseX, self.mouseY = event.x(), event.y()
+            return True
+        elif (event.type() == QtCore.QEvent.Resize):
+            self.resyzing.emit((event.size().width(), event.size().height()))
+        return QtGui.QScrollArea.event(self, event)

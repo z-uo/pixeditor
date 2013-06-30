@@ -12,81 +12,6 @@ from PyQt4 import Qt
 from colorPicker import ColorDialog
 from widget import Background
 
-class ExportDialog(QtGui.QDialog):
-    def __init__(self, frames=1, mode="file", row=0, column=1):
-        QtGui.QDialog.__init__(self)
-        self.setWindowTitle("export as?")
-        
-        ### multiple files ###
-        self.fileRadio = QtGui.QRadioButton("multiple files", self)
-        ### sprite sheet ###
-        self.sheetRadio = QtGui.QRadioButton("sprite sheet", self)
-        if mode == "file":
-            self.fileRadio.setChecked(True)
-        else:
-            self.sheetRadio.setChecked(True)
-        ### row ###
-        self.rowL = QtGui.QLabel("row")
-        self.rowW = QtGui.QLineEdit(str(row), self)
-        self.rowW.setValidator(QtGui.QIntValidator(self.rowW))
-        self.rowW.textChanged.connect(self.update_size)
-        ### height ###
-        self.columnL = QtGui.QLabel("column")
-        self.columnW = QtGui.QLineEdit(str(column), self)
-        self.columnW.setValidator(QtGui.QIntValidator(self.columnW))
-        self.columnW.textChanged.connect(self.update_size)
-        
-        ### apply, undo ###
-        self.cancelW = QtGui.QPushButton('cancel', self)
-        self.cancelW.clicked.connect(self.cancel_clicked)
-        self.okW = QtGui.QPushButton('ok', self)
-        self.okW.clicked.connect(self.ok_clicked)
-        self.okW.setDefault(True)
-
-        grid = QtGui.QGridLayout()
-        grid.setSpacing(4)
-        grid.addWidget(self.fileRadio, 0, 0)
-        grid.addWidget(self.sheetRadio, 1, 0)
-        
-        grid.addWidget(self.rowL, 1, 1)
-        grid.addWidget(self.rowW, 1, 2)
-        grid.addWidget(self.columnL, 2, 1)
-        grid.addWidget(self.columnW, 2, 2)
-
-        okBox = QtGui.QHBoxLayout()
-        okBox.addStretch(0)
-        okBox.addWidget(self.cancelW)
-        okBox.addWidget(self.okW)
-
-        vBox = QtGui.QVBoxLayout()
-        vBox.addLayout(grid)
-        vBox.addStretch(0)
-        vBox.addLayout(okBox)
-
-        self.setLayout(vBox)
-        self.exec_()
-        
-    def update_size(self):
-        pass
-        
-    def ok_clicked(self):
-        try:
-            self.size = int(self.sizeW.text())
-        except ValueError:
-            self.size = 0
-        self.accept()
-
-    def cancel_clicked(self):
-        self.reject()
-
-    def get_return(self):
-        if self.result():
-            if self.pattern == "square":
-                return True , self.color, self.size
-            elif self.pattern == "file":
-                return True , self.color, self.fileName
-        else:
-            return False, None, None
 
 class BackgroundDialog(QtGui.QDialog):
     def __init__(self, color=QtGui.QColor(150, 150, 150), arg=16):
@@ -229,11 +154,10 @@ class BackgroundDialog(QtGui.QDialog):
         self.preview.fill(self.color)
         p = QtGui.QPainter(self.preview)
         if self.pattern == "square":
-            p.drawPixmap(16, 16, Background(96, 96, self.size))
+            p.drawPixmap(16, 16, Background(QtCore.QSize(96, 96), self.size))
         elif self.pattern == "file":
-            p.drawPixmap(16, 16, Background(96, 96, self.fileName))
+            p.drawPixmap(16, 16, Background(QtCore.QSize(96, 96), self.fileName))
         self.previewL.setPixmap(self.preview)
-        
         
     def ok_clicked(self):
         try:
@@ -248,11 +172,10 @@ class BackgroundDialog(QtGui.QDialog):
     def get_return(self):
         if self.result():
             if self.pattern == "square":
-                return True , self.color, self.size
+                return self.color, self.size
             elif self.pattern == "file":
-                return True , self.color, self.fileName
-        else:
-            return False, None, None
+                return self.color, self.fileName
+        return None, None
 
 class NewDialog(QtGui.QDialog):
     def __init__(self, size=QtCore.QSize(64, 64)):
@@ -306,7 +229,6 @@ class NewDialog(QtGui.QDialog):
         except ValueError:
             self.errorL.setText("ERROR : You must enter a number !")
             return
-        print(self.size)
         if self.size.isEmpty():
             self.errorL.setText("ERROR : The size must be greater than 0 !")
         else:
@@ -318,8 +240,6 @@ class NewDialog(QtGui.QDialog):
     def get_return(self):
         if self.result():
             return self.size
-        else:
-            return None
 
 class CropDialog(QtGui.QDialog):
     def __init__(self, size):
@@ -424,8 +344,6 @@ class CropDialog(QtGui.QDialog):
     def get_return(self):
         if self.result():
             return self.rect
-        else:
-            return None
 
 class ResizeDialog(QtGui.QDialog):
     def __init__(self, size):
@@ -501,16 +419,13 @@ class ResizeDialog(QtGui.QDialog):
     def get_return(self):
         if self.result():
             return self.factor
-        else:
-            return None
 
 class RenameLayerDialog(QtGui.QDialog):
-    def __init__(self, name, otherNames=[]):
+    def __init__(self, name):
         QtGui.QDialog.__init__(self)
         self.setWindowTitle("rename layer")
 
         self.name = name
-        self.otherNames = otherNames
         ### instructions ###
         self.instL = QtGui.QLabel("Enter the new name of the layer :")
         self.nameW = QtGui.QLineEdit(name, self)
@@ -538,21 +453,18 @@ class RenameLayerDialog(QtGui.QDialog):
 
     def rename_clicked(self):
         n = self.nameW.text()
-        for i in self.otherNames:
-            if n == i:
-                self.errorL.setText("ERROR : layer's name must be unique !")
-                return
-        self.name = n
-        self.accept()
+        if n == self.name:
+            self.reject()
+        else:
+            self.name = n
+            self.accept()
 
     def cancel_clicked(self):
         self.reject()
 
     def get_return(self):
         if self.result():
-            return True , self.name
-        else:
-            return False, None
+            return self.name
 
 if __name__ == '__main__':
     import sys

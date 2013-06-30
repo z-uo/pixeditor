@@ -9,34 +9,7 @@ from PyQt4 import QtGui
 from PyQt4 import QtCore
 from PyQt4 import Qt
 from dialogs import RenameLayerDialog
-from widget import Button
-
-class Viewer(QtGui.QScrollArea):
-    """ QScrollArea you can move with midbutton"""
-    resyzing = QtCore.pyqtSignal(tuple)
-    def __init__ (self):
-        QtGui.QScrollArea.__init__(self)
-        self.setAlignment(QtCore.Qt.AlignLeft)
-        
-    def event(self, event):
-        """ capture middle mouse event to move the view """
-        # clic: save position
-        if   (event.type() == QtCore.QEvent.MouseButtonPress and
-              event.button() == QtCore.Qt.MidButton):
-            self.mouseX,  self.mouseY = event.x(), event.y()
-            return True
-        # drag: move the scrollbars
-        elif (event.type() == QtCore.QEvent.MouseMove and
-               event.buttons() == QtCore.Qt.MidButton):
-            self.horizontalScrollBar().setValue(
-                self.horizontalScrollBar().value() - (event.x() - self.mouseX))
-            self.verticalScrollBar().setValue(
-                self.verticalScrollBar().value() - (event.y() - self.mouseY))
-            self.mouseX,  self.mouseY = event.x(), event.y()
-            return True
-        elif (event.type() == QtCore.QEvent.Resize):
-            self.resyzing.emit((event.size().width(), event.size().height()))
-        return QtGui.QScrollArea.event(self, event)
+from widget import Button, Viewer
 
 
 class LayersCanvas(QtGui.QWidget):
@@ -66,20 +39,20 @@ class LayersCanvas(QtGui.QWidget):
         p.fillRect (0, 0, self.width(), self.height(), self.grey)
         p.fillRect (0, 0, self.width(), mH-2, self.white)
         p.drawLine (0, mH-2, self.width(), mH-2)
-        # currentLayer
-        p.fillRect(0, (self.parent.project.currentLayer * lH) + mH-1,
+        p.drawPixmap(82, 2, QtGui.QPixmap("icons/layer_eye.png"))
+        # curLayer
+        p.fillRect(0, (self.parent.project.curLayer * lH) + mH-1,
                    self.width(), lH, self.white)
         # layer's names
         y = mH
-        for i, layer in enumerate(self.parent.project.frames, 1):
+        for i, layer in enumerate(self.parent.project.timeline, 1):
             y += lH
-            #~ y = (i * lH) + mH
-            p.drawText(4, y-6, layer["name"])
+            p.drawText(4, y-6, layer.name)
             p.drawLine (0, y-1, self.width(), y-1)
             rect = QtCore.QRect(82, y-19, 15, 15)
             self.visibleList.append(rect)
             p.drawRect(rect)
-            if layer["visible"]:
+            if layer.visible:
                 p.fillRect(84, y-17, 12, 12, self.black)
         
     def event(self, event):
@@ -87,12 +60,12 @@ class LayersCanvas(QtGui.QWidget):
                        event.button()==QtCore.Qt.LeftButton):
             item = self.layer_at(event.y())
             if item is not None:
-                self.parent.project.currentLayer = item
+                self.parent.project.curLayer = item
                 if self.visibleList[item].contains(event.pos()):
-                    if self.parent.project.frames[item]["visible"]:
-                        self.parent.project.frames[item]["visible"] = False
+                    if self.parent.project.timeline[item].visible:
+                        self.parent.project.timeline[item].visible = False
                     else: 
-                        self.parent.project.frames[item]["visible"] = True
+                        self.parent.project.timeline[item].visible = True
                     self.parent.project.update_view.emit()
                 self.update()
                 self.parent.project.update_view.emit()
@@ -106,9 +79,8 @@ class LayersCanvas(QtGui.QWidget):
     
     def layer_at(self, y):
         l = (y - 23) // 20
-        if 0 <= l < len(self.parent.project.frames):
+        if 0 <= l < len(self.parent.project.timeline):
             return l
-        return None
             
         
 class TimelineCanvas(QtGui.QWidget):
@@ -166,20 +138,20 @@ class TimelineCanvas(QtGui.QWidget):
                        (f2 - f1 + 1) * fW, fH, self.white)
             
         # current frame
-        p.drawLine(self.parent.project.currentFrame*fW, 0, 
-                   self.parent.project.currentFrame*fW, self.height())
-        p.drawLine(self.parent.project.currentFrame*fW + fW , 0, 
-                   self.parent.project.currentFrame*fW + fW , self.height())
+        p.drawLine(self.parent.project.curFrame*fW, 0, 
+                   self.parent.project.curFrame*fW, self.height())
+        p.drawLine(self.parent.project.curFrame*fW + fW , 0, 
+                   self.parent.project.curFrame*fW + fW , self.height())
         framesRects = []
         strechRects = []
         self.strechBoxList = []
-        for y, layer in enumerate(self.parent.project.frames):
+        for y, layer in enumerate(self.parent.project.timeline):
             self.strechBoxList.append([])
-            for x, frame in enumerate(layer["frames"]):
+            for x, frame in enumerate(layer):
                 if frame:
                     w, h = 9, 17
                     s = x
-                    while s+1 < len(layer["frames"]) and not layer["frames"][s+1]:
+                    while s+1 < len(layer) and not layer[s+1]:
                         s += 1
                         w += 13
                     nx = x * fW + mX + 1
@@ -197,9 +169,8 @@ class TimelineCanvas(QtGui.QWidget):
     def getMiniSize(self):
         """ return the minimum size of the widget 
             to display all frames and layers """
-        minH = (len(self.parent.project.frames)*self.frameHeight) + self.margeY
-        #get the longest layer
-        maxF = max([len(l["frames"]) for l in self.parent.project.frames])
+        minH = (len(self.parent.project.timeline)*self.frameHeight) + self.margeY
+        maxF = self.parent.project.timeline.frame_count()
         minW = (maxF * self.frameWidth) + self.margeX
         return (minW, minH)
         
@@ -211,7 +182,7 @@ class TimelineCanvas(QtGui.QWidget):
             if frame is not None and layer is not None:
                 strech = self.is_in_strech_box(event.pos())
                 if strech is not None:
-                    self.strechFrame = (strech[1], frame)
+                    self.strechFrame = (strech[1], frame, False)
                     self.parent.selection = False
                 else:
                     self.parent.selection = [layer, frame, frame]
@@ -227,13 +198,12 @@ class TimelineCanvas(QtGui.QWidget):
               event.buttons() == QtCore.Qt.LeftButton):
             frame = self.frame_at(event.x())
             layer = self.layer_at(event.y())
+            if layer is not None and not self.strechFrame and not self.parent.selection:
+                self.parent.project.curLayer = layer
             if frame is not None:
                 if self.parent.selection:
                     self.parent.selection[2] = frame
-            if     (layer is not None and not self.strechFrame and
-                    not self.parent.selection):
-                self.parent.project.currentLayer = layer
-            self.strech(frame)
+                self.strech(frame)
             self.parent.layersCanvas.update()
             self.update()
             self.parent.change_current(frame, layer)
@@ -245,39 +215,38 @@ class TimelineCanvas(QtGui.QWidget):
             for frame, j in enumerate(i):
                 if j and j.contains(pos):
                     return (frame, layer)
-        return None
         
     def strech(self, f):
         if self.strechFrame:
             sl, sf = self.strechFrame[0], self.strechFrame[1]
-            if f != sf:
+            if f == sf:
+                return
+            if not self.strechFrame[2]:
                 self.parent.project.save_to_undo("frames")
             while f > sf:
-                self.parent.project.frames[sl]["frames"].insert(sf+1, 0)
+                self.parent.project.timeline[sl].insert(sf+1, 0)
                 sf += 1
             while f < sf:
-                if not self.parent.project.frames[sl]["frames"][sf]:
-                    self.parent.project.frames[sl]["frames"].pop(sf)
+                if not self.parent.project.timeline[sl][sf]:
+                    self.parent.project.timeline[sl].pop(sf)
                     sf -= 1
                 else:
                     break
             self.parent.adjust_size()
-            self.strechFrame = (sl, sf)
+            self.strechFrame = (sl, sf, True)
         
     def frame_at(self, x):
         s = (x - self.margeX)  // self.frameWidth
         if 0 <= s <= self.width() // self.frameWidth:
             return s
-        return None
         
     def layer_at(self, y):
         l = ((y - self.margeY) // self.frameHeight)
-        if 0 <= l < len(self.parent.project.frames):
+        if 0 <= l < len(self.parent.project.timeline):
             return l
-        return None
         
         
-class Timeline(QtGui.QWidget):
+class TimelineWidget(QtGui.QWidget):
     """ widget containing timeline, layers and all their buttons """
     def __init__(self, project):
         QtGui.QWidget.__init__(self)
@@ -326,14 +295,12 @@ class Timeline(QtGui.QWidget):
         self.playFrameB.state = "play"
         self.fpsL = QtGui.QLabel("fps")
         self.fpsW = QtGui.QLineEdit(self)
-        self.fpsW.setText(str(12))
+        self.fpsW.setText(str(self.project.fps))
         valid = QtGui.QIntValidator()
         valid.setRange(1, 60)
         self.fpsW.setValidator(valid)
         self.fpsW.textChanged.connect(self.fps_changed)
-
         self.repeatB = Button("no repeat / repeat", "icons/play_no_repeat.png", self.repeat_clicked)
-        self.repeatB.state = False
 
         ### layout ###
         layout = QtGui.QGridLayout()
@@ -361,15 +328,15 @@ class Timeline(QtGui.QWidget):
     def change_current(self, frame=None, layer=None):
         if not self.project.playing:
             if frame is not None:
-                self.project.currentFrame = frame
+                self.project.curFrame = frame
             if layer is not None:
-                self.project.currentLayer = layer
+                self.project.curLayer = layer
             if frame is not None or layer is not None:
                 self.project.update_view.emit()
             
     ######## Size adjust ###############################################
     def showEvent(self, event):
-        self.timelineCanvas.setMinimumHeight(len(self.project.frames)*20 + 25)
+        self.timelineCanvas.setMinimumHeight(len(self.project.timeline)*20 + 25)
         self.timelineCanvas.update()
         self.layersCanvas.setMinimumHeight(self.timelineCanvas.height())
         self.layersCanvas.update()
@@ -402,58 +369,56 @@ class Timeline(QtGui.QWidget):
     def cut(self):
         if self.selection:
             self.project.save_to_undo("frames")
-            l = self.selection[0]
+            layer = self.project.timeline[self.selection[0]]
             f1, f2 = self.selection[1], self.selection[2]
             if f2 < f1:
                 f1, f2, = f2, f1
             # copy frames
-            self.toPaste = self.project.frames[l]["frames"][f1:f2+1]
+            self.toPaste = layer[f1:f2+1]
             # check if first frame is a real canvas
-            trueFrame = self.project.get_canvas((f1, l), True)
-            if trueFrame != (f1, l):
-                self.toPaste[0] = self.project.make_canvas(self.project.frames[l]["frames"][trueFrame[0]])
+            if not self.toPaste[0]:
+                self.toPaste[0] = layer.get_canvas(f1).copy_()
             # check if frame next to selection is a real canvas
-            trueFrame2 = self.project.get_canvas((f2+1, l), True)
-            if trueFrame2 and trueFrame != trueFrame2:
-                self.project.frames[l]["frames"][f2+1] = self.project.make_canvas(self.project.frames[l]["frames"][trueFrame2[0]])
+            nex = layer.get_canvas(f2+1) 
+            if nex and nex != layer.get_canvas(f1):
+                layer[f2+1] = nex.copy_()
             # delete cutted frames
-            del self.project.frames[l]["frames"][f1:f2+1]
+            del layer[f1:f2+1]
             self.timelineCanvas.update()
             
     def copy(self):
         if self.selection:
-            l = self.selection[0]
+            layer = self.project.timeline[self.selection[0]]
             f1, f2 = self.selection[1], self.selection[2]
             if f2 < f1:
                 f1, f2, = f2, f1
             # copy frames
-            self.toPaste = self.project.frames[l]["frames"][f1:f2+1]
+            self.toPaste = layer[f1:f2+1]
             # check if first frame is a real canvas
-            trueFrame = self.project.get_canvas((f1, l), True)
-            if trueFrame != (f1, l):
-                self.toPaste[0] = self.project.frames[l]["frames"][trueFrame[0]]
+            if not self.toPaste[0]:
+                self.toPaste[0] = layer.get_canvas(f1).copy_()
             # make a real copy of all canvas
             for n, canvas in enumerate(self.toPaste):
                 if canvas:
-                    self.toPaste[n] = self.project.make_canvas(canvas)
+                    self.toPaste[n] = canvas.copy_()
         
     def paste(self):
         if self.toPaste:
             self.project.save_to_undo("frames")
-            f = self.project.currentFrame
-            l = self.project.currentLayer
-            while f > len(self.project.frames[l]["frames"]):
-                self.project.frames[l]["frames"].append(0)
+            f = self.project.curFrame
+            l = self.project.curLayer
+            while f > len(self.project.timeline[l]):
+                self.project.timeline[l].append(0)
             for n, canvas in enumerate(self.toPaste):
-                self.project.frames[l]["frames"].insert(f+n, canvas)
+                self.project.timeline[l].insert(f+n, canvas)
             self.timelineCanvas.update()
             self.project.update_view.emit()
             
     ######## Buttons ###################################################
     def add_frame_clicked(self):
         self.project.save_to_undo("frames")
-        layer = self.project.frames[self.project.currentLayer]["frames"]
-        frame = self.project.currentFrame
+        layer = self.project.timeline[self.project.curLayer]
+        frame = self.project.curFrame
         while frame >= len(layer):
             layer.append(0)
         if layer[frame]:
@@ -465,11 +430,11 @@ class Timeline(QtGui.QWidget):
         
     def duplicate_frame_clicked(self):
         self.project.save_to_undo("frames")
-        layer = self.project.frames[self.project.currentLayer]["frames"]
-        frame = self.project.currentFrame
+        layer = self.project.timeline[self.project.curLayer]
+        frame = self.project.curFrame
         while frame >= len(layer):
             layer.append(0)
-        f = self.project.make_canvas(self.project.get_canvas())
+        f = layer.get_canvas(frame).copy_()
         if layer[frame]:
             layer.insert(frame, f)
         else:
@@ -479,8 +444,8 @@ class Timeline(QtGui.QWidget):
         
     def delete_frame_clicked(self):
         self.project.save_to_undo("frames")
-        layer = self.project.frames[self.project.currentLayer]["frames"]
-        frame = self.project.currentFrame
+        layer = self.project.timeline[self.project.curLayer]
+        frame = self.project.curFrame
         if frame >= len(layer):
             return
         if len(layer) == 1 and frame == 0:
@@ -495,66 +460,61 @@ class Timeline(QtGui.QWidget):
         self.project.update_view.emit()
         
     def clear_frame_clicked(self):
-        f = self.project.get_canvas()
+        f = self.project.timeline.get_canvas()
         if f:
             f.clear()
             self.project.update_view.emit()
         
     def add_layer_clicked(self):
         self.project.save_to_undo("frames")
-        self.project.frames.insert(self.project.currentLayer, 
+        self.project.timeline.insert(self.project.curLayer, 
                                    self.project.make_layer())
         self.adjust_size()
         self.project.update_view.emit()
         
     def duplicate_layer_clicked(self):
         self.project.save_to_undo("frames")
-        self.project.frames.insert(self.project.currentLayer,
-                self.project.make_layer(
-                self.project.frames[self.project.currentLayer]))
+        layer = self.project.timeline[self.project.curLayer].deep_copy()
+        layer.name = "%s copy" %(layer.name)
+        self.project.timeline.insert(self.project.curLayer, layer)
         self.adjust_size()
         self.project.update_view.emit()
         
     def delete_layer_clicked(self):
         self.project.save_to_undo("frames")
-        del self.project.frames[self.project.currentLayer]
-        self.project.currentLayer = 0
-        if not self.project.frames:
-            self.project.frames.append(self.project.make_layer())
+        del self.project.timeline[self.project.curLayer]
+        self.project.curLayer = 0
+        if not self.project.timeline:
+            self.project.timeline.append(self.project.make_layer())
         self.adjust_size()
         self.project.update_view.emit()
         
     def up_layer_clicked(self):
         self.project.save_to_undo("frames")
-        l = self.project.currentLayer
-        f = self.project.frames
+        l = self.project.curLayer
+        f = self.project.timeline
         if l > 0:
             f[l], f[l-1] = f[l-1], f[l]
-            self.project.currentLayer = l - 1
+            self.project.curLayer = l - 1
             self.project.update_view.emit()
             self.project.update_timeline.emit()
         
     def down_layer_clicked(self):
         self.project.save_to_undo("frames")
-        l = self.project.currentLayer
-        f = self.project.frames
+        l = self.project.curLayer
+        f = self.project.timeline
         if l < len(f)-1:
             f[l], f[l+1] = f[l+1], f[l]
-            self.project.currentLayer = l + 1
+            self.project.curLayer = l + 1
             self.project.update_view.emit()
             self.project.update_timeline.emit()
     
     def renameLayer(self, l):
-        self.project.save_to_undo("frames")
-        name = self.project.frames[l]["name"]
-        otherNames = []
-        for n, i in enumerate(self.project.frames):
-            if n == l:
-                continue
-            otherNames.append(i["name"])
-        ok, nName = RenameLayerDialog(name, otherNames).get_return()
-        if ok:
-            self.project.frames[l]["name"] = str(nName)
+        name = self.project.timeline[l].name
+        nName = RenameLayerDialog(name).get_return()
+        if nName:
+            self.project.save_to_undo("frames")
+            self.project.timeline[l].name = str(nName)
             self.project.update_timeline.emit()
 
     ######## Play ######################################################
@@ -571,12 +531,13 @@ class Timeline(QtGui.QWidget):
         self.timelineCanvas.update()
 
     def repeat_clicked(self):
-        if self.repeatB.state:
+        if self.project.loop:
             self.repeatB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_no_repeat.png")))
-            self.repeatB.state = False
+            self.project.loop = False
         else:
             self.repeatB.setIcon(QtGui.QIcon(QtGui.QPixmap("icons/play_repeat.png")))
-            self.repeatB.state = True
+            self.project.loop = True
+        self.project.update_view.emit()
 
     def play_pause_clicked(self):
         """play the animation"""
@@ -585,12 +546,12 @@ class Timeline(QtGui.QWidget):
             self.playFrameB.state = "stop"
             self.timer = QtCore.QTimer()
             self.timer.timeout.connect(self.animate)
-            self.f = self.project.currentFrame
+            self.f = self.project.curFrame
             self.fps = self.project.fps
             self.project.playing = True
-            maxF = max([len(l["frames"]) for l in self.project.frames])
-            if self.project.currentFrame+1 >= maxF:
-                self.project.currentFrame = 0
+            maxF = max([len(l) for l in self.project.timeline])
+            if self.project.curFrame+1 >= maxF:
+                self.project.curFrame = 0
                 self.timelineCanvas.update()
                 self.project.update_view.emit()
             self.timer.start(1000//self.fps)
@@ -608,15 +569,15 @@ class Timeline(QtGui.QWidget):
         if self.fps != self.project.fps:
             self.fps = self.project.fps
             self.timer.setInterval(1000//self.fps)
-        maxF = max([len(l["frames"]) for l in self.project.frames])
-        self.f = self.project.currentFrame + 1
+        maxF = max([len(l) for l in self.project.timeline])
+        self.f = self.project.curFrame + 1
         if self.f < maxF:
-            self.project.currentFrame = self.f
+            self.project.curFrame = self.f
             self.timelineCanvas.update()
             self.project.update_view.emit()
         else:
-            if self.repeatB.state:
-                self.project.currentFrame = 0
+            if self.project.loop:
+                self.project.curFrame = 0
                 self.timelineCanvas.update()
                 self.project.update_view.emit()
             else:

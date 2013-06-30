@@ -4,6 +4,7 @@
 # Python 3 Compatibility
 from __future__ import division
 from __future__ import print_function
+from platform import python_version_tuple
 
 from PyQt4 import QtCore
 from PyQt4 import QtGui
@@ -11,27 +12,25 @@ from PyQt4 import Qt
 import os
 import xml.etree.ElementTree as ET
 
-from pixeditor import Canvas
-#~ from dialogs import IndexingAlgorithmDialog
+from data import Canvas
 
 ######## open ##########################################################
-def open_pix(url=None):
-    if not url:
-        url = QtGui.QFileDialog.getOpenFileName(None, "open pix file", "", "Pix files (*.pix );;All files (*)")
+def open_pix(project):
+    url = QtGui.QFileDialog.getOpenFileName(None, "open pix file", "", "Pix files (*.pix );;All files (*)")
     if url:
         try:
             save = open(url, "r")
             saveElem = ET.parse(save).getroot()
             if saveElem.attrib["version"] == "0.2":
-                size, colors, frames = return_canvas_02(saveElem)
+                size, frames, colors = return_canvas_02(saveElem, project)
             save.close()
-            return size, colors, frames, url
+            return size, frames, colors, url
         except IOError:
             print("Can't open file")
             return False, False, False, False
     return False, False, False, False
 
-def return_canvas_02(saveElem):
+def return_canvas_02(saveElem, project):
     sizeElem = saveElem.find("size").attrib
     size = QtCore.QSize(int(sizeElem["width"]), int(sizeElem["height"]))
     colorsElem = saveElem.find("colors").text
@@ -39,14 +38,18 @@ def return_canvas_02(saveElem):
     framesElem = saveElem.find("frames")
     frames = []
     for layerElem in framesElem:
-        layer = {"frames": [], "name": str(layerElem.attrib["name"]), "pos" : 0, "visible" : True, "lock" : False}
+        
+        layer = {"frames": [], "name": str(layerElem.attrib["name"])}
         for f in layerElem.itertext():
             if f == "0":
                 layer["frames"].append(False)
             else:
-                layer["frames"].append([int(n) for n in f.split(',')])
+                #~ layer["frames"].append([int(n) for n in f.split(',')])
+                nf = Canvas(project, size)
+                nf.load_from_list([int(n) for n in f.split(',')])
+                layer["frames"].append(nf)
         frames.append(layer)
-    return size, colors, frames
+    return size, frames, colors
 
 ######## save ##########################################################
 def save_pix_as(project, pixurl=None):
@@ -62,7 +65,7 @@ def save_pix_as(project, pixurl=None):
                     pixurl = url
                     repeat = False
                 else:
-                    pixurl = os.path.join(os.path.splitext(str(url))[0], ".pix")
+                    pixurl = os.path.splitext(str(url))[0] + ".pix"
                     if os.path.isfile(pixurl):
                         message = """It seems that you try to save as %s, unfortunaly, I can't do that.
 I can save your animation as :
@@ -107,11 +110,11 @@ def return_pix(project):
     sizeElem.attrib["height"] = str(project.size.height())
     colorElem = ET.SubElement(saveElem, "colors", lenght=str(len(project.colorTable)))
     colorElem.text = ','.join(str(n) for n in project.colorTable)
-    framesElem = ET.SubElement(saveElem, "frames", lenght=str(len(project.frames)))
-    for nl, layer in enumerate(project.frames):
+    framesElem = ET.SubElement(saveElem, "frames", lenght=str(len(project.timeline)))
+    for nl, layer in enumerate(project.timeline):
         layerElem = ET.SubElement(framesElem, "layer%s" %(nl))
-        layerElem.attrib["name"] = layer["name"]
-        for nf, f in enumerate(layer["frames"]):
+        layerElem.attrib["name"] = layer.name
+        for nf, f in enumerate(layer):
             fElem = ET.SubElement(layerElem, "f%s" %(nf))
             if not f:
                 fElem.text = "0"
@@ -150,7 +153,6 @@ def import_png(project):
                 size = size.expandedTo(img.size())
             else:
                 canceled.append(i)
-    colorTable = [QtGui.qRgba(255, 255, 255, 255), QtGui.qRgba(0, 0, 0, 255)]
     for n, img in enumerate(imgs):
         img = Canvas(project, img.convertToFormat(QtGui.QImage.Format_Indexed8, colorTable))
         if img.size() != size:
@@ -171,7 +173,7 @@ def import_png(project):
         message.addButton("Ok", QtGui.QMessageBox.AcceptRole)
         message.exec_();
         
-    return imgs, colorTable, size
+    return  size, imgs, colorTable
 
 def export(project, url=None):
     # nanim requires google.protobuf, which is Python 2.x only
@@ -193,8 +195,8 @@ def export_png_all(project, url):
     url = os.path.splitext(str(url))[0]
     files = []
     fnexist = False
-    for nl, layer in enumerate(project.frames, 1):
-        for nf, im in enumerate(layer["frames"], 1):
+    for nl, layer in enumerate(project.timeline, 1):
+        for nf, im in enumerate(layer, 1):
             fn = "%s%s%s.png" %(url, nl, nf)
             if os.path.isfile(fn):
                 fnexist = True
@@ -228,10 +230,8 @@ def export_png(project, fullUrl=""):
             return
         isUrl = True
         url = os.path.splitext(str(fullUrl))[0]
-        nFrames = project.frame_count()
+        nFrames = project.timeline.frame_count()
         for i in range(nFrames):
-            #~ n = "0" * (len(str(nFrames))-len(str(i))) + str(i)
-            #~ fn = "%s%s.png" %(url, n)
             fn = "%s%s%s.png" %(url, "0"*(len(str(nFrames))-len(str(i))), i)
             if os.path.isfile(fn):
                 isUrl = False
@@ -251,7 +251,7 @@ def export_png(project, fullUrl=""):
     for i in range(nFrames):
         fn = "%s%s%s.png" %(url, "0"*(len(str(nFrames))-len(str(i))), i)
         
-        canvasList = project.get_canvas_list(i)
+        canvasList = project.timeline.get_canvas_list(i)
         if len(canvasList) == 1:
             canvas = canvasList[0]
         else:
@@ -262,9 +262,8 @@ def export_png(project, fullUrl=""):
                 if c:
                     p.drawImage(0, 0, c)
             p.end()
-        
         canvas.save(fn)
-        return fullUrl
+    return fullUrl
         
 def export_nanim(project, url):
     try:
@@ -285,8 +284,8 @@ def export_nanim(project, url):
     animation = nanim.animations.add()
     animation.name = "default"
     i = 0
-    for layer in project.frames:
-        for im in layer["frames"]:
+    for layer in project.timeline:
+        for im in layer:
             if not im:
                 im = exim
             exim = im

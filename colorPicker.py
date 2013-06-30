@@ -218,7 +218,7 @@ class ColorDialog(QtGui.QDialog):
         self.setWindowTitle("color picker")
         if color is not None:
             if isinstance(color, QtGui.QColor):
-                self.color = color
+                self.color = QtGui.QColor(color)
             elif type(color) is int:
                 self.color = QtGui.QColor.fromRgba(color)
             if not alpha:
