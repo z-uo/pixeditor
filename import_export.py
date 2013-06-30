@@ -22,9 +22,9 @@ def open_pix(project):
             save = open(url, "r")
             saveElem = ET.parse(save).getroot()
             if saveElem.attrib["version"] == "0.2":
-                size, frames, colors = return_canvas_02(saveElem, project)
+                size, frames, colorTable = return_canvas_02(saveElem, project)
             save.close()
-            return size, frames, colors, url
+            return size, frames, colorTable, url
         except IOError:
             print("Can't open file")
             return False, False, False, False
@@ -34,22 +34,20 @@ def return_canvas_02(saveElem, project):
     sizeElem = saveElem.find("size").attrib
     size = QtCore.QSize(int(sizeElem["width"]), int(sizeElem["height"]))
     colorsElem = saveElem.find("colors").text
-    colors = [int(n) for n in colorsElem.split(',')]
+    colorTable = [int(n) for n in colorsElem.split(',')]
     framesElem = saveElem.find("frames")
     frames = []
     for layerElem in framesElem:
-        
         layer = {"frames": [], "name": str(layerElem.attrib["name"])}
         for f in layerElem.itertext():
             if f == "0":
                 layer["frames"].append(False)
             else:
-                #~ layer["frames"].append([int(n) for n in f.split(',')])
-                nf = Canvas(project, size)
+                nf = Canvas(project, size, colorTable)
                 nf.load_from_list([int(n) for n in f.split(',')])
                 layer["frames"].append(nf)
         frames.append(layer)
-    return size, frames, colors
+    return size, frames, colorTable
 
 ######## save ##########################################################
 def save_pix_as(project, pixurl=None):

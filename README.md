@@ -4,12 +4,13 @@ pixeditor
 a animated pixel art editor released under the GNU GPL V3
 
 It is an alpha program, with bugs and limitation.  
-You need python 2.7 and pyQt to run it.
+You need python 2.7 or 3 and pyQt to run it.
 
 Shortcuts
 ------
 Arrow key to move to previous/next frame/layer.  
-Ctrl Z and Ctrl Y to undo, redo (by now it only work for painting action)  
+Space to play  
+Ctrl Z and Ctrl Y to undo, redo  
 Ctrl X/Ctrl C/Ctrl V to cut/copy/paste frames on the timeline  
 Shift clic to draw lines  
 Ctrl clic to select color  
