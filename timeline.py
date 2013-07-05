@@ -281,6 +281,7 @@ class TimelineWidget(QtGui.QWidget):
         self.addLayerB = Button("add layer", "icons/layer_add.png", self.add_layer_clicked)
         self.dupLayerB = Button("duplicate layer", "icons/layer_dup.png", self.duplicate_layer_clicked)
         self.delLayerB = Button("delete layer", "icons/layer_del.png", self.delete_layer_clicked)
+        self.mergeLayerB = Button("merge layer", "icons/layer_merge.png", self.merge_layer_clicked)
         self.upLayerB = Button("move up layer", "icons/layer_up.png", self.up_layer_clicked)
         self.downLayerB = Button("move down layer", "icons/layer_down.png", self.down_layer_clicked)
         
@@ -308,6 +309,7 @@ class TimelineWidget(QtGui.QWidget):
         layout.addWidget(self.addLayerB, 0, 0)
         layout.addWidget(self.dupLayerB, 1, 0)
         layout.addWidget(self.delLayerB, 2, 0)
+        layout.addWidget(self.mergeLayerB, 3, 0)
         layout.addWidget(self.layersV, 0, 1, 5, 3)
         layout.addWidget(self.upLayerB, 5, 1)
         layout.addWidget(self.downLayerB, 5, 2)
@@ -450,9 +452,7 @@ class TimelineWidget(QtGui.QWidget):
             return
         if len(layer) == 1 and frame == 0:
             layer[frame].clear()
-        elif (layer[frame] and 
-              not frame + 1 >= len(layer) and 
-              not layer[frame + 1]):
+        elif layer[frame] and not frame + 1 >= len(layer) and not layer[frame + 1]:
             layer.pop(frame + 1)
         else:
             layer.pop(frame)
@@ -488,6 +488,40 @@ class TimelineWidget(QtGui.QWidget):
             self.project.timeline.append(self.project.make_layer())
         self.adjust_size()
         self.project.update_view.emit()
+        
+    def merge_layer_clicked(self):
+        if not self.project.curLayer < len(self.project.timeline) - 1:
+            return
+        self.project.save_to_undo("frames")
+        layer1 = self.project.timeline[self.project.curLayer + 1]
+        layer2 = self.project.timeline[self.project.curLayer]
+        layer3 = self.project.make_layer(False, True)
+        layer3.name = layer1.name
+        alpha = self.project.get_alpha_color()
+        for i in range(max(len(layer1), len(layer2))):
+            if i == len(layer1):
+                layer3.append(layer2.get_canvas(i).copy_())
+            elif i == len(layer2):
+                layer3.append(layer1.get_canvas(i).copy_())
+            elif i > len(layer1):
+                if layer2[i]:
+                    layer3.append(layer2[i].copy_())
+                else:
+                    layer3.append(0)
+            elif i > len(layer2):
+                if layer1[i]:
+                    layer3.append(layer1[i].copy_())
+                else:
+                    layer3.append(0)
+            elif layer1[i] or layer2[i]:
+                l = layer1.get_canvas(i).copy_()
+                l.merge_canvas(layer2.get_canvas(i), alpha)
+                layer3.append(l)
+            else:
+                layer3.append(0)
+        del self.project.timeline[self.project.curLayer]
+        self.project.timeline[self.project.curLayer] = layer3
+        self.project.update_timeline.emit()
         
     def up_layer_clicked(self):
         self.project.save_to_undo("frames")

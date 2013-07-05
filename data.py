@@ -83,6 +83,8 @@ class Project(QtCore.QObject):
         elif obj == "colorTable_frames":
             doList.append((obj, current, (self.timeline.deep_copy(), 
                                           list(self.colorTable))))
+        elif obj == "timeline_canvas":
+            doList.append((obj, current, self.timeline.deep_copy()))
         elif obj == "all":
             # no copy 
             doList.append((obj, current, (self.timeline, 
@@ -128,6 +130,9 @@ class Project(QtCore.QObject):
                 self.colorTable = save[1]
                 for i in self.timeline.get_all_canvas():
                     i.setColorTable(self.colorTable)
+            elif obj == "timeline_canvas":
+                self.save_to_undo("timeline_canvas", "redoList")
+                self.timeline = save
             elif obj == "all":
                 self.save_to_undo("all", "redoList")
                 self.timeline = save[0]
@@ -185,6 +190,9 @@ class Project(QtCore.QObject):
                 self.colorTable = save[1]
                 for i in self.timeline.get_all_canvas():
                     i.setColorTable(self.colorTable)
+            elif obj == "timeline_canvas":
+                self.save_to_undo("timeline_canvas", "undoList")
+                self.timeline = save
             elif obj == "all":
                 self.save_to_undo("all", "undolist")
                 self.timeline = save[0]
@@ -217,9 +225,11 @@ class Project(QtCore.QObject):
             or a copy of arg:canvas """
         return Canvas(self, self.size)
 
-    def make_layer(self, layer=False):
+    def make_layer(self, layer=False, empty=False):
         """ make a new empty layer by default
             if arg:layer is a list : make a layer with it"""
+        if empty:
+            return Layer(self)
         name = "layer %s" %(len(self.timeline)+1)
         if not layer:
             return Layer(self, [self.make_canvas()], name)
@@ -273,7 +283,10 @@ class Timeline(list):
         
 class Layer(list):
     def __init__(self, project, frames=None, name=''):
-        list.__init__(self, frames)
+        if frames:
+            list.__init__(self, frames)
+        else:
+            list.__init__(self)
         self.project = project
         self.name = name
         self.visible = True
@@ -345,6 +358,15 @@ class Canvas(QtGui.QImage):
     
     def copy_(self):
         return Canvas(self.project, self)
+        
+    def merge_canvas(self, canvas, alpha=None):
+        if alpha is None:
+            alpha = self.project.get_alpha_color()
+        for y in range(self.height()):
+            for x in range(self.width()):
+                col = canvas.pixelIndex(x, y)
+                if col not in alpha:
+                    self.setPixel(x, y, col)
         
     def merge_color(self, exCol, newCol):
         for y in range(self.height()):
