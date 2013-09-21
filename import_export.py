@@ -126,15 +126,27 @@ def return_pix(project):
 ######## import ########################################################
 def import_png(project):
     urls = QtGui.QFileDialog.getOpenFileNames(
-        None, "Import PNG", "", "PNG files (*.png );;All files (*)")
+        None, "Import PNG and GIF", "", "PNG and GIF files (*.png *.gif);;All files (*)")
     if not urls:
         return None, None, None
     imgs = []
     canceled = []
     colorTable = []
     size = QtCore.QSize(0, 0)
-    for i in urls:
-        img = Canvas(project, str(i))
+    # open all img get the colortable and max size 
+    canvasList = []
+    for url in urls:
+        if str(url).endswith("png") or str(url).endswith("PNG"):
+            img = Canvas(project, str(url))
+            canvasList.append((img, str(url)))
+        elif str(url).endswith("gif") or str(url).endswith("GIF"):
+            mov = QtGui.QMovie(str(url))
+            for i in range(mov.frameCount()):
+                mov.jumpToFrame(i)
+                img = Canvas(project, mov.currentImage())
+                canvasList.append((img, str(url)))
+            
+    for img, url in canvasList:
         if img.format() == QtGui.QImage.Format_Indexed8:
             colorMixed = img.mix_colortable(colorTable)
             if colorMixed:
@@ -142,7 +154,7 @@ def import_png(project):
                 imgs.append(img)
                 size = size.expandedTo(img.size())
             else:
-                canceled.append(i)
+                canceled.append(url)
         else:
             colorMixed = img.sniff_colortable(colorTable)
             if colorMixed:
@@ -150,7 +162,7 @@ def import_png(project):
                 imgs.append(img)
                 size = size.expandedTo(img.size())
             else:
-                canceled.append(i)
+                canceled.append(url)
     for n, img in enumerate(imgs):
         img = Canvas(project, img.convertToFormat(QtGui.QImage.Format_Indexed8, colorTable))
         if img.size() != size:
@@ -315,5 +327,7 @@ def export_nanim(project, url):
     f.close()
 
 if __name__ == '__main__':
-    #~ ouverturexml
-    open_pix("/media/donnees/programation/pixeditor/pix/debzombie.pix")
+    import sys
+    app = QtGui.QApplication(sys.argv)
+    import_gif("/media/donnees/programation/pixeditor/dup.gif")
+    sys.exit(app.exec_())
