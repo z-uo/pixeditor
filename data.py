@@ -26,6 +26,7 @@ class Project(QtCore.QObject):
     tool_changed = QtCore.pyqtSignal()
     pen_changed = QtCore.pyqtSignal()
     color_changed = QtCore.pyqtSignal()
+    set_custom_pen = QtCore.pyqtSignal(list)
     def __init__(self, parent):
         QtCore.QObject.__init__(self)
         self.parent = parent
@@ -59,7 +60,7 @@ class Project(QtCore.QObject):
         self.color = color
         self.color_changed.emit()
         self.update_palette.emit()
-
+        
     ######## undo/redo #################################################
     def save_to_undo(self, obj, save=False):
         if not save:
@@ -239,6 +240,7 @@ class Project(QtCore.QObject):
     def get_alpha_color(self):
         return [index for index, color in enumerate(self.colorTable) if QtGui.QColor.fromRgba(color).alpha() == 0]
         
+        
 class Timeline(list):
     def __init__(self, project, layers):
         list.__init__(self, layers)
@@ -351,11 +353,21 @@ class Canvas(QtGui.QImage):
 
     def return_as_list(self):
         l = []
-        for y in range(self.height()):
-            for x in range(self.width()):
+        for y in range(rect.top(), rect.bottom()):
+            for x in range(rect.left(), rect.right()):
                 l.append(self.pixelIndex(x, y))
         return l
     
+    def return_as_matrix(self, rect):
+        l = []
+        i = 0
+        for y in range(max(rect.top(), 0), min(rect.bottom()+1, self.height())):
+            l.append([])
+            for x in range(max(rect.left(), 0), min(rect.right()+1, self.width())):
+                l[i].append(self.pixelIndex(x, y))
+            i += 1
+        return l
+        
     def copy_(self):
         return Canvas(self.project, self)
         
@@ -444,10 +456,18 @@ class Canvas(QtGui.QImage):
         self.draw_point(p2)
 
     def draw_point(self, point):
-        for i, j in self.project.pen:
-            p = QtCore.QPoint(point.x()+i, point.y()+j)
-            if self.rect().contains(p):
-                self.setPixel(p, self.project.color)
+        if len(self.project.pen[0]) == 2:
+            for i, j in self.project.pen:
+                p = QtCore.QPoint(point.x()+i, point.y()+j)
+                if self.rect().contains(p):
+                    self.setPixel(p, self.project.color)
+        elif len(self.project.pen[0]) == 3:
+            nc = self.colorCount()
+            for i, j, c in self.project.pen:
+                if c < nc:
+                    p = QtCore.QPoint(point.x()+i, point.y()+j)
+                    if self.rect().contains(p):
+                        self.setPixel(p, c)
 
     def flood_fill(self, point, col):
         l = [(point.x(), point.y())]
@@ -460,7 +480,14 @@ class Canvas(QtGui.QImage):
                 l.append((x-1, y))
                 l.append((x, y+1))
                 l.append((x, y-1))
-
+                
+    def draw_rect(self, rect, color=None):
+        if color is None:
+            color = self.project.color
+        for y in range(max(rect.top(), 0), min(rect.bottom()+1, self.height())):
+            for x in range(max(rect.left(), 0), min(rect.right()+1, self.width())):
+                self.setPixel(x, y, color)
+        
     def clic(self, point):
         if  (self.project.tool == "pipette" or
              (self.project.tool == "pen" or self.project.tool == "fill") and

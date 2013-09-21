@@ -16,13 +16,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# add onionskin with first frame when in the last frame if loop
-# add merge layer
 # add space in palette (256 color)
-# add a dialog to export png
-# save the url for export and save (add a save button)
-# add a tool to make lines (iso...)
+# add texture
+# fill all similar color
 # add animated gif export
+# check onionskin when switching layer
 
 
 # Python 3 Compatibility
@@ -42,6 +40,44 @@ from timeline import TimelineWidget
 from widget import Background, Button
 from colorPicker import ColorDialog
 
+def pointToInt(point):
+    return QtCore.QPoint(int(point.x()), int(point.y()))
+
+def pointToFloat(point):
+    return QtCore.QPointF(int(point.x()), int(point.y()))
+        
+def get_rect(rect):
+    w = int(rect.width())
+    h = int(rect.height())
+    if w < 0:
+        x = int(rect.x()) + w
+        w = int(rect.x()) - x
+    else:
+        x = int(rect.x())
+    if h < 0:
+        y = int(rect.y()) + h
+        h = int(rect.y()) - y
+    else:
+        y = int(rect.y())
+    return QtCore.QRect(x, y, w, h)
+    
+class SelectionRect(QtGui.QGraphicsRectItem):
+    def __init__(self, pos):
+        QtGui.QGraphicsRectItem.__init__(self, pos.x(), pos.y(), 1, 1)
+        self.startX = pos.x()
+        self.startY = pos.y()
+        
+        self.setPen(QtGui.QPen(QtGui.QColor("black"), 0))
+        dashPen = QtGui.QPen(QtGui.QColor("white"), 0, QtCore.Qt.DashLine)
+        dashPen.setDashPattern([6, 6])
+        self.dash = QtGui.QGraphicsRectItem(self.rect(), self)
+        self.dash.setPen(dashPen)
+        
+    def scale(self, pos):
+        rect = QtCore.QRectF(self.startX, self.startY, pos.x() - self.startX, pos.y() - self.startY)
+        self.setRect(rect)
+        self.dash.setRect(rect)
+        
 
 class Scene(QtGui.QGraphicsView):
     """ Display, zoom, pan..."""
@@ -66,6 +102,8 @@ class Scene(QtGui.QGraphicsView):
         # frames
         self.itemList = []
         self.canvasList = []
+        #sellection
+        self.selRect = None
         # OnionSkin
         p = QtGui.QPixmap(self.project.size)
         self.onionPrevItem = self.scene.addPixmap(p)
@@ -205,6 +243,10 @@ class Scene(QtGui.QGraphicsView):
             pos = self.pointToInt(self.mapToScene(event.pos()))
             if self.project.tool == "move":
                 self.lastPos = pos
+            elif self.project.tool == "select":
+                self.selRect = SelectionRect(pos)
+                self.selRect.setZValue(103)
+                self.scene.addItem(self.selRect)
             else:
                 self.canvasList[l].clic(pos)
                 self.itemList[l].pixmap().convertFromImage(self.canvasList[l])
@@ -238,6 +280,8 @@ class Scene(QtGui.QGraphicsView):
                 intPos = self.pointToInt(self.itemList[l].pos())
                 self.itemList[l].setPos(QtCore.QPointF(intPos + dif))
                 self.lastPos = pos
+            elif self.project.tool == "select": 
+                self.selRect.scale(pos)
             else:
                 self.canvasList[l].move(pos)
                 self.itemList[l].pixmap().convertFromImage(self.canvasList[l])
@@ -246,16 +290,25 @@ class Scene(QtGui.QGraphicsView):
             return QtGui.QGraphicsView.mouseMoveEvent(self, event)
 
     def mouseReleaseEvent(self, event):
-        if event.button() == QtCore.Qt.LeftButton and self.project.tool == "move":
+        if event.button() == QtCore.Qt.LeftButton:
             l = self.project.curLayer
-            if self.canvasList[l] and self.itemList[l].pos():
-                offset = (int(self.itemList[l].pos().x()), 
-                          int(self.itemList[l].pos().y()))
-                self.canvasList[l].load_from_list(
-                                    self.canvasList[l].return_as_list(),
-                                    self.canvasList[l].width(), offset)
-                self.itemList[l].setPos(QtCore.QPointF(0, 0))
-                self.change_frame()
+            if self.project.tool == "move" and self.canvasList[l] and self.itemList[l].pos():
+                    offset = (int(self.itemList[l].pos().x()), 
+                              int(self.itemList[l].pos().y()))
+                    self.canvasList[l].load_from_list(
+                                        self.canvasList[l].return_as_list(),
+                                        self.canvasList[l].width(), offset)
+                    self.itemList[l].setPos(QtCore.QPointF(0, 0))
+                    self.change_frame()
+            elif self.project.tool == "select": 
+                rect = get_rect(self.selRect.rect())
+                if rect.isValid():
+                    sel = self.canvasList[l].return_as_matrix(rect)
+                    self.canvasList[l].draw_rect(rect, 0)
+                    self.project.set_custom_pen.emit(sel)
+                    self.change_frame()
+                self.scene.removeItem(self.selRect)
+                del self.selRect
         else:
             return QtGui.QGraphicsView.mouseReleaseEvent(self, event)
 
@@ -313,6 +366,7 @@ class PaletteCanvas(QtGui.QWidget):
 
 class ToolsWidget(QtGui.QWidget):
     """ side widget cantaining tools buttons and palette """
+    change_pen = QtCore.pyqtSignal(str)
     def __init__(self, project):
         QtGui.QWidget.__init__(self)
         self.project = project
@@ -323,6 +377,7 @@ class ToolsWidget(QtGui.QWidget):
         self.fillB = Button("fill", "icons/tool_fill.png", self.fill_tool_clicked, True)
         self.moveB = Button("move", "icons/tool_move.png", self.move_tool_clicked, True)
         self.penB.setChecked(True)
+        self.selectB = Button("select", "icons/tool_select.png", self.select_tool_clicked, True)
 
         ### pen size ###
         self.penW = QtGui.QComboBox(self)
@@ -333,24 +388,29 @@ class ToolsWidget(QtGui.QWidget):
         self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_3x3_square.png")), "3x3 square")
         self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_3x3_cross.png")), "3x3 cross")
         self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_5x5_round.png")), "5x5 round")
+        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_5x5_round.png")), "5x5 round")
+        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_custom.png")), "custom")
         self.penW.activated[str].connect(self.pen_chooser_clicked)
         self.penDict = { "point" : ((0, 0),),
-                        "2 pixels horizontal" : ((0, 0), (1, 0)),
-                        "2 pixels vertical" : ((0, 0),
-                                               (0, 1)),
-                        "2x2 square" : ((0, 0), (0, 1),
-                                        (1, 0), (1, 1)),
-                        "3x3 square" : ((-1, -1), (-1, 0), (-1, 1),
-                                        ( 0, -1), ( 0, 0), ( 0, 1),
-                                        ( 1, -1), ( 1, 0), ( 1, 1)),
-                        "3x3 cross" : ((-1, 0),
-                              (0, -1), ( 0, 0), (0, 1),
-                                        (1, 0)),
+                         "2 pixels horizontal" : ((0, 0), (1, 0)),
+                         "2 pixels vertical" : ((0, 0),
+                                                (0, 1)),
+                         "2x2 square" : ((0, 0), (0, 1),
+                                         (1, 0), (1, 1)),
+                         "3x3 square" : ((-1, -1), (-1, 0), (-1, 1),
+                                         ( 0, -1), ( 0, 0), ( 0, 1),
+                                         ( 1, -1), ( 1, 0), ( 1, 1)),
+                         "3x3 cross" : ((-1, 0),
+                               (0, -1), ( 0, 0), (0, 1),
+                                        ( 1, 0)),
                         "5x5 round" : ((-1, -2), (0, -2), (1, -2),
                              (-2, -1), (-1, -1), (0, -1), (1, -1), (2, -1),
                              (-2,  0), (-1,  0), (0,  0), (1,  0), (2,  0),
                              (-2,  1), (-1,  1), (0,  1), (1,  1), (2,  1),
-                                       (-1,  2), (0,  2), (1,  2))}
+                                       (-1,  2), (0,  2), (1,  2)),
+                        "custom" : ()
+                        }
+        self.project.set_custom_pen.connect(self.set_custom_pen)
 
         ### palette ###
         self.paletteCanvas = PaletteCanvas(self)
@@ -364,27 +424,27 @@ class ToolsWidget(QtGui.QWidget):
         moveRightColorB = Button("move color right",
             "icons/color_move_right.png", self.move_color_right_clicked)
 
-        self.onionSkinPrevB = Button("onion skin - previous frame",
-            "icons/onionskin_prev.png", self.onionskin_prev_clicked, True)
-        self.onionSkinNextB = Button("onion skin - next frame",
-            "icons/onionskin_next.png", self.onionskin_next_clicked, True)
-
         ### Layout ###
-        layout = QtGui.QGridLayout()
+        tools = QtGui.QHBoxLayout()
+        tools.setSpacing(0)
+        tools.addWidget(self.penB)
+        tools.addWidget(self.pipetteB)
+        tools.addWidget(self.fillB)
+        tools.addWidget(self.moveB)
+        tools.addWidget(self.selectB)
+        colors = QtGui.QHBoxLayout()
+        colors.setSpacing(0)
+        colors.addWidget(addColorB)
+        colors.addWidget(delColorB)
+        colors.addWidget(moveLeftColorB)
+        colors.addWidget(moveRightColorB)
+        layout = QtGui.QVBoxLayout()
         layout.setSpacing(4)
-        layout.addWidget(self.penB, 0, 0)
-        layout.addWidget(self.pipetteB, 0, 1)
-        layout.addWidget(self.fillB, 0, 2)
-        layout.addWidget(self.moveB, 0, 3)
-        layout.setColumnStretch(3, 2)
-        layout.addWidget(self.penW, 1, 0, 1, 4)
-        layout.addWidget(self.paletteCanvas, 2, 0, 1, 4)
-        layout.addWidget(addColorB, 3, 0)
-        layout.addWidget(delColorB, 3, 1)
-        layout.addWidget(moveLeftColorB, 3, 2)
-        layout.addWidget(moveRightColorB, 3, 3)
-        layout.addWidget(self.onionSkinPrevB, 4, 2)
-        layout.addWidget(self.onionSkinNextB, 4, 3)
+        layout.addLayout(tools)
+        layout.addWidget(self.penW)
+        layout.addWidget(self.paletteCanvas)
+        layout.addLayout(colors)
+        layout.addStretch()
         self.setLayout(layout)
 
     def showEvent(self, event):
@@ -397,6 +457,7 @@ class ToolsWidget(QtGui.QWidget):
         self.pipetteB.setChecked(False)
         self.fillB.setChecked(False)
         self.moveB.setChecked(False)
+        self.selectB.setChecked(False)
         self.project.tool_changed.emit()
 
     def pipette_tool_clicked(self):
@@ -405,6 +466,7 @@ class ToolsWidget(QtGui.QWidget):
         self.fillB.setChecked(False)
         self.pipetteB.setChecked(True)
         self.moveB.setChecked(False)
+        self.selectB.setChecked(False)
         self.project.tool_changed.emit()
 
     def fill_tool_clicked(self):
@@ -413,6 +475,7 @@ class ToolsWidget(QtGui.QWidget):
         self.pipetteB.setChecked(False)
         self.penB.setChecked(False)
         self.moveB.setChecked(False)
+        self.selectB.setChecked(False)
         self.project.tool_changed.emit()
 
     def move_tool_clicked(self):
@@ -421,12 +484,39 @@ class ToolsWidget(QtGui.QWidget):
         self.pipetteB.setChecked(False)
         self.penB.setChecked(False)
         self.moveB.setChecked(True)
+        self.selectB.setChecked(False)
+        self.project.tool_changed.emit()
+
+    def select_tool_clicked(self):
+        self.project.tool = "select"
+        self.fillB.setChecked(False)
+        self.pipetteB.setChecked(False)
+        self.penB.setChecked(False)
+        self.moveB.setChecked(False)
+        self.selectB.setChecked(True)
         self.project.tool_changed.emit()
 
     def pen_chooser_clicked(self, text):
         self.project.pen = self.penDict[str(text)]
         self.project.pen_changed.emit()
-
+        
+    def set_custom_pen(self, li):
+        nLi = []
+        mY = len(li)//2
+        mX = len(li[0])//2
+        for y in range(len(li)):
+            py = y - mY
+            for x in range(len(li[y])):
+                col = li[y][x]
+                if col:
+                    px = x - mX
+                    nLi.append((px, py, col))
+        if nLi:
+            self.penDict["custom"] = nLi
+            self.penW.setCurrentIndex(self.penW.findText("custom"))
+            self.pen_tool_clicked()
+            self.pen_chooser_clicked("custom")
+        
     ######## Color #####################################################
     def edit_color(self, n):
         col = self.project.colorTable[self.project.color]
@@ -485,14 +575,6 @@ class ToolsWidget(QtGui.QWidget):
                 i.swap_color(col, col+1)
                 i.setColorTable(table)
             self.project.set_color(col+1)
-
-    def onionskin_prev_clicked(self):
-        self.project.onionSkinPrev = self.onionSkinPrevB.isChecked()
-        self.project.update_view.emit()
-
-    def onionskin_next_clicked(self):
-        self.project.onionSkinNext = self.onionSkinNextB.isChecked()
-        self.project.update_view.emit()
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -604,6 +686,18 @@ class MainWindow(QtGui.QMainWindow):
         splitter2.addWidget(splitter)
         splitter2.addWidget(self.timelineWidget)
         self.setCentralWidget(splitter2)
+        
+        
+        #~ self.setDockNestingEnabled(True)
+        #~ self.setCentralWidget(self.scene)
+        #~ leftDock = QtGui.QDockWidget("tools")
+        #~ leftDock.setWidget(self.toolsWidget)
+        #~ self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, leftDock)
+        #~ 
+        #~ bottomDock = QtGui.QDockWidget("timeline")
+        #~ bottomDock.setWidget(self.timelineWidget)
+        #~ self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, bottomDock)
+        
         self.show()
         
     ######## File menu #################################################

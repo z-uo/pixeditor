@@ -291,40 +291,56 @@ class TimelineWidget(QtGui.QWidget):
         self.delFrameB = Button("delete frame", "icons/frame_del.png", self.delete_frame_clicked)
         self.clearFrameB = Button("clear frame", "icons/frame_clear.png", self.clear_frame_clicked)
         
+        ### ponionskin ###
+        self.onionSkinPrevB = Button("onion skin - previous frame",
+            "icons/onionskin_prev.png", self.onionskin_prev_clicked, True)
+        self.onionSkinNextB = Button("onion skin - next frame",
+            "icons/onionskin_next.png", self.onionskin_next_clicked, True)
+            
         ### play the animation ###
+        self.fpsW = QtGui.QSpinBox(self)
+        self.fpsW.setValue(self.project.fps)
+        self.fpsW.setRange(1, 60)
+        self.fpsW.setSuffix(" fps")
+        self.fpsW.valueChanged.connect(self.fps_changed)
+        self.repeatB = Button("no repeat / repeat", "icons/play_no_repeat.png", self.repeat_clicked)
         self.playFrameB = Button("play / pause", "icons/play_play.png", self.play_pause_clicked)
         self.playFrameB.state = "play"
-        self.fpsL = QtGui.QLabel("fps")
-        self.fpsW = QtGui.QLineEdit(self)
-        self.fpsW.setText(str(self.project.fps))
-        valid = QtGui.QIntValidator()
-        valid.setRange(1, 60)
-        self.fpsW.setValidator(valid)
-        self.fpsW.textChanged.connect(self.fps_changed)
-        self.repeatB = Button("no repeat / repeat", "icons/play_no_repeat.png", self.repeat_clicked)
 
         ### layout ###
+        layerTools = QtGui.QVBoxLayout()
+        layerTools.setSpacing(0)
+        layerTools.addWidget(self.addLayerB)
+        layerTools.addWidget(self.dupLayerB)
+        layerTools.addWidget(self.delLayerB)
+        layerTools.addWidget(self.mergeLayerB)
+        layerTools.addStretch()
+        
+        layerTools2 = QtGui.QHBoxLayout()
+        layerTools2.setSpacing(0)
+        layerTools2.addWidget(self.upLayerB)
+        layerTools2.addWidget(self.downLayerB)
+        
+        canvasTools = QtGui.QHBoxLayout()
+        canvasTools.setSpacing(0)
+        canvasTools.addWidget(self.addFrameB)
+        canvasTools.addWidget(self.dupFrameB)
+        canvasTools.addWidget(self.delFrameB)
+        canvasTools.addWidget(self.clearFrameB)
+        canvasTools.addStretch()
+        canvasTools.addWidget(self.onionSkinPrevB)
+        canvasTools.addWidget(self.onionSkinNextB)
+        canvasTools.addWidget(self.fpsW)
+        canvasTools.addWidget(self.repeatB)
+        canvasTools.addWidget(self.playFrameB)
+        
         layout = QtGui.QGridLayout()
         layout.setSpacing(4)
-        layout.addWidget(self.addLayerB, 0, 0)
-        layout.addWidget(self.dupLayerB, 1, 0)
-        layout.addWidget(self.delLayerB, 2, 0)
-        layout.addWidget(self.mergeLayerB, 3, 0)
-        layout.addWidget(self.layersV, 0, 1, 5, 3)
-        layout.addWidget(self.upLayerB, 5, 1)
-        layout.addWidget(self.downLayerB, 5, 2)
-        layout.setColumnStretch(3, 0)
-        
-        layout.addWidget(self.timelineV, 0, 4, 5, 9)
-        layout.addWidget(self.addFrameB, 5, 4)
-        layout.addWidget(self.dupFrameB, 5, 5)
-        layout.addWidget(self.delFrameB, 5, 6)
-        layout.addWidget(self.clearFrameB, 5, 7)
-        layout.setColumnStretch(8, 2)
-        layout.addWidget(self.fpsW, 5, 9)
-        layout.addWidget(self.fpsL, 5, 10)
-        layout.addWidget(self.repeatB, 5, 11)
-        layout.addWidget(self.playFrameB, 5, 12)
+        layout.addLayout(layerTools, 0, 0)
+        layout.addWidget(self.layersV, 0, 1)
+        layout.addWidget(self.timelineV, 0, 2)
+        layout.addLayout(layerTools2, 1, 1)
+        layout.addLayout(canvasTools, 1, 2)
         self.setLayout(layout)
 
     def change_current(self, frame=None, layer=None):
@@ -551,18 +567,20 @@ class TimelineWidget(QtGui.QWidget):
             self.project.timeline[l].name = str(nName)
             self.project.update_timeline.emit()
 
+    ######## Onionskin #################################################
+    def onionskin_prev_clicked(self):
+        self.project.onionSkinPrev = self.onionSkinPrevB.isChecked()
+        self.project.update_view.emit()
+
+    def onionskin_next_clicked(self):
+        self.project.onionSkinNext = self.onionSkinNextB.isChecked()
+        self.project.update_view.emit()
+        
     ######## Play ######################################################
     def fps_changed(self):
-        try:
-            f = int(self.fpsW.text())
-        except ValueError:
-            self.fpsW.setText("1")
-            return
-        if f == 0:
-            self.fpsW.setText("1")
-            return
-        self.project.fps = f
-        self.timelineCanvas.update()
+        if 0 < self.fpsW.value() < 161:
+            self.project.fps = self.fpsW.value()
+            self.timelineCanvas.update()
 
     def repeat_clicked(self):
         if self.project.loop:
