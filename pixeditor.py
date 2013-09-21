@@ -20,7 +20,6 @@
 # add texture
 # fill all similar color
 # add animated gif export
-# check onionskin when switching layer
 
 
 # Python 3 Compatibility
@@ -184,6 +183,8 @@ class Scene(QtGui.QGraphicsView):
                     if prev and prev != layer.get_canvas(self.project.curFrame):
                         self.onionPrevItem.pixmap().convertFromImage(prev)
                         self.onionPrevItem.show()
+                    else:
+                        self.onionPrevItem.hide()
                     break
                 frame -= 1
             else:
