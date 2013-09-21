@@ -16,7 +16,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# add space in palette (256 color)
 # add texture
 # fill all similar color
 # add animated gif export
@@ -36,7 +35,7 @@ from data import Project
 from dialogs import *
 from import_export import *
 from timeline import TimelineWidget
-from widget import Background, Button
+from widget import Background, Button, Viewer
 from colorPicker import ColorDialog
 
 def pointToInt(point):
@@ -319,7 +318,7 @@ class PaletteCanvas(QtGui.QWidget):
     def __init__(self, parent):
         QtGui.QWidget.__init__(self)
         self.parent = parent
-        self.setFixedSize(164, 324)
+        self.setFixedSize(164, 644)
         self.background = QtGui.QBrush(self.parent.project.bg_color)
         self.alpha = QtGui.QPixmap("icons/color_alpha.png")
         self.black = QtGui.QBrush(QtGui.QColor(0, 0, 0))
@@ -342,18 +341,19 @@ class PaletteCanvas(QtGui.QWidget):
             p.drawPixmap(x+2, y+2, self.alpha)
             p.fillRect(x+2, y+2, 16, 16, QtGui.QBrush(QtGui.QColor().fromRgba(i)))
 
-    def mousePressEvent(self, event):
-        if (event.button() == QtCore.Qt.LeftButton):
+    def event(self, event):
+        if (event.type() == QtCore.QEvent.MouseButtonPress and
+                       event.button()==QtCore.Qt.LeftButton):
             item = self.item_at(event.x(), event.y())
             if item is not None:
                 self.parent.project.set_color(item)
-
-    def mouseDoubleClickEvent(self, event):
-        if (event.button() == QtCore.Qt.LeftButton):
+        elif (event.type() == QtCore.QEvent.MouseButtonDblClick and
+                       event.button()==QtCore.Qt.LeftButton):
             item = self.item_at(event.x(), event.y())
             if item is not None:
                 self.parent.edit_color(item)
-
+        return QtGui.QWidget.event(self, event)
+        
     def item_at(self, x, y):
         x, y = ((x-2) // 20), ((y-2) // 20)
         if y == 0:
@@ -415,6 +415,11 @@ class ToolsWidget(QtGui.QWidget):
 
         ### palette ###
         self.paletteCanvas = PaletteCanvas(self)
+        self.paletteV = Viewer()
+        self.paletteV.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.paletteV.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        self.paletteV.setWidget(self.paletteCanvas)
+        
         self.project.update_palette.connect(self.paletteCanvas.update)
         addColorB = Button("add color",
             "icons/color_add.png", self.add_color_clicked)
@@ -426,30 +431,31 @@ class ToolsWidget(QtGui.QWidget):
             "icons/color_move_right.png", self.move_color_right_clicked)
 
         ### Layout ###
-        tools = QtGui.QHBoxLayout()
+        tools = QtGui.QVBoxLayout()
         tools.setSpacing(0)
         tools.addWidget(self.penB)
         tools.addWidget(self.pipetteB)
         tools.addWidget(self.fillB)
         tools.addWidget(self.moveB)
         tools.addWidget(self.selectB)
+        tools.addStretch()
         colors = QtGui.QHBoxLayout()
         colors.setSpacing(0)
         colors.addWidget(addColorB)
         colors.addWidget(delColorB)
         colors.addWidget(moveLeftColorB)
         colors.addWidget(moveRightColorB)
-        layout = QtGui.QVBoxLayout()
+        layout = QtGui.QGridLayout()
         layout.setSpacing(4)
-        layout.addLayout(tools)
-        layout.addWidget(self.penW)
-        layout.addWidget(self.paletteCanvas)
-        layout.addLayout(colors)
-        layout.addStretch()
+        layout.addLayout(tools, 0, 0, 3, 1)
+        layout.addWidget(self.penW, 0, 1)
+        layout.addWidget(self.paletteV, 1, 1)
+        layout.addLayout(colors, 2, 1)
         self.setLayout(layout)
 
     def showEvent(self, event):
-        self.setFixedWidth(self.width())
+        self.paletteV.setMinimumWidth(self.paletteCanvas.width() + 
+                    self.paletteV.verticalScrollBar().width() + 2)
 
     ######## Tools #####################################################
     def pen_tool_clicked(self):
@@ -534,7 +540,7 @@ class ToolsWidget(QtGui.QWidget):
 
     def add_color_clicked(self):
         """ select a color and add it to the palette"""
-        if not len(self.project.colorTable) >= 128:
+        if not len(self.project.colorTable) >= 256:
             col = self.project.colorTable[self.project.color]
             ok, color = ColorDialog(True, col).get_rgba()
             if not ok:
