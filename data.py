@@ -22,7 +22,7 @@ class Project(QtCore.QObject):
     update_view = QtCore.pyqtSignal()
     update_palette = QtCore.pyqtSignal()
     update_timeline = QtCore.pyqtSignal()
-    update_background = QtCore.pyqtSignal()
+    updateBackground = QtCore.pyqtSignal()
     tool_changed = QtCore.pyqtSignal()
     pen_changed = QtCore.pyqtSignal()
     color_changed = QtCore.pyqtSignal()
@@ -34,6 +34,8 @@ class Project(QtCore.QObject):
         self.redoList = []
         self.pen = DEFAUT_PEN
         self.tool = DEFAUT_TOOL
+        self.fill_mode = "adjacent"
+        self.select_mode = "cut"
         self.loop = False
         self.onionSkinPrev = False
         self.onionSkinNext = False
@@ -143,7 +145,7 @@ class Project(QtCore.QObject):
                 self.size = save[2]
                 self.bg_color = save[3]
                 self.bg_pattern = save[4]
-                self.update_background.emit()
+                self.updateBackground.emit()
                 self.url = save[5]
                 if self.url:
                     self.parent.setWindowTitle("pixeditor | %s" %(os.path.basename(self.url)))
@@ -155,7 +157,7 @@ class Project(QtCore.QObject):
                 self.save_to_undo("background", "redoList")
                 self.bg_color = save[0]
                 self.bg_pattern = save[1]
-                self.update_background.emit()
+                self.updateBackground.emit()
                 
             self.update_view.emit()
             self.update_timeline.emit()
@@ -203,7 +205,7 @@ class Project(QtCore.QObject):
                 self.size = save[2]
                 self.bg_color = save[3]
                 self.bg_pattern = save[4]
-                self.update_background.emit()
+                self.updateBackground.emit()
                 self.url = save[5]
                 if self.url:
                     self.parent.setWindowTitle("pixeditor | %s" %(os.path.basename(self.url)))
@@ -215,7 +217,7 @@ class Project(QtCore.QObject):
                 self.save_to_undo("background", "undolist")
                 self.bg_color = save[0]
                 self.bg_pattern = save[1]
-                self.update_background.emit()
+                self.updateBackground.emit()
 
             self.update_view.emit()
             self.update_timeline.emit()
@@ -353,8 +355,8 @@ class Canvas(QtGui.QImage):
 
     def return_as_list(self):
         l = []
-        for y in range(rect.top(), rect.bottom()):
-            for x in range(rect.left(), rect.right()):
+        for y in range(self.height()):
+            for x in range(self.width()):
                 l.append(self.pixelIndex(x, y))
         return l
     
@@ -396,7 +398,13 @@ class Canvas(QtGui.QImage):
                     self.setPixel(x, y, col2)
                 elif self.pixelIndex(x, y) == col2:
                     self.setPixel(x, y, col1)
-
+                    
+    def replace_color(self, col1, col2):
+        for y in range(self.height()):
+            for x in range(self.width()):
+                if self.pixelIndex(x, y) == col1:
+                    self.setPixel(x, y, col2)
+        
     def mix_colortable(self, colorTable):
         selfColorTable = self.colorTable()
         colorTable = list(colorTable)
@@ -505,7 +513,10 @@ class Canvas(QtGui.QImage):
         elif (self.rect().contains(point) and self.project.tool == "fill" and 
               self.project.color != self.pixelIndex(point)):
             self.project.save_to_undo("canvas")
-            self.flood_fill(point, self.pixelIndex(point))
+            if self.project.fill_mode == "adjacent":
+                self.flood_fill(point, self.pixelIndex(point))
+            elif self.project.fill_mode == "similar":
+                self.replace_color(self.pixelIndex(point), self.project.color)
             self.lastPoint = False
 
     def move(self, point):

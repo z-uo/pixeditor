@@ -17,7 +17,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # add texture
-# fill all similar color
 # add animated gif export
 
 
@@ -100,8 +99,6 @@ class Scene(QtGui.QGraphicsView):
         # frames
         self.itemList = []
         self.canvasList = []
-        #sellection
-        self.selRect = None
         # OnionSkin
         p = QtGui.QPixmap(self.project.size)
         self.onionPrevItem = self.scene.addPixmap(p)
@@ -120,16 +117,16 @@ class Scene(QtGui.QGraphicsView):
         self.scene.addItem(self.penItem)
         self.penItem.setZValue(103)
         self.penItem.hide()
-        self.project.pen_changed.connect(self.change_pen)
-        self.project.tool_changed.connect(self.change_pen)
-        self.project.color_changed.connect(self.change_pen)
-        self.change_pen()
+        self.project.pen_changed.connect(self.changePen)
+        self.project.tool_changed.connect(self.changePen)
+        self.project.color_changed.connect(self.changePen)
+        self.changePen()
 
-        self.project.update_view.connect(self.change_frame)
-        self.project.update_background.connect(self.update_background)
-        self.change_frame()
+        self.project.update_view.connect(self.changeFrame)
+        self.project.updateBackground.connect(self.updateBackground)
+        self.changeFrame()
 
-    def change_pen(self):
+    def changePen(self):
         for i in self.penItem.childItems():
             self.scene.removeItem(i)
         if self.project.tool == "pen":
@@ -140,18 +137,18 @@ class Scene(QtGui.QGraphicsView):
                 p.setPen(pen)
                 p.setBrush(brush)
                 
-    def update_background(self):
+    def updateBackground(self):
         self.setBackgroundBrush(QtGui.QBrush(self.project.bg_color))
         self.bg.setPixmap(Background(self.project.size, 
                                      self.project.bg_pattern))
         
-    def change_frame(self):
+    def changeFrame(self):
         self.canvasList = self.project.timeline.get_canvas_list(self.project.curFrame)
         # resize scene if needed
         if self.scene.sceneRect().size().toSize() != self.project.size:
             self.scene.setSceneRect(0, 0, 
                     self.project.size.width(), self.project.size.height())
-            self.update_background()
+            self.updateBackground()
         # add item for layer if needed
         for i in range(len(self.itemList), len(self.canvasList)):
             self.itemList.append(self.scene.addPixmap(QtGui.QPixmap(1, 1)))
@@ -299,14 +296,15 @@ class Scene(QtGui.QGraphicsView):
                                         self.canvasList[l].return_as_list(),
                                         self.canvasList[l].width(), offset)
                     self.itemList[l].setPos(QtCore.QPointF(0, 0))
-                    self.change_frame()
+                    self.changeFrame()
             elif self.project.tool == "select": 
                 rect = get_rect(self.selRect.rect())
                 if rect.isValid():
                     sel = self.canvasList[l].return_as_matrix(rect)
-                    self.canvasList[l].draw_rect(rect, 0)
+                    if self.project.select_mode == "cut":
+                        self.canvasList[l].draw_rect(rect, 0)
                     self.project.set_custom_pen.emit(sel)
-                    self.change_frame()
+                    self.changeFrame()
                 self.scene.removeItem(self.selRect)
                 del self.selRect
         else:
@@ -323,9 +321,9 @@ class PaletteCanvas(QtGui.QWidget):
         self.alpha = QtGui.QPixmap("icons/color_alpha.png")
         self.black = QtGui.QBrush(QtGui.QColor(0, 0, 0))
         self.white = QtGui.QBrush(QtGui.QColor(255, 255, 255))
-        self.parent.project.update_background.connect(self.update_background)
+        self.parent.project.updateBackground.connect(self.updateBackground)
         
-    def update_background(self):
+    def updateBackground(self):
          self.background = QtGui.QBrush(self.parent.project.bg_color)
          self.update()
          
@@ -344,17 +342,17 @@ class PaletteCanvas(QtGui.QWidget):
     def event(self, event):
         if (event.type() == QtCore.QEvent.MouseButtonPress and
                        event.button()==QtCore.Qt.LeftButton):
-            item = self.item_at(event.x(), event.y())
+            item = self.getItem(event.x(), event.y())
             if item is not None:
                 self.parent.project.set_color(item)
         elif (event.type() == QtCore.QEvent.MouseButtonDblClick and
                        event.button()==QtCore.Qt.LeftButton):
-            item = self.item_at(event.x(), event.y())
+            item = self.getItem(event.x(), event.y())
             if item is not None:
-                self.parent.edit_color(item)
+                self.parent.editColor(item)
         return QtGui.QWidget.event(self, event)
         
-    def item_at(self, x, y):
+    def getItem(self, x, y):
         x, y = ((x-2) // 20), ((y-2) // 20)
         if y == 0:
             s = x
@@ -365,21 +363,13 @@ class PaletteCanvas(QtGui.QWidget):
         return None
 
 
-class ToolsWidget(QtGui.QWidget):
-    """ side widget cantaining tools buttons and palette """
-    change_pen = QtCore.pyqtSignal(str)
-    def __init__(self, project):
-        QtGui.QWidget.__init__(self)
+class OptionPen(QtGui.QGroupBox):
+    """ contextual option for the pen tool """
+    def __init__(self, parent, project):
+        QtGui.QGroupBox .__init__(self, "Pen")
         self.project = project
-
-        ### tools buttons ###
-        self.penB = Button("pen", "icons/tool_pen.png", self.pen_tool_clicked, True)
-        self.pipetteB = Button("pipette", "icons/tool_pipette.png", self.pipette_tool_clicked, True)
-        self.fillB = Button("fill", "icons/tool_fill.png", self.fill_tool_clicked, True)
-        self.moveB = Button("move", "icons/tool_move.png", self.move_tool_clicked, True)
-        self.penB.setChecked(True)
-        self.selectB = Button("select", "icons/tool_select.png", self.select_tool_clicked, True)
-
+        self.parent = parent
+        
         ### pen size ###
         self.penW = QtGui.QComboBox(self)
         self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_1.png")), "point")
@@ -391,7 +381,8 @@ class ToolsWidget(QtGui.QWidget):
         self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_5x5_round.png")), "5x5 round")
         self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_5x5_round.png")), "5x5 round")
         self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_custom.png")), "custom")
-        self.penW.activated[str].connect(self.pen_chooser_clicked)
+        self.penW.activated[str].connect(self.penChooserClicked)
+        self.project.set_custom_pen.connect(self.setCustomPen)
         self.penDict = { "point" : ((0, 0),),
                          "2 pixels horizontal" : ((0, 0), (1, 0)),
                          "2 pixels vertical" : ((0, 0),
@@ -411,7 +402,107 @@ class ToolsWidget(QtGui.QWidget):
                                        (-1,  2), (0,  2), (1,  2)),
                         "custom" : ()
                         }
-        self.project.set_custom_pen.connect(self.set_custom_pen)
+        
+        ### Layout ###
+        layout = QtGui.QVBoxLayout()
+        layout.setSpacing(0)
+        layout.addWidget(self.penW)
+        layout.addStretch()
+        self.setLayout(layout)
+        
+    def penChooserClicked(self, text):
+        self.project.pen = self.penDict[str(text)]
+        self.project.pen_changed.emit()
+        
+    def setCustomPen(self, li):
+        nLi = []
+        mY = len(li)//2
+        mX = len(li[0])//2
+        for y in range(len(li)):
+            py = y - mY
+            for x in range(len(li[y])):
+                col = li[y][x]
+                if col:
+                    px = x - mX
+                    nLi.append((px, py, col))
+        if nLi:
+            self.penDict["custom"] = nLi
+            self.penW.setCurrentIndex(self.penW.findText("custom"))
+            self.parent.penClicked()
+            self.penChooserClicked("custom")
+            
+            
+class OptionFill(QtGui.QGroupBox):
+    """ contextual option for the fill tool """
+    def __init__(self, parent, project):
+        QtGui.QGroupBox .__init__(self, "Fill")
+        self.project = project
+        
+        self.adjacent_fill_radio = QtGui.QRadioButton("adjacent colors", self)
+        self.adjacent_fill_radio.pressed.connect(self.adjacentPressed)
+        self.adjacent_fill_radio.setChecked(True)
+        self.similar_fill_radio = QtGui.QRadioButton("similar colors", self)
+        self.similar_fill_radio.pressed.connect(self.similarPressed)
+        
+        ### Layout ###
+        layout = QtGui.QVBoxLayout()
+        layout.setSpacing(0)
+        layout.addWidget(self.adjacent_fill_radio)
+        layout.addWidget(self.similar_fill_radio)
+        layout.addStretch()
+        self.setLayout(layout)
+        
+    def adjacentPressed(self):
+        self.project.fill_mode = "adjacent"
+        
+    def similarPressed(self):
+        self.project.fill_mode = "similar"
+        
+class OptionSelect(QtGui.QGroupBox):
+    """ contextual option for the select tool """
+    def __init__(self, parent, project):
+        QtGui.QGroupBox .__init__(self, "Select")
+        self.project = project
+        
+        self.cut_radio = QtGui.QRadioButton("cut", self)
+        self.cut_radio.pressed.connect(self.cutPressed)
+        self.cut_radio.setChecked(True)
+        self.copy_radio = QtGui.QRadioButton("copy", self)
+        self.copy_radio.pressed.connect(self.copyPressed)
+        
+        ### Layout ###
+        layout = QtGui.QVBoxLayout()
+        layout.setSpacing(0)
+        layout.addWidget(self.cut_radio)
+        layout.addWidget(self.copy_radio)
+        layout.addStretch()
+        self.setLayout(layout)
+        
+    def cutPressed(self):
+        self.project.select_mode = "cut"
+    
+    def copyPressed(self):
+        self.project.select_mode = "copy"
+        
+        
+class ToolsWidget(QtGui.QWidget):
+    """ side widget cantaining tools buttons and palette """
+    def __init__(self, project):
+        QtGui.QWidget.__init__(self)
+        self.project = project
+
+        ### tools buttons ###
+        self.penB = Button("pen", "icons/tool_pen.png", self.penClicked, True)
+        self.option_pen = OptionPen(self, self.project)
+        self.penB.setChecked(True)
+        self.pipetteB = Button("pipette", "icons/tool_pipette.png", self.pipetteClicked, True)
+        self.option_pipette = QtGui.QGroupBox("Pipette")
+        self.fillB = Button("fill", "icons/tool_fill.png", self.fillClicked, True)
+        self.option_fill = OptionFill(self, self.project)
+        self.moveB = Button("move", "icons/tool_move.png", self.moveClicked, True)
+        self.option_move = QtGui.QGroupBox("Move")
+        self.selectB = Button("select", "icons/tool_select.png", self.selectClicked, True)
+        self.option_select = OptionSelect(self, self.project)
 
         ### palette ###
         self.paletteCanvas = PaletteCanvas(self)
@@ -422,13 +513,13 @@ class ToolsWidget(QtGui.QWidget):
         
         self.project.update_palette.connect(self.paletteCanvas.update)
         addColorB = Button("add color",
-            "icons/color_add.png", self.add_color_clicked)
+            "icons/color_add.png", self.addColor)
         delColorB = Button("delete color",
-            "icons/color_del.png", self.del_color_clicked)
+            "icons/color_del.png", self.delColor)
         moveLeftColorB = Button("move color left",
-            "icons/color_move_left.png", self.move_color_left_clicked)
+            "icons/color_move_left.png", self.moveColorLeft)
         moveRightColorB = Button("move color right",
-            "icons/color_move_right.png", self.move_color_right_clicked)
+            "icons/color_move_right.png", self.moveColorRight)
 
         ### Layout ###
         tools = QtGui.QVBoxLayout()
@@ -445,20 +536,31 @@ class ToolsWidget(QtGui.QWidget):
         colors.addWidget(delColorB)
         colors.addWidget(moveLeftColorB)
         colors.addWidget(moveRightColorB)
-        layout = QtGui.QGridLayout()
-        layout.setSpacing(4)
-        layout.addLayout(tools, 0, 0, 3, 1)
-        layout.addWidget(self.penW, 0, 1)
-        layout.addWidget(self.paletteV, 1, 1)
-        layout.addLayout(colors, 2, 1)
-        self.setLayout(layout)
+        self.layout = QtGui.QGridLayout()
+        self.layout.setSpacing(4)
+        self.layout.addLayout(tools, 0, 0, 3, 1)
+        self.layout.addWidget(self.option_pen, 0, 1)
+        self.layout.addWidget(self.option_pipette, 0, 1)
+        self.option_pipette.hide()
+        self.layout.addWidget(self.option_fill, 0, 1)
+        self.option_fill.hide()
+        self.layout.addWidget(self.option_move, 0, 1)
+        self.option_move.hide()
+        self.layout.addWidget(self.option_select, 0, 1)
+        self.option_select.hide()
+        self.layout.addWidget(self.paletteV, 1, 1)
+        self.layout.addLayout(colors, 2, 1)
+        self.setLayout(self.layout)
+        self.option_pipette.hide()
 
     def showEvent(self, event):
         self.paletteV.setMinimumWidth(self.paletteCanvas.width() + 
                     self.paletteV.verticalScrollBar().width() + 2)
-
+        # watch about Qframe margin 
+        self.setFixedWidth(self.width())
+        
     ######## Tools #####################################################
-    def pen_tool_clicked(self):
+    def penClicked(self):
         self.project.tool = "pen"
         self.penB.setChecked(True)
         self.pipetteB.setChecked(False)
@@ -466,8 +568,13 @@ class ToolsWidget(QtGui.QWidget):
         self.moveB.setChecked(False)
         self.selectB.setChecked(False)
         self.project.tool_changed.emit()
+        self.option_pen.show()
+        self.option_pipette.hide()
+        self.option_fill.hide()
+        self.option_move.hide()
+        self.option_select.hide()
 
-    def pipette_tool_clicked(self):
+    def pipetteClicked(self):
         self.project.tool = "pipette"
         self.penB.setChecked(False)
         self.fillB.setChecked(False)
@@ -475,8 +582,13 @@ class ToolsWidget(QtGui.QWidget):
         self.moveB.setChecked(False)
         self.selectB.setChecked(False)
         self.project.tool_changed.emit()
+        self.option_pen.hide()
+        self.option_pipette.show()
+        self.option_fill.hide()
+        self.option_move.hide()
+        self.option_select.hide()
 
-    def fill_tool_clicked(self):
+    def fillClicked(self):
         self.project.tool = "fill"
         self.fillB.setChecked(True)
         self.pipetteB.setChecked(False)
@@ -484,8 +596,13 @@ class ToolsWidget(QtGui.QWidget):
         self.moveB.setChecked(False)
         self.selectB.setChecked(False)
         self.project.tool_changed.emit()
+        self.option_pen.hide()
+        self.option_pipette.hide()
+        self.option_fill.show()
+        self.option_move.hide()
+        self.option_select.hide()
 
-    def move_tool_clicked(self):
+    def moveClicked(self):
         self.project.tool = "move"
         self.fillB.setChecked(False)
         self.pipetteB.setChecked(False)
@@ -493,8 +610,13 @@ class ToolsWidget(QtGui.QWidget):
         self.moveB.setChecked(True)
         self.selectB.setChecked(False)
         self.project.tool_changed.emit()
+        self.option_pen.hide()
+        self.option_pipette.hide()
+        self.option_fill.hide()
+        self.option_move.show()
+        self.option_select.hide()
 
-    def select_tool_clicked(self):
+    def selectClicked(self):
         self.project.tool = "select"
         self.fillB.setChecked(False)
         self.pipetteB.setChecked(False)
@@ -502,30 +624,14 @@ class ToolsWidget(QtGui.QWidget):
         self.moveB.setChecked(False)
         self.selectB.setChecked(True)
         self.project.tool_changed.emit()
-
-    def pen_chooser_clicked(self, text):
-        self.project.pen = self.penDict[str(text)]
-        self.project.pen_changed.emit()
-        
-    def set_custom_pen(self, li):
-        nLi = []
-        mY = len(li)//2
-        mX = len(li[0])//2
-        for y in range(len(li)):
-            py = y - mY
-            for x in range(len(li[y])):
-                col = li[y][x]
-                if col:
-                    px = x - mX
-                    nLi.append((px, py, col))
-        if nLi:
-            self.penDict["custom"] = nLi
-            self.penW.setCurrentIndex(self.penW.findText("custom"))
-            self.pen_tool_clicked()
-            self.pen_chooser_clicked("custom")
+        self.option_pen.hide()
+        self.option_pipette.hide()
+        self.option_fill.hide()
+        self.option_move.hide()
+        self.option_select.show()
         
     ######## Color #####################################################
-    def edit_color(self, n):
+    def editColor(self, n):
         col = self.project.colorTable[self.project.color]
         ok, color = ColorDialog(True, col).get_rgba()
         if not ok:
@@ -538,7 +644,7 @@ class ToolsWidget(QtGui.QWidget):
         self.paletteCanvas.update()
         self.project.color_changed.emit()
 
-    def add_color_clicked(self):
+    def addColor(self):
         """ select a color and add it to the palette"""
         if not len(self.project.colorTable) >= 256:
             col = self.project.colorTable[self.project.color]
@@ -552,7 +658,7 @@ class ToolsWidget(QtGui.QWidget):
                 i.setColorTable(self.project.colorTable)
             self.project.update_view.emit()
 
-    def del_color_clicked(self):
+    def delColor(self):
         col, table = self.project.color, self.project.colorTable
         if col != 0:
             self.project.save_to_undo("colorTable_frames")
@@ -563,7 +669,7 @@ class ToolsWidget(QtGui.QWidget):
             self.project.set_color(col-1)
             self.project.update_view.emit()
 
-    def move_color_left_clicked(self):
+    def moveColorLeft(self):
         col, table = self.project.color, self.project.colorTable
         if col != 0:
             self.project.save_to_undo("colorTable_frames")
@@ -573,7 +679,7 @@ class ToolsWidget(QtGui.QWidget):
                 i.setColorTable(table)
             self.project.set_color(col-1)
 
-    def move_color_right_clicked(self):
+    def moveColorRight(self):
         col, table = self.project.color, self.project.colorTable
         if col != len(table)-1:
             self.project.save_to_undo("colorTable_frames")
@@ -599,21 +705,21 @@ class MainWindow(QtGui.QMainWindow):
         ### File menu ###
         menubar = self.menuBar()
         openAction = QtGui.QAction('Open', self)
-        openAction.triggered.connect(self.open_action)
+        openAction.triggered.connect(self.openAction)
         saveAsAction = QtGui.QAction('Save as', self)
-        saveAsAction.triggered.connect(self.save_as_action)
+        saveAsAction.triggered.connect(self.saveAsAction)
         saveAction = QtGui.QAction('Save', self)
-        saveAction.triggered.connect(self.save_action)
+        saveAction.triggered.connect(self.saveAction)
         saveAction.setShortcut('Ctrl+S')
         
         importAction = QtGui.QAction('Import as new project', self)
-        importAction.triggered.connect(self.import_as_new_action)
+        importAction.triggered.connect(self.importAsNewAction)
         exportAction = QtGui.QAction('Export', self)
-        exportAction.triggered.connect(self.export_action)
+        exportAction.triggered.connect(self.exportAction)
         exportAction.setShortcut('Ctrl+E')
         
         exitAction = QtGui.QAction('Exit', self)
-        exitAction.triggered.connect(self.exit_action)
+        exitAction.triggered.connect(self.exitAction)
         exitAction.setShortcut('Ctrl+Q')
         
         fileMenu = menubar.addMenu('File')
@@ -654,13 +760,13 @@ class MainWindow(QtGui.QMainWindow):
         
         ### project menu ###
         newAction = QtGui.QAction('New', self)
-        newAction.triggered.connect(self.new_action)
+        newAction.triggered.connect(self.newAction)
         cropAction = QtGui.QAction('Crop', self)
-        cropAction.triggered.connect(self.crop_action)
+        cropAction.triggered.connect(self.cropAction)
         resizeAction = QtGui.QAction('Resize', self)
-        resizeAction.triggered.connect(self.resize_action)
+        resizeAction.triggered.connect(self.resizeAction)
         prefAction = QtGui.QAction('Background', self)
-        prefAction.triggered.connect(self.background_action)
+        prefAction.triggered.connect(self.backgroundAction)
         
         projectMenu = menubar.addMenu('Project')
         projectMenu.addAction(newAction)
@@ -671,16 +777,16 @@ class MainWindow(QtGui.QMainWindow):
         ### shortcuts ###
         shortcut = QtGui.QShortcut(self)
         shortcut.setKey(QtCore.Qt.Key_Left)
-        shortcut.activated.connect(lambda : self.select_frame(-1))
+        shortcut.activated.connect(lambda : self.selectFrame(-1))
         shortcut2 = QtGui.QShortcut(self)
         shortcut2.setKey(QtCore.Qt.Key_Right)
-        shortcut2.activated.connect(lambda : self.select_frame(1))
+        shortcut2.activated.connect(lambda : self.selectFrame(1))
         shortcut3 = QtGui.QShortcut(self)
         shortcut3.setKey(QtCore.Qt.Key_Up)
-        shortcut3.activated.connect(lambda : self.select_layer(-1))
+        shortcut3.activated.connect(lambda : self.selectLayer(-1))
         shortcut4 = QtGui.QShortcut(self)
         shortcut4.setKey(QtCore.Qt.Key_Down)
-        shortcut4.activated.connect(lambda : self.select_layer(1))
+        shortcut4.activated.connect(lambda : self.selectLayer(1))
         shortcut5 = QtGui.QShortcut(self)
         shortcut5.setKey(QtCore.Qt.Key_Space)
         shortcut5.activated.connect(self.timelineWidget.play_pause_clicked)
@@ -708,7 +814,7 @@ class MainWindow(QtGui.QMainWindow):
         self.show()
         
     ######## File menu #################################################
-    def open_action(self):
+    def openAction(self):
         size, frames, colorTable, url = open_pix(self.project)
         if size and frames and colorTable and url:
             self.project.save_to_undo("all")
@@ -718,19 +824,19 @@ class MainWindow(QtGui.QMainWindow):
             self.project.update_palette.emit()
             self.project.update_timeline.emit()
 
-    def save_as_action(self):
+    def saveAsAction(self):
         url = save_pix_as(self.project)
         if url:
             self.project.url = url
             self.setWindowTitle("pixeditor | %s" %(os.path.basename(url)))
         
-    def save_action(self):
+    def saveAction(self):
         if self.project.url:
             save_pix(self.project, self.project.url)
         else:
-            self.save_as_action()
+            self.saveAsAction()
 
-    def import_as_new_action(self):
+    def importAsNewAction(self):
         size, frames, colorTable = import_png(self.project)
         if size and frames and colorTable:
             self.project.save_to_undo("all")
@@ -740,10 +846,10 @@ class MainWindow(QtGui.QMainWindow):
             self.project.update_palette.emit()
             self.project.update_timeline.emit()
     
-    def export_action(self):
+    def exportAction(self):
         export_png(self.project)
 
-    def exit_action(self):
+    def exitAction(self):
         message = QtGui.QMessageBox()
         message.setWindowTitle("Quit?")
         message.setText("Are you sure you want to quit?");
@@ -766,7 +872,7 @@ class MainWindow(QtGui.QMainWindow):
         self.project.update_timeline.emit()
         
     ######## Project menu ##############################################
-    def new_action(self):
+    def newAction(self):
         size = NewDialog().get_return()
         if size:
             self.project.save_to_undo("all")
@@ -776,7 +882,7 @@ class MainWindow(QtGui.QMainWindow):
             self.project.update_timeline.emit()
             self.setWindowTitle("pixeditor")
 
-    def crop_action(self):
+    def cropAction(self):
         rect = CropDialog(self.project.size).get_return()
         if rect:
             self.project.timeline.apply_to_all(
@@ -784,7 +890,7 @@ class MainWindow(QtGui.QMainWindow):
             self.project.size = rect.size()
             self.project.update_view.emit()
 
-    def resize_action(self):
+    def resizeAction(self):
         factor = ResizeDialog(self.project.size).get_return()
         if factor and factor != 1:
             self.project.save_to_undo("canvas_size")
@@ -794,24 +900,24 @@ class MainWindow(QtGui.QMainWindow):
             self.project.size = newSize
             self.project.update_view.emit()
             
-    def background_action(self):
+    def backgroundAction(self):
         color, pattern = BackgroundDialog(self.project.bg_color,
                                 self.project.bg_pattern).get_return()
         if color and pattern:
             self.project.save_to_undo("background")
             self.project.bg_color = color
             self.project.bg_pattern = pattern
-            self.project.update_background.emit()
+            self.project.updateBackground.emit()
 
     ######## Shortcuts #################################################
-    def select_frame(self, n):
+    def selectFrame(self, n):
         maxF = max([len(l) for l in self.project.timeline])
         if 0 <= self.project.curFrame+n < maxF:
             self.project.curFrame += n
             self.project.update_timeline.emit()
             self.project.update_view.emit()
 
-    def select_layer(self, n):
+    def selectLayer(self, n):
         if 0 <= self.project.curLayer+n < len(self.project.timeline):
             self.project.curLayer += n
             self.project.update_timeline.emit()
