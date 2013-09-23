@@ -33,6 +33,7 @@ class Project(QtCore.QObject):
         self.undoList = []
         self.redoList = []
         self.pen = DEFAUT_PEN
+        self.brush = lambda n : True
         self.tool = DEFAUT_TOOL
         self.fill_mode = "adjacent"
         self.select_mode = "cut"
@@ -467,7 +468,7 @@ class Canvas(QtGui.QImage):
         if len(self.project.pen[0]) == 2:
             for i, j in self.project.pen:
                 p = QtCore.QPoint(point.x()+i, point.y()+j)
-                if self.rect().contains(p):
+                if self.rect().contains(p) and self.project.brush(p.x()+p.y()):
                     self.setPixel(p, self.project.color)
         elif len(self.project.pen[0]) == 3:
             nc = self.colorCount()
@@ -483,7 +484,8 @@ class Canvas(QtGui.QImage):
             p = l.pop(-1)
             x, y = p[0], p[1]
             if self.rect().contains(x, y) and self.pixelIndex(x, y) == col:
-                self.setPixel(QtCore.QPoint(x, y), self.project.color)
+                if self.project.brush(x + y):
+                    self.setPixel(QtCore.QPoint(x, y), self.project.color)
                 l.append((x+1, y))
                 l.append((x-1, y))
                 l.append((x, y+1))

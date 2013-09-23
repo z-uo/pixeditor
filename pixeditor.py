@@ -403,10 +403,20 @@ class OptionPen(QtGui.QGroupBox):
                         "custom" : ()
                         }
         
+        self.brushW = QtGui.QComboBox(self)
+        self.brushW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/brush_solid.png")), "solid")
+        self.brushW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/brush_even.png")), "even")
+        self.brushW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/brush_odd.png")), "odd")
+        self.brushW.activated[str].connect(self.brushChooserClicked)
+        self.brushDict = { "solid" : lambda n : True,
+                           "even"  : lambda n : n % 2,
+                           "odd"   : lambda n : not n % 2
+                         }
         ### Layout ###
         layout = QtGui.QVBoxLayout()
         layout.setSpacing(0)
         layout.addWidget(self.penW)
+        layout.addWidget(self.brushW)
         layout.addStretch()
         self.setLayout(layout)
         
@@ -431,12 +441,17 @@ class OptionPen(QtGui.QGroupBox):
             self.parent.penClicked()
             self.penChooserClicked("custom")
             
+    def brushChooserClicked(self, text):
+        self.project.brush = self.brushDict[str(text)]
+        self.parent.option_fill.brushW.setCurrentIndex(self.brushW.currentIndex())
+        
             
 class OptionFill(QtGui.QGroupBox):
     """ contextual option for the fill tool """
     def __init__(self, parent, project):
         QtGui.QGroupBox .__init__(self, "Fill")
         self.project = project
+        self.parent = parent
         
         self.adjacent_fill_radio = QtGui.QRadioButton("adjacent colors", self)
         self.adjacent_fill_radio.pressed.connect(self.adjacentPressed)
@@ -444,11 +459,18 @@ class OptionFill(QtGui.QGroupBox):
         self.similar_fill_radio = QtGui.QRadioButton("similar colors", self)
         self.similar_fill_radio.pressed.connect(self.similarPressed)
         
+        self.brushW = QtGui.QComboBox(self)
+        self.brushW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/brush_solid.png")), "solid")
+        self.brushW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/brush_even.png")), "even")
+        self.brushW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/brush_odd.png")), "odd")
+        self.brushW.activated[str].connect(self.brushChooserClicked)
+        
         ### Layout ###
         layout = QtGui.QVBoxLayout()
         layout.setSpacing(0)
         layout.addWidget(self.adjacent_fill_radio)
         layout.addWidget(self.similar_fill_radio)
+        layout.addWidget(self.brushW)
         layout.addStretch()
         self.setLayout(layout)
         
@@ -457,6 +479,11 @@ class OptionFill(QtGui.QGroupBox):
         
     def similarPressed(self):
         self.project.fill_mode = "similar"
+        
+    def brushChooserClicked(self, text):
+        self.project.brush = self.parent.option_pen.brushDict[str(text)]
+        self.parent.option_pen.brushW.setCurrentIndex(self.brushW.currentIndex())
+        
         
 class OptionSelect(QtGui.QGroupBox):
     """ contextual option for the select tool """
