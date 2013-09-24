@@ -61,9 +61,12 @@ class Project(QtCore.QObject):
         self.importResources()
         
     def importResources(self):
+        # brush
         # not really sure about what i'm doing here...
         brushPath = os.path.join("resources", "brush")
-        brushFiles = [f[:-3] for f in os.listdir(brushPath) if f.endswith(".py")]
+        ls = os.listdir(brushPath)
+        ls.sort()
+        brushFiles = [f[:-3] for f in ls if f.endswith(".py")]
         if not brushPath in sys.path:
             sys.path[:0] = [brushPath]
         importedModules = []
@@ -75,6 +78,23 @@ class Project(QtCore.QObject):
         for i in importedModules:
             self.brushList.append((i.name, QtGui.QIcon(QtGui.QPixmap(os.path.join(brushPath, i.icon)))))
             self.brushDict[i.name] = i.function
+        # pen
+        penPath = os.path.join("resources", "pen")
+        ls = os.listdir(penPath)
+        ls.sort()
+        penFiles = [f[:-3] for f in ls if f.endswith(".py")]
+        if not penPath in sys.path:
+            sys.path[:0] = [penPath]
+        importedModules = []
+        for i in penFiles:
+            importedModules.append(__import__(i))
+            exec("%s = sys.modules[i]"%(i,))
+        self.penList = []
+        self.penDict = {}
+        for i in importedModules:
+            self.penList.append((i.name, QtGui.QIcon(QtGui.QPixmap(os.path.join(penPath, i.icon)))))
+            self.penDict[i.name] = i.pixelList
+        
                      
     def set_color(self, color):
         self.color = color

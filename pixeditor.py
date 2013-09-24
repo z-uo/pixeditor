@@ -369,36 +369,10 @@ class OptionPen(QtGui.QGroupBox):
         
         ### pen size ###
         self.penW = QtGui.QComboBox(self)
-        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_1.png")), "point")
-        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_2_hori.png")), "2 pixels horizontal")
-        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_2_vert.png")), "2 pixels vertical")
-        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_2x2_square.png")), "2x2 square")
-        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_3x3_square.png")), "3x3 square")
-        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_3x3_cross.png")), "3x3 cross")
-        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_5x5_round.png")), "5x5 round")
-        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_5x5_round.png")), "5x5 round")
-        self.penW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/pen_custom.png")), "custom")
+        for i, j in self.project.penList:
+            self.penW.addItem(j, i)
         self.penW.activated[str].connect(self.penChooserClicked)
         self.project.set_custom_pen.connect(self.setCustomPen)
-        self.penDict = { "point" : ((0, 0),),
-                         "2 pixels horizontal" : ((0, 0), (1, 0)),
-                         "2 pixels vertical" : ((0, 0),
-                                                (0, 1)),
-                         "2x2 square" : ((0, 0), (0, 1),
-                                         (1, 0), (1, 1)),
-                         "3x3 square" : ((-1, -1), (-1, 0), (-1, 1),
-                                         ( 0, -1), ( 0, 0), ( 0, 1),
-                                         ( 1, -1), ( 1, 0), ( 1, 1)),
-                         "3x3 cross" : ((-1, 0),
-                               (0, -1), ( 0, 0), (0, 1),
-                                        ( 1, 0)),
-                        "5x5 round" : ((-1, -2), (0, -2), (1, -2),
-                             (-2, -1), (-1, -1), (0, -1), (1, -1), (2, -1),
-                             (-2,  0), (-1,  0), (0,  0), (1,  0), (2,  0),
-                             (-2,  1), (-1,  1), (0,  1), (1,  1), (2,  1),
-                                       (-1,  2), (0,  2), (1,  2)),
-                        "custom" : ()
-                        }
         
         self.brushW = QtGui.QComboBox(self)
         for i, j in self.project.brushList:
@@ -414,7 +388,7 @@ class OptionPen(QtGui.QGroupBox):
         self.setLayout(layout)
         
     def penChooserClicked(self, text):
-        self.project.pen = self.penDict[str(text)]
+        self.project.pen = self.project.penDict[str(text)]
         self.project.pen_changed.emit()
         
     def setCustomPen(self, li):
@@ -429,7 +403,7 @@ class OptionPen(QtGui.QGroupBox):
                     px = x - mX
                     nLi.append((px, py, col))
         if nLi:
-            self.penDict["custom"] = nLi
+            self.project.penDict["custom"] = nLi
             self.penW.setCurrentIndex(self.penW.findText("custom"))
             self.parent.penClicked()
             self.penChooserClicked("custom")
