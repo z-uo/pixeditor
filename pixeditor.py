@@ -16,9 +16,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# add texture
-# add animated gif export
+# add animated gif export 
+# omaégemagick: convert -delay 1/12 -loop 0 img*.png anime.gif
 
+# import in current project
+# export animation
+# export spritesheet
+# export all canvas
 
 # Python 3 Compatibility
 from __future__ import division
@@ -37,27 +41,6 @@ from timeline import TimelineWidget
 from widget import Background, Button, Viewer
 from colorPicker import ColorDialog
 
-def pointToInt(point):
-    return QtCore.QPoint(int(point.x()), int(point.y()))
-
-def pointToFloat(point):
-    return QtCore.QPointF(int(point.x()), int(point.y()))
-        
-def get_rect(rect):
-    w = int(rect.width())
-    h = int(rect.height())
-    if w < 0:
-        x = int(rect.x()) + w
-        w = int(rect.x()) - x
-    else:
-        x = int(rect.x())
-    if h < 0:
-        y = int(rect.y()) + h
-        h = int(rect.y()) - y
-    else:
-        y = int(rect.y())
-    return QtCore.QRect(x, y, w, h)
-    
 class SelectionRect(QtGui.QGraphicsRectItem):
     def __init__(self, pos):
         QtGui.QGraphicsRectItem.__init__(self, pos.x(), pos.y(), 1, 1)
@@ -74,6 +57,22 @@ class SelectionRect(QtGui.QGraphicsRectItem):
         rect = QtCore.QRectF(self.startX, self.startY, pos.x() - self.startX, pos.y() - self.startY)
         self.setRect(rect)
         self.dash.setRect(rect)
+        
+    def getRect(self):
+        w = int(self.rect().width())
+        h = int(self.rect().height())
+        if w < 0:
+            x = int(self.rect().x()) + w
+            w = int(self.rect().x()) - x
+        else:
+            x = int(self.rect().x())
+        if h < 0:
+            y = int(self.rect().y()) + h
+            h = int(self.rect().y()) - y
+        else:
+            y = int(self.rect().y())
+        return QtCore.QRect(x, y, w, h)
+        
         
 
 class Scene(QtGui.QGraphicsView):
@@ -298,7 +297,7 @@ class Scene(QtGui.QGraphicsView):
                     self.itemList[l].setPos(QtCore.QPointF(0, 0))
                     self.changeFrame()
             elif self.project.tool == "select": 
-                rect = get_rect(self.selRect.rect())
+                rect = self.selRect.getRect()
                 if rect.isValid():
                     sel = self.canvasList[l].return_as_matrix(rect)
                     if self.project.select_mode == "cut":
@@ -719,7 +718,6 @@ class ToolsWidget(QtGui.QWidget):
 
 class MainWindow(QtGui.QMainWindow):
     """ Main windows of the application """
-    currentFrameChanged = QtCore.pyqtSignal(object)
     def __init__(self):
         QtGui.QMainWindow.__init__(self)
         self.setWindowTitle("pixeditor")

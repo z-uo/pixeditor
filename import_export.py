@@ -229,6 +229,7 @@ def export_png_all(project, url):
     else:
         for i in files:
             i[1].save(i[0])
+            
 
 def export_png(project, fullUrl=""):
     isUrl = False
@@ -273,6 +274,9 @@ def export_png(project, fullUrl=""):
                     p.drawImage(0, 0, c)
             p.end()
         canvas.save(fn)
+        
+    # convert all png to a gif with imagemagick
+    os.system("convert -delay 1/12 -loop 0 %s*.png %s.gif" %(url, url))
     return fullUrl
         
 def export_nanim(project, url):
