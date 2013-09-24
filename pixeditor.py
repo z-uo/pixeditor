@@ -16,9 +16,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# add animated gif export 
-# omaégemagick: convert -delay 1/12 -loop 0 img*.png anime.gif
-
 # import in current project
 # export animation
 # export spritesheet
@@ -42,6 +39,7 @@ from widget import Background, Button, Viewer
 from colorPicker import ColorDialog
 
 class SelectionRect(QtGui.QGraphicsRectItem):
+    """ Rect item used in scene to display a selection """
     def __init__(self, pos):
         QtGui.QGraphicsRectItem.__init__(self, pos.x(), pos.y(), 1, 1)
         self.startX = pos.x()
@@ -59,6 +57,7 @@ class SelectionRect(QtGui.QGraphicsRectItem):
         self.dash.setRect(rect)
         
     def getRect(self):
+        """ return a QRect with positive width and height """
         w = int(self.rect().width())
         h = int(self.rect().height())
         if w < 0:
@@ -74,7 +73,6 @@ class SelectionRect(QtGui.QGraphicsRectItem):
         return QtCore.QRect(x, y, w, h)
         
         
-
 class Scene(QtGui.QGraphicsView):
     """ Display, zoom, pan..."""
     def __init__(self, project):
@@ -403,14 +401,10 @@ class OptionPen(QtGui.QGroupBox):
                         }
         
         self.brushW = QtGui.QComboBox(self)
-        self.brushW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/brush_solid.png")), "solid")
-        self.brushW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/brush_even.png")), "even")
-        self.brushW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/brush_odd.png")), "odd")
+        for i, j in self.project.brushList:
+            self.brushW.addItem(j, i)
         self.brushW.activated[str].connect(self.brushChooserClicked)
-        self.brushDict = { "solid" : lambda n : True,
-                           "even"  : lambda n : n % 2,
-                           "odd"   : lambda n : not n % 2
-                         }
+        
         ### Layout ###
         layout = QtGui.QVBoxLayout()
         layout.setSpacing(0)
@@ -441,7 +435,7 @@ class OptionPen(QtGui.QGroupBox):
             self.penChooserClicked("custom")
             
     def brushChooserClicked(self, text):
-        self.project.brush = self.brushDict[str(text)]
+        self.project.brush = self.project.brushDict[str(text)]
         self.parent.option_fill.brushW.setCurrentIndex(self.brushW.currentIndex())
         
             
@@ -459,9 +453,8 @@ class OptionFill(QtGui.QGroupBox):
         self.similar_fill_radio.pressed.connect(self.similarPressed)
         
         self.brushW = QtGui.QComboBox(self)
-        self.brushW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/brush_solid.png")), "solid")
-        self.brushW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/brush_even.png")), "even")
-        self.brushW.addItem(QtGui.QIcon(QtGui.QPixmap("icons/brush_odd.png")), "odd")
+        for i, j in self.project.brushList:
+            self.brushW.addItem(j, i)
         self.brushW.activated[str].connect(self.brushChooserClicked)
         
         ### Layout ###
@@ -480,7 +473,7 @@ class OptionFill(QtGui.QGroupBox):
         self.project.fill_mode = "similar"
         
     def brushChooserClicked(self, text):
-        self.project.brush = self.parent.option_pen.brushDict[str(text)]
+        self.project.brush = self.project.brushDict[str(text)]
         self.parent.option_pen.brushW.setCurrentIndex(self.brushW.currentIndex())
         
         

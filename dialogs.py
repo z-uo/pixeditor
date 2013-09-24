@@ -47,10 +47,10 @@ class BackgroundDialog(QtGui.QDialog):
         self.fileRadio = QtGui.QRadioButton("file", self)
         ### model to store images ###
         self.modImgList = QtGui.QStandardItemModel(0, 1)
-        for f in os.listdir("pattern"):
+        for f in os.listdir(os.path.join("resources", "pattern")):
             if f.endswith(".png"):
                 i = QtGui.QStandardItem(f)
-                i.path = os.path.join("pattern", f)
+                i.path = os.path.join("resources", "pattern", f)
                 self.modImgList.appendRow(i)
 
         ### listview to display images ###

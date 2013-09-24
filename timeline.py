@@ -537,7 +537,8 @@ class TimelineWidget(QtGui.QWidget):
                 layer3.append(0)
         del self.project.timeline[self.project.curLayer]
         self.project.timeline[self.project.curLayer] = layer3
-        self.project.update_timeline.emit()
+        self.adjust_size()
+        self.project.update_view.emit()
         
     def up_layer_clicked(self):
         self.project.save_to_undo("frames")

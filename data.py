@@ -58,6 +58,23 @@ class Project(QtCore.QObject):
         self.curFrame = 0
         self.curLayer = 0
         self.playing = False
+        self.importResources()
+        
+    def importResources(self):
+        # not really sure about what i'm doing here...
+        brushPath = os.path.join("resources", "brush")
+        brushFiles = [f[:-3] for f in os.listdir(brushPath) if f.endswith(".py")]
+        if not brushPath in sys.path:
+            sys.path[:0] = [brushPath]
+        importedModules = []
+        for i in brushFiles:
+            importedModules.append(__import__(i))
+            exec("%s = sys.modules[i]"%(i,))
+        self.brushList = []
+        self.brushDict = {}
+        for i in importedModules:
+            self.brushList.append((i.name, QtGui.QIcon(QtGui.QPixmap(os.path.join(brushPath, i.icon)))))
+            self.brushDict[i.name] = i.function
                      
     def set_color(self, color):
         self.color = color
