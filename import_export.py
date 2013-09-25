@@ -241,7 +241,7 @@ def export_png(project, fullUrl=""):
             return
         isUrl = True
         url = os.path.splitext(str(fullUrl))[0]
-        nFrames = project.timeline.frame_count()
+        nFrames = project.timeline.frame_visible_count()
         for i in range(nFrames):
             fn = "%s%s%s.png" %(url, "0"*(len(str(nFrames))-len(str(i))), i)
             if os.path.isfile(fn):
@@ -262,7 +262,7 @@ def export_png(project, fullUrl=""):
     for i in range(nFrames):
         fn = "%s%s%s.png" %(url, "0"*(len(str(nFrames))-len(str(i))), i)
         
-        canvasList = project.timeline.get_canvas_list(i)
+        canvasList = project.timeline.get_visible_canvas_list(i)
         if len(canvasList) == 1:
             canvas = canvasList[0]
         else:
@@ -276,7 +276,7 @@ def export_png(project, fullUrl=""):
         canvas.save(fn)
         
     # convert all png to a gif with imagemagick
-    os.system("convert -delay 1/12 -loop 0 %s*.png %s.gif" %(url, url))
+    os.system("convert -delay 1/12 -dispose Background -loop 0 %s*.png %s.gif" %(url, url))
     return fullUrl
         
 def export_nanim(project, url):

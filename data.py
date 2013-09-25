@@ -305,13 +305,18 @@ class Timeline(list):
     def get_canvas_list(self, index):
         """ return the list of all canvas at a specific frame """
         return [layer.get_canvas(index) for layer in self]
-
-    def get_all_canvas(self):
+                    
+    def get_visible_canvas_list(self, index):
+        """ return the list of all canvas at a specific frame """
+        return [layer.get_canvas(index) for layer in self if layer.visible]
+                    
+    def get_visible_all_canvas(self):
         """ retrun all canvas """
         for l in self:
-            for f in l:
-                if f:
-                    yield f
+            if l.visible:
+                for f in l:
+                    if f:
+                        yield f
                     
     def apply_to_all(self, function):
         for y, l in enumerate(self):
@@ -322,6 +327,8 @@ class Timeline(list):
     def frame_count(self):
         return max([len(l) for l in self])
         
+    def frame_visible_count(self):
+        return max([len(l) for l in self if l.visible])
         
 class Layer(list):
     def __init__(self, project, frames=None, name=''):
