@@ -354,13 +354,13 @@ class ColorDialog(QtGui.QDialog):
     def cancel_clicked(self):
         self.reject()
 
-    def get_QColor(self):
+    def getQColor(self):
         if self.result():
             return True , self.color
         else:
             return False, None
             
-    def get_rgba(self):
+    def getRgba(self):
         if self.result():
             return True , self.color.rgba()
         else:
@@ -368,6 +368,6 @@ class ColorDialog(QtGui.QDialog):
             
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)
-    mainWin = ColorDialog(False).get_rgba()
+    mainWin = ColorDialog(False).getRgba()
     print(mainWin)
     sys.exit(app.exec_())

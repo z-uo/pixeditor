@@ -19,14 +19,14 @@ DEFAUT_TOOL = "pen"
         
 class Project(QtCore.QObject):
     """ store all data that need to be saved"""
-    update_view = QtCore.pyqtSignal()
-    update_palette = QtCore.pyqtSignal()
-    update_timeline = QtCore.pyqtSignal()
-    updateBackground = QtCore.pyqtSignal()
-    tool_changed = QtCore.pyqtSignal()
-    pen_changed = QtCore.pyqtSignal()
-    color_changed = QtCore.pyqtSignal()
-    set_custom_pen = QtCore.pyqtSignal(list)
+    updateViewSign = QtCore.pyqtSignal()
+    updatePaletteSign = QtCore.pyqtSignal()
+    updateTimelineSign = QtCore.pyqtSignal()
+    updateBackgroundSign = QtCore.pyqtSignal()
+    toolChangedSign = QtCore.pyqtSignal()
+    penChangedSign = QtCore.pyqtSignal()
+    colorChangedSign = QtCore.pyqtSignal()
+    customPenSign = QtCore.pyqtSignal(list)
     def __init__(self, parent):
         QtCore.QObject.__init__(self)
         self.parent = parent
@@ -35,14 +35,14 @@ class Project(QtCore.QObject):
         self.pen = DEFAUT_PEN
         self.brush = lambda n : True
         self.tool = DEFAUT_TOOL
-        self.fill_mode = "adjacent"
-        self.select_mode = "cut"
+        self.fillMode = "adjacent"
+        self.selectMode = "cut"
         self.loop = False
         self.onionSkinPrev = False
         self.onionSkinNext = False
-        self.init_project()
+        self.initProject()
         
-    def init_project(self, size=QtCore.QSize(DEFAUT_SIZE), frames=None, 
+    def initProject(self, size=QtCore.QSize(DEFAUT_SIZE), frames=None, 
                      colorTable=list(DEFAUT_COLORTABLE), url=None):
         self.size = size
         self.colorTable = colorTable
@@ -50,9 +50,9 @@ class Project(QtCore.QObject):
         if frames:
             self.timeline = Timeline(self, [Layer(self, layer["frames"], layer["name"]) for layer in frames])
         else:
-            self.timeline = Timeline(self, [Layer(self, [self.make_canvas()], 'layer 1')])
-        self.bg_color = QtGui.QColor(150, 150, 150)
-        self.bg_pattern = 16
+            self.timeline = Timeline(self, [Layer(self, [self.makeCanvas()], 'layer 1')])
+        self.bgColor = QtGui.QColor(150, 150, 150)
+        self.bgPattern = 16
         self.url = url
         self.fps = 12
         self.curFrame = 0
@@ -96,13 +96,13 @@ class Project(QtCore.QObject):
             self.penDict[i.name] = i.pixelList
         
                      
-    def set_color(self, color):
+    def setColor(self, color):
         self.color = color
-        self.color_changed.emit()
-        self.update_palette.emit()
+        self.colorChangedSign.emit()
+        self.updatePaletteSign.emit()
         
     ######## undo/redo #################################################
-    def save_to_undo(self, obj, save=False):
+    def saveToUndo(self, obj, save=False):
         if not save:
             doList = self.undoList
             self.redoList = []
@@ -113,31 +113,31 @@ class Project(QtCore.QObject):
         
         current = (self.curFrame, self.curLayer)
         if obj == "canvas":
-            doList.append((obj, current, self.timeline.get_canvas().copy_()))
+            doList.append((obj, current, self.timeline.getCanvas().copy_()))
         elif obj == "frames":
             doList.append((obj, current, self.timeline.copy()))
         elif obj == "colorTable":
             doList.append((obj, current, list(self.colorTable)))
         elif obj == "size":
-            doList.append((obj, current,(self.timeline.deep_copy(), 
+            doList.append((obj, current,(self.timeline.deepCopy(), 
                                          QtCore.QSize(self.size))))
         elif obj == "colorTable_frames":
-            doList.append((obj, current, (self.timeline.deep_copy(), 
+            doList.append((obj, current, (self.timeline.deepCopy(), 
                                           list(self.colorTable))))
         elif obj == "timeline_canvas":
-            doList.append((obj, current, self.timeline.deep_copy()))
+            doList.append((obj, current, self.timeline.deepCopy()))
         elif obj == "all":
             # no copy 
             doList.append((obj, current, (self.timeline, 
                                           self.colorTable, 
                                           self.size,
-                                          QtGui.QColor(self.bg_color),
-                                          self.bg_pattern,
+                                          QtGui.QColor(self.bgColor),
+                                          self.bgPattern,
                                           self.url,
                                           self.fps)))
         elif obj == "background":
-            doList.append((obj, current, (QtGui.QColor(self.bg_color),
-                                          self.bg_pattern)))
+            doList.append((obj, current, (QtGui.QColor(self.bgColor),
+                                          self.bgPattern)))
         if len(doList) > 50:
             doList.pop(0)
 
@@ -150,40 +150,40 @@ class Project(QtCore.QObject):
             self.curFrame = current[0]
             self.curLayer = current[1]
             if obj == "canvas":
-                self.save_to_undo("canvas", "redoList")
-                canvas = self.timeline.get_canvas()
+                self.saveToUndo("canvas", "redoList")
+                canvas = self.timeline.getCanvas()
                 canvas.swap(save)
             elif obj == "frames":
-                self.save_to_undo("frames", "redoList")
+                self.saveToUndo("frames", "redoList")
                 self.timeline = save
             elif obj == "colorTable":
-                self.save_to_undo("colorTable", "redoList")
+                self.saveToUndo("colorTable", "redoList")
                 self.colorTable = save
-                for i in self.timeline.get_all_canvas():
+                for i in self.timeline.getAllCanvas():
                     i.setColorTable(self.colorTable)
             elif obj == "size":
-                self.save_to_undo("size", "redoList")
+                self.saveToUndo("size", "redoList")
                 self.timeline = save[0]
                 self.size = save[1]
             elif obj == "colorTable_frames":
-                self.save_to_undo("colorTable_frames", "redoList")
+                self.saveToUndo("colorTable_frames", "redoList")
                 self.timeline = save[0]
                 self.colorTable = save[1]
-                for i in self.timeline.get_all_canvas():
+                for i in self.timeline.getAllCanvas():
                     i.setColorTable(self.colorTable)
             elif obj == "timeline_canvas":
-                self.save_to_undo("timeline_canvas", "redoList")
+                self.saveToUndo("timeline_canvas", "redoList")
                 self.timeline = save
             elif obj == "all":
-                self.save_to_undo("all", "redoList")
+                self.saveToUndo("all", "redoList")
                 self.timeline = save[0]
                 self.colorTable = save[1]
-                for i in self.timeline.get_all_canvas():
+                for i in self.timeline.getAllCanvas():
                     i.setColorTable(self.colorTable)
                 self.size = save[2]
-                self.bg_color = save[3]
-                self.bg_pattern = save[4]
-                self.updateBackground.emit()
+                self.bgColor = save[3]
+                self.bgPattern = save[4]
+                self.updateBackgroundSign.emit()
                 self.url = save[5]
                 if self.url:
                     self.parent.setWindowTitle("pixeditor | %s" %(os.path.basename(self.url)))
@@ -192,14 +192,14 @@ class Project(QtCore.QObject):
                 self.fps = save[6]
                 self.parent.timelineWidget.fpsW.setText(str(self.fps))
             elif obj == "background":
-                self.save_to_undo("background", "redoList")
-                self.bg_color = save[0]
-                self.bg_pattern = save[1]
-                self.updateBackground.emit()
+                self.saveToUndo("background", "redoList")
+                self.bgColor = save[0]
+                self.bgPattern = save[1]
+                self.updateBackgroundSign.emit()
                 
-            self.update_view.emit()
-            self.update_timeline.emit()
-            self.update_palette.emit()
+            self.updateViewSign.emit()
+            self.updateTimelineSign.emit()
+            self.updatePaletteSign.emit()
 
     def redo(self):
         if len(self.redoList) > 0:
@@ -210,40 +210,40 @@ class Project(QtCore.QObject):
             self.curFrame = current[0]
             self.curLayer = current[1]
             if obj == "canvas":
-                self.save_to_undo("canvas", "undoList")
-                canvas = self.timeline.get_canvas()
+                self.saveToUndo("canvas", "undoList")
+                canvas = self.timeline.getCanvas()
                 canvas.swap(save)
             elif obj == "frames":
-                self.save_to_undo("frames", "undoList")
+                self.saveToUndo("frames", "undoList")
                 self.timeline = save
             elif obj == "colorTable":
-                self.save_to_undo("colorTable", "undoList")
+                self.saveToUndo("colorTable", "undoList")
                 self.colorTable = save
-                for i in self.timeline.get_all_canvas():
+                for i in self.timeline.getAllCanvas():
                     i.setColorTable(self.colorTable)
             elif obj == "size":
-                self.save_to_undo("size", "undoList")
+                self.saveToUndo("size", "undoList")
                 self.timeline = save[0]
                 self.size = save[1]
             elif obj == "colorTable_frames":
-                self.save_to_undo("colorTable_frames", "undoList")
+                self.saveToUndo("colorTable_frames", "undoList")
                 self.timeline = save[0]
                 self.colorTable = save[1]
-                for i in self.timeline.get_all_canvas():
+                for i in self.timeline.getAllCanvas():
                     i.setColorTable(self.colorTable)
             elif obj == "timeline_canvas":
-                self.save_to_undo("timeline_canvas", "undoList")
+                self.saveToUndo("timeline_canvas", "undoList")
                 self.timeline = save
             elif obj == "all":
-                self.save_to_undo("all", "undolist")
+                self.saveToUndo("all", "undolist")
                 self.timeline = save[0]
                 self.colorTable = save[1]
-                for i in self.timeline.get_all_canvas():
+                for i in self.timeline.getAllCanvas():
                     i.setColorTable(self.colorTable)
                 self.size = save[2]
-                self.bg_color = save[3]
-                self.bg_pattern = save[4]
-                self.updateBackground.emit()
+                self.bgColor = save[3]
+                self.bgPattern = save[4]
+                self.updateBackgroundSign.emit()
                 self.url = save[5]
                 if self.url:
                     self.parent.setWindowTitle("pixeditor | %s" %(os.path.basename(self.url)))
@@ -252,34 +252,31 @@ class Project(QtCore.QObject):
                 self.fps = save[6]
                 self.parent.timelineWidget.fpsW.setText(str(self.fps))
             elif obj == "background":
-                self.save_to_undo("background", "undolist")
-                self.bg_color = save[0]
-                self.bg_pattern = save[1]
-                self.updateBackground.emit()
+                self.saveToUndo("background", "undolist")
+                self.bgColor = save[0]
+                self.bgPattern = save[1]
+                self.updateBackgroundSign.emit()
 
-            self.update_view.emit()
-            self.update_timeline.emit()
-            self.update_palette.emit()
+            self.updateViewSign.emit()
+            self.updateTimelineSign.emit()
+            self.updatePaletteSign.emit()
 
-    def make_canvas(self):
+    def makeCanvas(self):
         """ make a new canvas
             or a copy of arg:canvas """
         return Canvas(self, self.size)
 
-    def make_layer(self, layer=False, empty=False):
+    def makeLayer(self, layer=False, empty=False):
         """ make a new empty layer by default
             if arg:layer is a list : make a layer with it"""
         if empty:
             return Layer(self)
         name = "layer %s" %(len(self.timeline)+1)
         if not layer:
-            return Layer(self, [self.make_canvas()], name)
+            return Layer(self, [self.makeCanvas()], name)
         elif type(layer) == list:
             return Layer(self, layer, name)
             
-    def get_alpha_color(self):
-        return [index for index, color in enumerate(self.colorTable) if QtGui.QColor.fromRgba(color).alpha() == 0]
-        
         
 class Timeline(list):
     def __init__(self, project, layers):
@@ -292,42 +289,41 @@ class Timeline(list):
             t.append(i.copy())
         return t
             
-    def deep_copy(self):
+    def deepCopy(self):
         t = Timeline(self.project, [])
         for i in self:
-            t.append(i.deep_copy())
+            t.append(i.deepCopy())
         return t
         
-    def get_canvas(self):
+    def getCanvas(self):
         """ return the current canvas """
-        return self[self.project.curLayer].get_canvas(self.project.curFrame)
+        return self[self.project.curLayer].getCanvas(self.project.curFrame)
 
-    def get_canvas_list(self, index):
+    def getCanvasList(self, index):
         """ return the list of all canvas at a specific frame """
-        return [layer.get_canvas(index) for layer in self]
+        return [layer.getCanvas(index) for layer in self]
                     
-    def get_visible_canvas_list(self, index):
+    def getVisibleCanvasList(self, index):
         """ return the list of all canvas at a specific frame """
-        return [layer.get_canvas(index) for layer in self if layer.visible]
+        return [layer.getCanvas(index) for layer in self if layer.visible]
                     
-    def get_visible_all_canvas(self):
+    def getAllCanvas(self):
         """ retrun all canvas """
         for l in self:
-            if l.visible:
-                for f in l:
-                    if f:
-                        yield f
+            for f in l:
+                if f:
+                    yield f
                     
-    def apply_to_all(self, function):
+    def applyToAllCanvas(self, function):
         for y, l in enumerate(self):
             for x, c in enumerate(l):
                 if c:
                     self[y][x] = function(c)
                     
-    def frame_count(self):
+    def frameCount(self):
         return max([len(l) for l in self])
         
-    def frame_visible_count(self):
+    def frameVisibleCount(self):
         return max([len(l) for l in self if l.visible])
         
 class Layer(list):
@@ -343,14 +339,14 @@ class Layer(list):
     def copy(self):
         return Layer(self.project, self, self.name)
         
-    def deep_copy(self):
+    def deepCopy(self):
         layer = Layer(self.project, self, self.name)
         for n, i in enumerate(layer):
             if i:
                 layer[n] = layer[n].copy_()
         return layer
         
-    def get_canvas(self, index):
+    def getCanvas(self, index):
         """ return the canvas at a specific frame """
         while 0 <= index < len(self):
             if self[index]:
@@ -384,7 +380,7 @@ class Canvas(QtGui.QImage):
         self.lastPoint = False
 
     ######## import/export #############################################
-    def load_from_list(self, li, exWidth=None, offset=(0, 0)):
+    def loadFromList(self, li, exWidth=None, offset=(0, 0)):
         self.fill(0)
         if not exWidth:
             exWidth = self.width()
@@ -398,14 +394,14 @@ class Canvas(QtGui.QImage):
                 x = 0
                 y += 1
 
-    def return_as_list(self):
+    def returnAsList(self):
         l = []
         for y in range(self.height()):
             for x in range(self.width()):
                 l.append(self.pixelIndex(x, y))
         return l
     
-    def return_as_matrix(self, rect):
+    def returnAsMatrix(self, rect):
         l = []
         i = 0
         for y in range(max(rect.top(), 0), min(rect.bottom()+1, self.height())):
@@ -418,16 +414,15 @@ class Canvas(QtGui.QImage):
     def copy_(self):
         return Canvas(self.project, self)
         
-    def merge_canvas(self, canvas, alpha=None):
-        if alpha is None:
-            alpha = self.project.get_alpha_color()
+    def mergeCanvas(self, canvas):
+        alpha = [i for i, c in enumerate(self.colorTable()) if QtGui.QColor.fromRgba(c).alpha() == 0]
         for y in range(self.height()):
             for x in range(self.width()):
                 col = canvas.pixelIndex(x, y)
                 if col not in alpha:
                     self.setPixel(x, y, col)
         
-    def merge_color(self, exCol, newCol):
+    def mergeColor(self, exCol, newCol):
         for y in range(self.height()):
             for x in range(self.width()):
                 pixCol = self.pixelIndex(x, y)
@@ -436,7 +431,7 @@ class Canvas(QtGui.QImage):
                 elif pixCol > exCol:
                      self.setPixel(x, y, pixCol-1)
 
-    def swap_color(self, col1, col2):
+    def swapColor(self, col1, col2):
         for y in range(self.height()):
             for x in range(self.width()):
                 if self.pixelIndex(x, y) == col1:
@@ -444,13 +439,13 @@ class Canvas(QtGui.QImage):
                 elif self.pixelIndex(x, y) == col2:
                     self.setPixel(x, y, col1)
                     
-    def replace_color(self, col1, col2):
+    def replaceColor(self, col1, col2):
         for y in range(self.height()):
             for x in range(self.width()):
                 if self.pixelIndex(x, y) == col1:
                     self.setPixel(x, y, col2)
         
-    def mix_colortable(self, colorTable):
+    def mixColortable(self, colorTable):
         selfColorTable = self.colorTable()
         colorTable = list(colorTable)
         for n, i in enumerate(selfColorTable):
@@ -468,7 +463,7 @@ class Canvas(QtGui.QImage):
                 self.setPixel(x, y, selfColorTable[self.pixelIndex(x, y)])
         return colorTable
         
-    def sniff_colortable(self, colorTable):
+    def sniffColortable(self, colorTable):
         colorTable = list(colorTable)
         for y in range(self.height()):
             for x in range(self.width()):
@@ -482,10 +477,10 @@ class Canvas(QtGui.QImage):
 
     ######## draw ######################################################
     def clear(self):
-        self.project.save_to_undo("canvas")
+        self.project.saveToUndo("canvas")
         self.fill(0)
     
-    def draw_line(self, p2):
+    def drawLine(self, p2):
         p1 = self.lastPoint
         # http://fr.wikipedia.org/wiki/Algorithme_de_trac%C3%A9_de_segment_de_Bresenham
         distx = abs(p2.x()-p1.x())
@@ -497,7 +492,7 @@ class Canvas(QtGui.QImage):
                     i = -i
                 x = p1.x() + i
                 y = int(step * i + p1.y() + 0.5)
-                self.draw_point(QtCore.QPoint(x, y))
+                self.drawPoint(QtCore.QPoint(x, y))
         else:
             step = (p2.x()-p1.x()) / (p2.y()-p1.y() or 1)
             for i in range(disty):
@@ -505,10 +500,10 @@ class Canvas(QtGui.QImage):
                     i = -i
                 y = p1.y() + i
                 x = int(step * i + p1.x() + 0.5)
-                self.draw_point(QtCore.QPoint(x, y))
-        self.draw_point(p2)
+                self.drawPoint(QtCore.QPoint(x, y))
+        self.drawPoint(p2)
 
-    def draw_point(self, point):
+    def drawPoint(self, point):
         if len(self.project.pen[0]) == 2:
             for i, j in self.project.pen:
                 p = QtCore.QPoint(point.x()+i, point.y()+j)
@@ -522,7 +517,7 @@ class Canvas(QtGui.QImage):
                     if self.rect().contains(p):
                         self.setPixel(p, c)
 
-    def flood_fill(self, point, col):
+    def floodFill(self, point, col):
         l = [(point.x(), point.y())]
         while l:
             p = l.pop(-1)
@@ -535,7 +530,7 @@ class Canvas(QtGui.QImage):
                 l.append((x, y+1))
                 l.append((x, y-1))
                 
-    def draw_rect(self, rect, color=None):
+    def drawRect(self, rect, color=None):
         if color is None:
             color = self.project.color
         for y in range(max(rect.top(), 0), min(rect.bottom()+1, self.height())):
@@ -547,22 +542,22 @@ class Canvas(QtGui.QImage):
              (self.project.tool == "pen" or self.project.tool == "fill") and
              QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier):
             if self.rect().contains(point):
-                self.project.set_color(self.pixelIndex(point))
+                self.project.setColor(self.pixelIndex(point))
                 self.lastPoint = False
         elif self.project.tool == "pen":
-            self.project.save_to_undo("canvas")
+            self.project.saveToUndo("canvas")
             if QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ShiftModifier and self.lastPoint:
-                self.draw_line(point)
+                self.drawLine(point)
             else:
-                self.draw_point(point)
+                self.drawPoint(point)
             self.lastPoint = point
         elif (self.rect().contains(point) and self.project.tool == "fill" and 
               self.project.color != self.pixelIndex(point)):
-            self.project.save_to_undo("canvas")
-            if self.project.fill_mode == "adjacent":
-                self.flood_fill(point, self.pixelIndex(point))
-            elif self.project.fill_mode == "similar":
-                self.replace_color(self.pixelIndex(point), self.project.color)
+            self.project.saveToUndo("canvas")
+            if self.project.fillMode == "adjacent":
+                self.floodFill(point, self.pixelIndex(point))
+            elif self.project.fillMode == "similar":
+                self.replaceColor(self.pixelIndex(point), self.project.color)
             self.lastPoint = False
 
     def move(self, point):
@@ -570,12 +565,12 @@ class Canvas(QtGui.QImage):
              (self.project.tool == "pen" or self.project.tool == "fill") and
              QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier):
             if self.rect().contains(point):
-                self.project.set_color(self.pixelIndex(point))
+                self.project.setColor(self.pixelIndex(point))
                 self.lastPoint = False
         elif self.project.tool == "pen":
             if self.lastPoint:
-                self.draw_line(point)
+                self.drawLine(point)
                 self.lastPoint = point
             else:
-                self.draw_point(point)
+                self.drawPoint(point)
                 self.lastPoint = point

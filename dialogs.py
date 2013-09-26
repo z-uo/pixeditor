@@ -80,18 +80,18 @@ class BackgroundDialog(QtGui.QDialog):
             self.size = 16
             
         ### preview ###
-        self.update_preview()
+        self.updatePreview()
         # connect
-        self.colorW.clicked.connect(self.color_clicked)
-        self.squareRadio.toggled.connect(self.radio_toggled)
-        self.sizeW.textChanged.connect(self.size_changed)
-        self.imgList.selectionModel().selectionChanged.connect(self.file_changed)
+        self.colorW.clicked.connect(self.colorClicked)
+        self.squareRadio.toggled.connect(self.radioToggled)
+        self.sizeW.textChanged.connect(self.sizeChanged)
+        self.imgList.selectionModel().selectionChanged.connect(self.fileChanged)
         
         ### apply, undo ###
         self.cancelW = QtGui.QPushButton('cancel', self)
-        self.cancelW.clicked.connect(self.cancel_clicked)
+        self.cancelW.clicked.connect(self.cancelClicked)
         self.okW = QtGui.QPushButton('ok', self)
-        self.okW.clicked.connect(self.ok_clicked)
+        self.okW.clicked.connect(self.okClicked)
         self.okW.setDefault(True)
 
         grid = QtGui.QGridLayout()
@@ -121,36 +121,36 @@ class BackgroundDialog(QtGui.QDialog):
         self.setLayout(vBox)
         self.exec_()
         
-    def color_clicked(self):
-        ok, color = ColorDialog(False, self.color).get_QColor()
+    def colorClicked(self):
+        ok, color = ColorDialog(False, self.color).getQColor()
         if ok:
             self.color = color
             self.colorIcon.fill(self.color)
             self.colorW.setIcon(QtGui.QIcon(self.colorIcon))
-            self.update_preview()
+            self.updatePreview()
         
-    def size_changed(self, s):
+    def sizeChanged(self, s):
         try:
             self.size = int(s)
         except ValueError:
             self.size = 0
         if self.pattern == "square":
-            self.update_preview()
+            self.updatePreview()
         
-    def radio_toggled(self):
+    def radioToggled(self):
         if self.squareRadio.isChecked():
             self.pattern = "square"
         elif self.fileRadio.isChecked():
             self.pattern = "file"
-        self.update_preview()
+        self.updatePreview()
             
-    def file_changed(self):
+    def fileChanged(self):
         sel = self.imgList.selectionModel().selectedIndexes()[0].row()
         self.fileName = self.modImgList.item(sel).path
         if self.pattern == "file":
-            self.update_preview()
+            self.updatePreview()
         
-    def update_preview(self):
+    def updatePreview(self):
         self.preview.fill(self.color)
         p = QtGui.QPainter(self.preview)
         if self.pattern == "square":
@@ -159,17 +159,17 @@ class BackgroundDialog(QtGui.QDialog):
             p.drawPixmap(16, 16, Background(QtCore.QSize(96, 96), self.fileName))
         self.previewL.setPixmap(self.preview)
         
-    def ok_clicked(self):
+    def okClicked(self):
         try:
             self.size = int(self.sizeW.text())
         except ValueError:
             self.size = 0
         self.accept()
 
-    def cancel_clicked(self):
+    def cancelClicked(self):
         self.reject()
 
-    def get_return(self):
+    def getReturn(self):
         if self.result():
             if self.pattern == "square":
                 return self.color, self.size
@@ -196,9 +196,9 @@ class NewDialog(QtGui.QDialog):
         self.errorL = QtGui.QLabel("")
         ### apply, undo ###
         self.cancelW = QtGui.QPushButton('cancel', self)
-        self.cancelW.clicked.connect(self.cancel_clicked)
+        self.cancelW.clicked.connect(self.cancelClicked)
         self.newW = QtGui.QPushButton('new', self)
-        self.newW.clicked.connect(self.new_clicked)
+        self.newW.clicked.connect(self.newClicked)
         self.newW.setDefault(True)
 
         grid = QtGui.QGridLayout()
@@ -223,7 +223,7 @@ class NewDialog(QtGui.QDialog):
         self.setLayout(vBox)
         self.exec_()
 
-    def new_clicked(self):
+    def newClicked(self):
         try:
             self.size = QtCore.QSize(int(self.wW.text()), int(self.hW.text()))
         except ValueError:
@@ -234,10 +234,10 @@ class NewDialog(QtGui.QDialog):
         else:
             self.accept()
 
-    def cancel_clicked(self):
+    def cancelClicked(self):
         self.reject()
 
-    def get_return(self):
+    def getReturn(self):
         if self.result():
             return self.size
 
@@ -277,9 +277,9 @@ class CropDialog(QtGui.QDialog):
         self.errorL = QtGui.QLabel("")
         ### apply, undo ###
         self.cancelW = QtGui.QPushButton('cancel', self)
-        self.cancelW.clicked.connect(self.cancel_clicked)
+        self.cancelW.clicked.connect(self.cancelClicked)
         self.cropW = QtGui.QPushButton('crop', self)
-        self.cropW.clicked.connect(self.crop_clicked)
+        self.cropW.clicked.connect(self.cropClicked)
         self.cropW.setDefault(True)
 
         grid = QtGui.QGridLayout()
@@ -317,7 +317,7 @@ class CropDialog(QtGui.QDialog):
         self.setLayout(vBox)
         self.exec_()
 
-    def crop_clicked(self):
+    def cropClicked(self):
         try:
             w = int(self.newWW.text())
             h = int(self.newHW.text())
@@ -338,10 +338,10 @@ class CropDialog(QtGui.QDialog):
         else:
             self.errorL.setText("ERROR : The size must be greater than 0 !")
 
-    def cancel_clicked(self):
+    def cancelClicked(self):
         self.reject()
 
-    def get_return(self):
+    def getReturn(self):
         if self.result():
             return self.rect
 
@@ -355,7 +355,7 @@ class ResizeDialog(QtGui.QDialog):
         self.factorW = QtGui.QComboBox(self)
         self.factorW.addItems(["0.25","0.5","1","2","4"])
         self.factorW.setCurrentIndex(2)
-        self.factorW.activated[str].connect(self.factor_clicked)
+        self.factorW.activated[str].connect(self.factorClicked)
         
         ### instructions ###
         self.wL = QtGui.QLabel("width")
@@ -373,9 +373,9 @@ class ResizeDialog(QtGui.QDialog):
 
         ### apply, undo ###
         self.cancelW = QtGui.QPushButton('cancel', self)
-        self.cancelW.clicked.connect(self.cancel_clicked)
+        self.cancelW.clicked.connect(self.cancelClicked)
         self.resizeW = QtGui.QPushButton('resize', self)
-        self.resizeW.clicked.connect(self.resize_clicked)
+        self.resizeW.clicked.connect(self.resizeClicked)
         self.resizeW.setDefault(True)
 
         grid = QtGui.QGridLayout()
@@ -405,18 +405,18 @@ class ResizeDialog(QtGui.QDialog):
         self.setLayout(vBox)
         self.exec_()
         
-    def factor_clicked(self, n):
+    def factorClicked(self, n):
         self.factor = float(n)
         self.newWL.setText(str(int(self.w * self.factor)))
         self.newHL.setText(str(int(self.h * self.factor)))
         
-    def resize_clicked(self):
+    def resizeClicked(self):
         self.accept()
 
-    def cancel_clicked(self):
+    def cancelClicked(self):
         self.reject()
 
-    def get_return(self):
+    def getReturn(self):
         if self.result():
             return self.factor
 
@@ -433,9 +433,9 @@ class RenameLayerDialog(QtGui.QDialog):
         self.errorL = QtGui.QLabel("")
         ### apply, undo ###
         self.cancelW = QtGui.QPushButton('cancel', self)
-        self.cancelW.clicked.connect(self.cancel_clicked)
+        self.cancelW.clicked.connect(self.cancelClicked)
         self.renameW = QtGui.QPushButton('rename', self)
-        self.renameW.clicked.connect(self.rename_clicked)
+        self.renameW.clicked.connect(self.renameClicked)
         self.renameW.setDefault(True)
         okBox = QtGui.QHBoxLayout()
         okBox.addStretch(0)
@@ -451,7 +451,7 @@ class RenameLayerDialog(QtGui.QDialog):
         self.setLayout(vBox)
         self.exec_()
 
-    def rename_clicked(self):
+    def renameClicked(self):
         n = self.nameW.text()
         if n == self.name:
             self.reject()
@@ -459,10 +459,10 @@ class RenameLayerDialog(QtGui.QDialog):
             self.name = n
             self.accept()
 
-    def cancel_clicked(self):
+    def cancelClicked(self):
         self.reject()
 
-    def get_return(self):
+    def getReturn(self):
         if self.result():
             return self.name
 
@@ -472,5 +472,5 @@ if __name__ == '__main__':
     #~ mainWin = RenameLayerDialog("layer 1")
     #~ mainWin = ResizeDialog((24, 32))
     #~ mainWin = BackgroundDialog(QtGui.QColor(150, 150, 150), "pattern/iso_20x11.png")
-    mainWin = ExportDialog()
+    mainWin = BackgroundDialog()
     sys.exit(app.exec_())

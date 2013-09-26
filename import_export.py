@@ -44,7 +44,7 @@ def return_canvas_02(saveElem, project):
                 layer["frames"].append(False)
             else:
                 nf = Canvas(project, size, colorTable)
-                nf.load_from_list([int(n) for n in f.split(',')])
+                nf.loadFromList([int(n) for n in f.split(',')])
                 layer["frames"].append(nf)
         frames.append(layer)
     return size, frames, colorTable
@@ -117,7 +117,7 @@ def return_pix(project):
             if not f:
                 fElem.text = "0"
             else:
-                fElem.text = ','.join(str(p) for p in f.return_as_list())
+                fElem.text = ','.join(str(p) for p in f.returnAsList())
     if int(python_version_tuple()[0]) >= 3:
         return ET.tostring(saveElem, encoding="unicode")
     else:
@@ -148,7 +148,7 @@ def import_png(project):
             
     for img, url in canvasList:
         if img.format() == QtGui.QImage.Format_Indexed8:
-            colorMixed = img.mix_colortable(colorTable)
+            colorMixed = img.mixColortable(colorTable)
             if colorMixed:
                 colorTable = colorMixed
                 imgs.append(img)
@@ -156,7 +156,7 @@ def import_png(project):
             else:
                 canceled.append(url)
         else:
-            colorMixed = img.sniff_colortable(colorTable)
+            colorMixed = img.sniffColortable(colorTable)
             if colorMixed:
                 colorTable = colorMixed
                 imgs.append(img)
@@ -166,10 +166,10 @@ def import_png(project):
     for n, img in enumerate(imgs):
         img = Canvas(project, img.convertToFormat(QtGui.QImage.Format_Indexed8, colorTable))
         if img.size() != size:
-            li = img.return_as_list()
+            li = img.returnAsList()
             width = img.width()
             img = Canvas(project, size, colorTable)
-            img.load_from_list(li, width)
+            img.loadFromList(li, width)
         imgs[n] = img
     
     if canceled:
@@ -241,7 +241,7 @@ def export_png(project, fullUrl=""):
             return
         isUrl = True
         url = os.path.splitext(str(fullUrl))[0]
-        nFrames = project.timeline.frame_visible_count()
+        nFrames = project.timeline.frameVisibleCount()
         for i in range(nFrames):
             fn = "%s%s%s.png" %(url, "0"*(len(str(nFrames))-len(str(i))), i)
             if os.path.isfile(fn):
@@ -262,7 +262,7 @@ def export_png(project, fullUrl=""):
     for i in range(nFrames):
         fn = "%s%s%s.png" %(url, "0"*(len(str(nFrames))-len(str(i))), i)
         
-        canvasList = project.timeline.get_visible_canvas_list(i)
+        canvasList = project.timeline.getVisibleCanvasList(i)
         if len(canvasList) == 1:
             canvas = canvasList[0]
         else:
