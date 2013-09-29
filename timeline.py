@@ -302,6 +302,7 @@ class TimelineWidget(QtGui.QWidget):
         self.fpsW.setValue(self.project.fps)
         self.fpsW.setRange(1, 60)
         self.fpsW.setSuffix(" fps")
+        self.project.updateFpsSign.connect(lambda : self.fpsW.setValue(self.project.fps))
         self.fpsW.valueChanged.connect(self.fpsChanged)
         self.repeatB = Button("no repeat / repeat", "icons/play_no_repeat.png", self.repeatClicked)
         self.playFrameB = Button("play / pause", "icons/play_play.png", self.playPauseClicked)
@@ -436,27 +437,15 @@ class TimelineWidget(QtGui.QWidget):
     def addFrameClicked(self):
         self.project.saveToUndo("frames")
         layer = self.project.timeline[self.project.curLayer]
-        frame = self.project.curFrame
-        while frame >= len(layer):
-            layer.append(0)
-        if layer[frame]:
-            layer.insert(frame, self.project.makeCanvas())
-        else:
-            layer[frame] = self.project.makeCanvas()
+        layer.insertCanvas(self.project.curFrame, self.project.makeCanvas())
         self.adjustSize()
         self.project.updateViewSign.emit()
         
     def duplicateFrameClicked(self):
         self.project.saveToUndo("frames")
         layer = self.project.timeline[self.project.curLayer]
-        frame = self.project.curFrame
-        while frame >= len(layer):
-            layer.append(0)
-        f = layer.getCanvas(frame).copy_()
-        if layer[frame]:
-            layer.insert(frame, f)
-        else:
-            layer[frame] = f
+        layer.insertCanvas(self.project.curFrame, 
+                           layer.getCanvas(self.project.curFrame).copy_())
         self.adjustSize()
         self.project.updateViewSign.emit()
         
@@ -484,7 +473,7 @@ class TimelineWidget(QtGui.QWidget):
     def addLayerClicked(self):
         self.project.saveToUndo("frames")
         self.project.timeline.insert(self.project.curLayer, 
-                                   self.project.makeLayer())
+                                     self.project.makeLayer())
         self.adjustSize()
         self.project.updateViewSign.emit()
         

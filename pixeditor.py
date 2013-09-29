@@ -16,11 +16,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# import in current project
-# export animation
 # export spritesheet
 # export all canvas
-# bug crop undo redo
+# save url export url
+# add layer in save to undo
+# add saved state in undo to know if project is saved
+# watch about init Canvas
 
 # Python 3 Compatibility
 from __future__ import division
@@ -690,13 +691,16 @@ class MainWindow(QtGui.QMainWindow):
     """ Main windows of the application """
     def __init__(self):
         QtGui.QMainWindow.__init__(self)
-        self.setWindowTitle("pixeditor")
+        #~ self.setWindowTitle("pixeditor")
 
         self.project = Project(self)
         self.toolsWidget = ToolsWidget(self.project)
         self.timelineWidget = TimelineWidget(self.project)
         self.scene = Scene(self.project)
-
+        
+        self.updateTitle()
+        self.project.updateTitleSign.connect(self.updateTitle)
+        
         ### File menu ###
         menubar = self.menuBar()
         openAction = QtGui.QAction('Open', self)
@@ -707,8 +711,10 @@ class MainWindow(QtGui.QMainWindow):
         saveAction.triggered.connect(self.saveAction)
         saveAction.setShortcut('Ctrl+S')
         
-        importAction = QtGui.QAction('Import as new project', self)
-        importAction.triggered.connect(self.importAsNewAction)
+        importNewAction = QtGui.QAction('Import as new', self)
+        importNewAction.triggered.connect(self.importAsNewAction)
+        importLayerAction = QtGui.QAction('Import as layer', self)
+        importLayerAction.triggered.connect(self.importAsLayerAction)
         exportAction = QtGui.QAction('Export', self)
         exportAction.triggered.connect(self.exportAction)
         exportAction.setShortcut('Ctrl+E')
@@ -722,7 +728,8 @@ class MainWindow(QtGui.QMainWindow):
         fileMenu.addAction(saveAsAction)
         fileMenu.addAction(saveAction)
         fileMenu.addSeparator()
-        fileMenu.addAction(importAction)
+        fileMenu.addAction(importNewAction)
+        fileMenu.addAction(importLayerAction)
         fileMenu.addAction(exportAction)
         fileMenu.addSeparator()
         fileMenu.addAction(exitAction)
@@ -810,33 +817,59 @@ class MainWindow(QtGui.QMainWindow):
         
     ######## File menu #################################################
     def openAction(self):
-        size, frames, colorTable, url = open_pix(self.project)
-        if size and frames and colorTable and url:
+        xml, url = open_pix(self.project.dirUrl)
+        if xml and url:
             self.project.saveToUndo("all")
-            self.setWindowTitle("pixeditor | %s" %(os.path.basename(url)))
-            self.project.initProject(size, frames, colorTable, url)
+            #~ self.setWindowTitle("pixeditor | %s" %(os.path.basename(url)))
+            self.project.importXml(xml, url)
             self.project.updateViewSign.emit()
             self.project.updatePaletteSign.emit()
             self.project.updateTimelineSign.emit()
+            self.project.updateBackgroundSign.emit()
+            self.project.updateFpsSign.emit()
 
     def saveAsAction(self):
-        url = save_pix_as(self.project)
+        url = get_save_url(self.project.dirUrl)
         if url:
-            self.project.url = url
-            self.setWindowTitle("pixeditor | %s" %(os.path.basename(url)))
+            url = save_pix(self.project.exportXml(), url)
+            if url:
+                self.project.url = url
+                self.project.dirUrl = os.path.dirname(url)
+                self.project.saved = True
+                self.updateTitle()
+                #~ self.setWindowTitle("pixeditor | %s" %(os.path.basename(url)))
         
     def saveAction(self):
         if self.project.url:
-            save_pix(self.project, self.project.url)
+            url = save_pix(self.project.exportXml(), url)
+            if url:
+                self.project.url = url
+                self.project.dirUrl = os.path.dirname(url)
+                self.project.saved = True
+                self.updateTitle()
+                #~ self.setWindowTitle("pixeditor | %s" %(os.path.basename(url)))
         else:
             self.saveAsAction()
 
     def importAsNewAction(self):
-        size, frames, colorTable = import_png(self.project)
+        size, frames, colorTable = import_img(self.project, 
+                                              self.project.dirUrl)
         if size and frames and colorTable:
             self.project.saveToUndo("all")
-            self.setWindowTitle("pixeditor")
-            self.project.initProject(size, [{"frames": frames, "name": "import"}], colorTable)
+            self.project.initProject(size, colorTable, frames)
+            self.project.updateViewSign.emit()
+            self.project.updatePaletteSign.emit()
+            self.project.updateTimelineSign.emit()
+            
+    def importAsLayerAction(self):
+        # colortable mutable
+        size, frames, colorTable = import_img(self.project, 
+                                              self.project.dirUrl,
+                                              self.project.size,
+                                              self.project.colorTable)
+        if size and frames and colorTable:
+            self.project.saveToUndo("all")
+            self.project.importImg(size, colorTable, frames,)
             self.project.updateViewSign.emit()
             self.project.updatePaletteSign.emit()
             self.project.updateTimelineSign.emit()
@@ -875,11 +908,14 @@ class MainWindow(QtGui.QMainWindow):
             self.project.updateViewSign.emit()
             self.project.updatePaletteSign.emit()
             self.project.updateTimelineSign.emit()
+            self.project.updateBackgroundSign.emit()
+            self.project.updateFpsSign.emit()
             self.setWindowTitle("pixeditor")
 
     def cropAction(self):
         rect = CropDialog(self.project.size).getReturn()
         if rect:
+            self.project.saveToUndo("size")
             self.project.timeline.applyToAllCanvas(
                     lambda c: Canvas(self.project, c.copy(rect)))
             self.project.size = rect.size()
@@ -888,7 +924,7 @@ class MainWindow(QtGui.QMainWindow):
     def resizeAction(self):
         factor = ResizeDialog(self.project.size).getReturn()
         if factor and factor != 1:
-            self.project.saveToUndo("canvas_size")
+            self.project.saveToUndo("size")
             newSize = self.project.size*factor
             self.project.timeline.applyToAllCanvas(
                     lambda c: Canvas(self.project, c.scaled(newSize)))
@@ -917,6 +953,15 @@ class MainWindow(QtGui.QMainWindow):
             self.project.curLayer += n
             self.project.updateTimelineSign.emit()
             self.project.updateViewSign.emit()
+            
+    def updateTitle(self):
+        url, sav = "untitled", "* "
+        if self.project.saved:
+            sav = ""
+        if self.project.url:
+            url = os.path.basename(self.project.url)
+        self.setWindowTitle("%s%s - pixeditor" %(sav, url))
+        
 
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)

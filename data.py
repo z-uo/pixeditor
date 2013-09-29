@@ -10,55 +10,141 @@ import os
 from PyQt4 import QtCore
 from PyQt4 import QtGui
 from PyQt4 import Qt
+import xml.etree.ElementTree as ET
 
-DEFAUT_COLOR = 1
-DEFAUT_SIZE = QtCore.QSize(64, 64)
-DEFAUT_COLORTABLE = (QtGui.qRgba(0, 0, 0, 0), QtGui.qRgba(0, 0, 0, 255))
-DEFAUT_PEN = ((0, 0),)
-DEFAUT_TOOL = "pen"
-        
 class Project(QtCore.QObject):
     """ store all data that need to be saved"""
     updateViewSign = QtCore.pyqtSignal()
     updatePaletteSign = QtCore.pyqtSignal()
     updateTimelineSign = QtCore.pyqtSignal()
     updateBackgroundSign = QtCore.pyqtSignal()
+    updateFpsSign = QtCore.pyqtSignal()
     toolChangedSign = QtCore.pyqtSignal()
     penChangedSign = QtCore.pyqtSignal()
     colorChangedSign = QtCore.pyqtSignal()
     customPenSign = QtCore.pyqtSignal(list)
+    updateTitleSign = QtCore.pyqtSignal()
     def __init__(self, parent):
         QtCore.QObject.__init__(self)
         self.parent = parent
         self.undoList = []
         self.redoList = []
-        self.pen = DEFAUT_PEN
+        self.pen = ((0, 0),)
         self.brush = lambda n : True
-        self.tool = DEFAUT_TOOL
+        self.tool = "pen"
         self.fillMode = "adjacent"
         self.selectMode = "cut"
         self.loop = False
         self.onionSkinPrev = False
         self.onionSkinNext = False
         self.initProject()
+        self.importResources()
         
-    def initProject(self, size=QtCore.QSize(DEFAUT_SIZE), frames=None, 
-                     colorTable=list(DEFAUT_COLORTABLE), url=None):
+    def initProject(self, size=QtCore.QSize(64, 64), colorTable=None, frames=None):
         self.size = size
-        self.colorTable = colorTable
-        self.color = DEFAUT_COLOR
+        if colorTable:
+            self.colorTable = colorTable
+        else:
+            self.colorTable = [QtGui.qRgba(0, 0, 0, 0), QtGui.qRgba(0, 0, 0, 255)]
+        self.color = 1
         if frames:
-            self.timeline = Timeline(self, [Layer(self, layer["frames"], layer["name"]) for layer in frames])
+            self.timeline = Timeline(self, [Layer(self, frames, 'import')])
         else:
             self.timeline = Timeline(self, [Layer(self, [self.makeCanvas()], 'layer 1')])
         self.bgColor = QtGui.QColor(150, 150, 150)
         self.bgPattern = 16
-        self.url = url
+        self.url = None
+        self.dirUrl = None
         self.fps = 12
         self.curFrame = 0
         self.curLayer = 0
         self.playing = False
-        self.importResources()
+        self.saved = True
+        
+    def importXml(self, rootElem, url):
+        self.url = url
+        self.dirUrl = os.path.dirname(url)
+        if rootElem.attrib["version"] == "0.2":
+            return self.importXml02(rootElem)
+        sizeElem = rootElem.find("size").attrib
+        self.size = QtCore.QSize(int(sizeElem["width"]), int(sizeElem["height"]))
+        bgElem = rootElem.find("background").attrib
+        self.bgColor = QtGui.QColor(int(bgElem["color"]))
+        self.bgPattern = bgElem["pattern"]
+        if type(self.bgPattern) is str and not os.path.isfile(self.bgPattern): 
+            self.bgPattern = 16
+        self.fps = int(rootElem.find("fps").attrib["fps"])
+        colorTableElem = rootElem.find("colortable").text
+        self.colorTable = [int(n) for n in colorTableElem.split(',')]
+        timelineElem = rootElem.find("timeline")
+        self.timeline = Timeline(self, [])
+        for layerElem in timelineElem:
+            layer = Layer(self, [], str(layerElem.attrib["name"]), 
+                          bool(int(layerElem.attrib["visible"])))
+            for f in layerElem.itertext():
+                if f == "0":
+                    layer.append(False)
+                else:
+                    nf = Canvas(self, self.size, self.colorTable)
+                    nf.loadFromList([int(n) for n in f.split(',')])
+                    layer.append(nf)
+            self.timeline.append(layer)
+        self.saved = True
+        self.updateTitleSign.emit()
+            
+    def importXml02(self, rootElem):
+        sizeElem = rootElem.find("size").attrib
+        self.size = QtCore.QSize(int(sizeElem["width"]), int(sizeElem["height"]))
+        colorTableElem = rootElem.find("colors").text
+        self.colorTable = [int(n) for n in colorTableElem.split(',')]
+        framesElem = rootElem.find("frames")
+        self.timeline = Timeline(self, [])
+        for layerElem in framesElem:
+            layer = Layer(self, [], str(layerElem.attrib["name"]), True)
+            for f in layerElem.itertext():
+                if f == "0":
+                    layer.append(False)
+                else:
+                    nf = Canvas(self, self.size, self.colorTable)
+                    nf.loadFromList([int(n) for n in f.split(',')])
+                    layer.append(nf)
+            self.timeline.append(layer)
+        self.saved = True
+        self.updateTitleSign.emit()
+        
+    def exportXml(self):
+        rootElem = ET.Element("pix", version="0.3")
+        ET.SubElement(rootElem, "size", 
+                      width=str(self.size.width()), 
+                      height=str(self.size.height()))
+        ET.SubElement(rootElem, "background", 
+                      color=str(self.bgColor.rgb()),
+                      pattern=str(self.bgPattern))
+        fpsElem = ET.SubElement(rootElem, "fps", fps=str(self.fps))
+        colorTableElem = ET.SubElement(rootElem, "colortable")
+        colorTableElem.text = ','.join(str(n) for n in self.colorTable)
+        timelineElem = ET.SubElement(rootElem, "timeline")
+        for layer in self.timeline:
+            layerElem = ET.SubElement(timelineElem, "layer")
+            layerElem.attrib["name"] = layer.name
+            layerElem.attrib["visible"] = str(int(layer.visible))
+            for frame in layer:
+                frameElem = ET.SubElement(layerElem, "frame")
+                if frame:
+                    frameElem.text = ','.join(str(p) for p in frame.returnAsList())
+                else:
+                    frameElem.text = "0"
+        return rootElem
+    
+    def importImg(self, size, colorTable, frames):
+        for i in self.timeline.getAllCanvas():
+            pass
+        self.timeline.applyToAllCanvas(
+                lambda c: Canvas(self, c.copy(QtCore.QRect(QtCore.QPoint(0, 0), size)), colorTable)
+                )
+        self.size = size
+        self.colorTable = colorTable
+        self.timeline.append(Layer(self, frames, 'import'))
         
     def importResources(self):
         # brush
@@ -95,7 +181,6 @@ class Project(QtCore.QObject):
             self.penList.append((i.name, QtGui.QIcon(QtGui.QPixmap(os.path.join(penPath, i.icon)))))
             self.penDict[i.name] = i.pixelList
         
-                     
     def setColor(self, color):
         self.color = color
         self.colorChangedSign.emit()
@@ -103,6 +188,10 @@ class Project(QtCore.QObject):
         
     ######## undo/redo #################################################
     def saveToUndo(self, obj, save=False):
+        if self.saved:
+            self.saved = False
+            self.updateTitleSign.emit()
+            
         if not save:
             doList = self.undoList
             self.redoList = []
@@ -119,8 +208,8 @@ class Project(QtCore.QObject):
         elif obj == "colorTable":
             doList.append((obj, current, list(self.colorTable)))
         elif obj == "size":
-            doList.append((obj, current,(self.timeline.deepCopy(), 
-                                         QtCore.QSize(self.size))))
+            doList.append((obj, current,(self.timeline.copy(), 
+                                         self.size)))
         elif obj == "colorTable_frames":
             doList.append((obj, current, (self.timeline.deepCopy(), 
                                           list(self.colorTable))))
@@ -262,8 +351,7 @@ class Project(QtCore.QObject):
             self.updatePaletteSign.emit()
 
     def makeCanvas(self):
-        """ make a new canvas
-            or a copy of arg:canvas """
+        """ make a new canvas"""
         return Canvas(self, self.size)
 
     def makeLayer(self, layer=False, empty=False):
@@ -279,7 +367,7 @@ class Project(QtCore.QObject):
             
         
 class Timeline(list):
-    def __init__(self, project, layers):
+    def __init__(self, project, layers=[]):
         list.__init__(self, layers)
         self.project = project
         
@@ -327,14 +415,11 @@ class Timeline(list):
         return max([len(l) for l in self if l.visible])
         
 class Layer(list):
-    def __init__(self, project, frames=None, name=''):
-        if frames:
-            list.__init__(self, frames)
-        else:
-            list.__init__(self)
+    def __init__(self, project, frames=[], name='', visible=True):
+        list.__init__(self, frames)
         self.project = project
         self.name = name
-        self.visible = True
+        self.visible = visible
                 
     def copy(self):
         return Layer(self.project, self, self.name)
@@ -354,6 +439,15 @@ class Layer(list):
             else:
                 index -= 1
         
+    def insertCanvas(self, frame, canvas):
+        if frame is None:
+            frame = self.project.curFrame
+        while frame >= len(self):
+            self.append(0)
+        if self[frame]:
+            self.insert(frame, canvas)
+        else:
+            self[frame] = canvas
         
 class Canvas(QtGui.QImage):
     """ Canvas for drawing"""
@@ -363,7 +457,10 @@ class Canvas(QtGui.QImage):
                 a url string to load the image
                 a size tuple to create a new canvas """
         self.project = project
-        if isinstance(arg, QtGui.QImage):
+        if isinstance(arg, QtGui.QImage) and type(col) is list:
+            QtGui.QImage.__init__(self, arg)
+            self.setColorTable(self.project.colorTable)
+        elif isinstance(arg, QtGui.QImage):
             QtGui.QImage.__init__(self, arg)
         elif type(arg) is str:
             QtGui.QImage.__init__(self)

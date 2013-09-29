@@ -333,7 +333,7 @@ class CropDialog(QtGui.QDialog):
         except ValueError:
             hOffset = 0
         if w > 0 and h > 0:
-            self.rect = QtCore.QRect(-wOffset, -hOffset, w, h) 
+            self.rect = QtCore.QRect(wOffset, hOffset, w, h) 
             self.accept()
         else:
             self.errorL.setText("ERROR : The size must be greater than 0 !")

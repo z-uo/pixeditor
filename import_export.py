@@ -12,127 +12,88 @@ from PyQt4 import Qt
 import os
 import xml.etree.ElementTree as ET
 
-from data import Canvas
+from data import Canvas, Layer, Timeline
 
-######## open ##########################################################
-def open_pix(project):
-    url = QtGui.QFileDialog.getOpenFileName(None, "open pix file", "", "Pix files (*.pix );;All files (*)")
+######## open/save ########
+def open_pix(dirName):
+    if not dirName:
+        dirName = os.path.expanduser("~")
+    url = QtGui.QFileDialog.getOpenFileName(None, "open pix file", dirName, "Pix files (*.pix );;All files (*)")
     if url:
         try:
             save = open(url, "r")
-            saveElem = ET.parse(save).getroot()
-            if saveElem.attrib["version"] == "0.2":
-                size, frames, colorTable = return_canvas_02(saveElem, project)
+            xml = ET.parse(save).getroot()
             save.close()
-            return size, frames, colorTable, url
+            return xml, url
         except IOError:
             print("Can't open file")
-            return False, False, False, False
-    return False, False, False, False
-
-def return_canvas_02(saveElem, project):
-    sizeElem = saveElem.find("size").attrib
-    size = QtCore.QSize(int(sizeElem["width"]), int(sizeElem["height"]))
-    colorsElem = saveElem.find("colors").text
-    colorTable = [int(n) for n in colorsElem.split(',')]
-    framesElem = saveElem.find("frames")
-    frames = []
-    for layerElem in framesElem:
-        layer = {"frames": [], "name": str(layerElem.attrib["name"])}
-        for f in layerElem.itertext():
-            if f == "0":
-                layer["frames"].append(False)
-            else:
-                nf = Canvas(project, size, colorTable)
-                nf.loadFromList([int(n) for n in f.split(',')])
-                layer["frames"].append(nf)
-        frames.append(layer)
-    return size, frames, colorTable
-
-######## save ##########################################################
-def save_pix_as(project, pixurl=None):
-    if not pixurl:
-        directory = ""
-        repeat = True
-        while repeat:
-            url = QtGui.QFileDialog.getSaveFileName(None, "save pix file", directory, "Pix files (*.pix )")
-            if url:
-                directory = os.path.dirname(str(url))
-                ext = os.path.splitext(str(url))[1]
-                if ext == ".pix":
-                    pixurl = url
-                    repeat = False
-                else:
-                    pixurl = os.path.splitext(str(url))[0] + ".pix"
-                    if os.path.isfile(pixurl):
-                        message = """It seems that you try to save as %s, unfortunaly, I can't do that.
-I can save your animation as :
-%s
-but this file allready exit.
-Should I overwrite it ?""" %(ext, pixurl)
-                        okButton = "Overwrite"
-                    else:
-                        message = """It seems that you try to save as %s, unfortunaly, I can't do that.
-Should I save your animation as :
-%s ?""" %(ext, pixurl)
-                        okButton = "Save"
-
-                    messageBox = QtGui.QMessageBox()
-                    messageBox.setWindowTitle("Oups !")
-                    messageBox.setText(message);
-                    messageBox.setIcon(QtGui.QMessageBox.Warning)
-                    messageBox.addButton("Cancel", QtGui.QMessageBox.RejectRole)
-                    messageBox.addButton(okButton, QtGui.QMessageBox.AcceptRole)
-                    ret = messageBox.exec_();
-                    if ret:
-                        repeat = False
-            else:
-                return False
-    return save_pix(project, str(pixurl))
+            return None, None
+    return None, None
     
-def save_pix(project, url):
+def save_pix(xml, url):
     try:
         save = open(url, "w")
-        save.write(return_pix(project))
+        if int(python_version_tuple()[0]) >= 3:
+            save.write(ET.tostring(xml, encoding="unicode"))
+        else:
+            save.write(ET.tostring(xml))
         save.close()
         print("saved")
         return url
     except IOError:
         print("Can't open file")
-        return False
-
-def return_pix(project):
-    saveElem = ET.Element("pix", version="0.2")
-    sizeElem = ET.SubElement(saveElem, "size")
-    sizeElem.attrib["width"] = str(project.size.width())
-    sizeElem.attrib["height"] = str(project.size.height())
-    colorElem = ET.SubElement(saveElem, "colors", lenght=str(len(project.colorTable)))
-    colorElem.text = ','.join(str(n) for n in project.colorTable)
-    framesElem = ET.SubElement(saveElem, "frames", lenght=str(len(project.timeline)))
-    for nl, layer in enumerate(project.timeline):
-        layerElem = ET.SubElement(framesElem, "layer%s" %(nl))
-        layerElem.attrib["name"] = layer.name
-        for nf, f in enumerate(layer):
-            fElem = ET.SubElement(layerElem, "f%s" %(nf))
-            if not f:
-                fElem.text = "0"
+        return None
+        
+def get_save_url(dirName):
+    if not dirName:
+        dirName = os.path.expanduser("~")
+    while True:
+        url = str(QtGui.QFileDialog.getSaveFileName(None, "save pix file", dirName, "Pix files (*.pix )"))
+        if url:
+            dirName = os.path.dirname(url)
+            fileName, ext = os.path.splitext(url)
+            if ext.lower() == ".pix" or ext == "":
+                pixurl = fileName + ".pix"
+                break
             else:
-                fElem.text = ','.join(str(p) for p in f.returnAsList())
-    if int(python_version_tuple()[0]) >= 3:
-        return ET.tostring(saveElem, encoding="unicode")
-    else:
-        return ET.tostring(saveElem)
+                pixurl = os.path.splitext(url)[0] + ".pix"
+                if os.path.isfile(pixurl):
+                    message = """It seems that you try to save as %s, unfortunaly, I can't do that.
+I can save your animation as :
+%s
+but this file allready exit.
+Should I overwrite it ?""" %(ext, pixurl)
+                    okButton = "Overwrite"
+                else:
+                    message = """It seems that you try to save as %s, unfortunaly, I can't do that.
+Should I save your animation as :
+%s ?""" %(ext, pixurl)
+                    okButton = "Save"
 
-######## import ########################################################
-def import_png(project):
+                messageBox = QtGui.QMessageBox()
+                messageBox.setWindowTitle("Oups !")
+                messageBox.setText(message);
+                messageBox.setIcon(QtGui.QMessageBox.Warning)
+                messageBox.addButton("Cancel", QtGui.QMessageBox.RejectRole)
+                messageBox.addButton(okButton, QtGui.QMessageBox.AcceptRole)
+                ret = messageBox.exec_();
+                if ret:
+                    break
+        else:
+            return None
+    return pixurl
+
+
+######## import ########
+def import_img(project, dirName, size=QtCore.QSize(0, 0), colorTable=[]):
+    if not dirName:
+        dirName = os.path.expanduser("~")
     urls = QtGui.QFileDialog.getOpenFileNames(
-        None, "Import PNG and GIF", "", "PNG and GIF files (*.png *.gif);;All files (*)")
+        None, "Import PNG and GIF", dirName, "PNG and GIF files (*.png *.gif);;All files (*)")
     if not urls:
         return None, None, None
     imgs = []
     canceled = []
-    colorTable = []
-    size = QtCore.QSize(0, 0)
     # open all img get the colortable and max size 
     canvasList = []
     for url in urls:
@@ -145,24 +106,19 @@ def import_png(project):
                 mov.jumpToFrame(i)
                 img = Canvas(project, mov.currentImage())
                 canvasList.append((img, str(url)))
-            
+    print(canvasList)
     for img, url in canvasList:
         if img.format() == QtGui.QImage.Format_Indexed8:
             colorMixed = img.mixColortable(colorTable)
-            if colorMixed:
-                colorTable = colorMixed
-                imgs.append(img)
-                size = size.expandedTo(img.size())
-            else:
-                canceled.append(url)
         else:
             colorMixed = img.sniffColortable(colorTable)
-            if colorMixed:
-                colorTable = colorMixed
-                imgs.append(img)
-                size = size.expandedTo(img.size())
-            else:
-                canceled.append(url)
+        if colorMixed:
+            colorTable = colorMixed
+            imgs.append(img)
+            size = size.expandedTo(img.size())
+        else:
+            canceled.append(url)
+            
     for n, img in enumerate(imgs):
         img = Canvas(project, img.convertToFormat(QtGui.QImage.Format_Indexed8, colorTable))
         if img.size() != size:
@@ -173,7 +129,7 @@ def import_png(project):
         imgs[n] = img
     
     if canceled:
-        text = "Failed to import some non-indexed files :"
+        text = "Failed to import some files (too much colors):"
         for i in canceled:
             text = "%s\n %s" %(text, i)
         message = QtGui.QMessageBox()
@@ -229,7 +185,6 @@ def export_png_all(project, url):
     else:
         for i in files:
             i[1].save(i[0])
-            
 
 def export_png(project, fullUrl=""):
     isUrl = False
@@ -278,7 +233,7 @@ def export_png(project, fullUrl=""):
     # convert all png to a gif with imagemagick
     os.system("convert -delay 1/12 -dispose Background -loop 0 %s*.png %s.gif" %(url, url))
     return fullUrl
-        
+
 def export_nanim(project, url):
     try:
         import google.protobuf
