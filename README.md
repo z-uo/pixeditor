@@ -53,10 +53,3 @@ MacOs
 It should work by installing python 3 an pyqt but apparently it didn't.
 Help is welcome.
 
-
-Optionnal
---------
-You can add nanim support by installing google protobuf :  
-https://code.google.com/p/protobuf/downloads/list
-
-

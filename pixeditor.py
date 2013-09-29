@@ -740,10 +740,10 @@ class MainWindow(QtGui.QMainWindow):
         
         ### Edit menu ###
         undoAction = QtGui.QAction('Undo', self)
-        undoAction.triggered.connect(self.undo)
+        undoAction.triggered.connect(self.project.undo)
         undoAction.setShortcut('Ctrl+Z')
         redoAction = QtGui.QAction('Redo', self)
-        redoAction.triggered.connect(self.redo)
+        redoAction.triggered.connect(self.project.redo)
         redoAction.setShortcut('Ctrl+Y')
         
         cutAction = QtGui.QAction('Cut', self)
@@ -885,17 +885,6 @@ class MainWindow(QtGui.QMainWindow):
         ret = message.exec_();
         if ret:
             QtGui.qApp.quit()
-
-    ######## Edit menu #################################################
-    def undo(self):
-        self.project.undo()
-        self.project.updateViewSign.emit()
-        self.project.updateTimelineSign.emit()
-
-    def redo(self):
-        self.project.redo()
-        self.project.updateViewSign.emit()
-        self.project.updateTimelineSign.emit()
         
     ######## Project menu ##############################################
     def newAction(self):

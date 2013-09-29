@@ -139,24 +139,6 @@ def import_img(project, dirName, size=QtCore.QSize(0, 0), colorTable=[]):
         message.exec_();
     return  size, imgs, colorTable
 
-def export(project, url=None):
-    # nanim requires google.protobuf, which is Python 2.x only
-    if int(python_version_tuple()[0]) >= 3:
-        url = QtGui.QFileDialog.getSaveFileName(
-            None, "export (.png)", url, "PNG files (*.png)", QtGui.QFileDialog.DontConfirmOverwrite)
-    else:
-        url = QtGui.QFileDialog.getSaveFileName(
-            None, "export (.png or .nanim)", url,
-            "Png files (*.png);;Nanim files (*.nanim)")
-    if url:
-        # In Python 3.x, getSaveFileName returns a str, not a QString
-        if str(url).endswith("png"):
-            export_png(project, url)
-        elif str(url).endswith("nanim"):
-            export_nanim(project, url)
-        return os.path.dirname(url)
-    return None
-
 def export_png_all(project, url):
     url = os.path.splitext(str(url))[0]
     files = []
@@ -233,57 +215,6 @@ def export_png(project, fullUrl=""):
     # convert all png to a gif with imagemagick
     os.system("convert -delay 1/12 -dispose Background -loop 0 %s*.png %s.gif" %(url, url))
     return fullUrl
-
-def export_nanim(project, url):
-    try:
-        import google.protobuf
-    except ImportError:
-        message = QtGui.QMessageBox()
-        message.setWindowTitle("Export error")
-        # Set text format to rich text
-        message.setTextFormat(1)
-        message.setText("You need google protobuf to export as nanim.\nYou can download it at :\n<a href='https://code.google.com/p/protobuf/downloads/list'>https://code.google.com/p/protobuf/downloads/list</a>");
-        message.setIcon(QtGui.QMessageBox.Warning)
-        message.addButton("Ok", QtGui.QMessageBox.AcceptRole)
-        message.exec_();
-        return
-
-    import nanim_pb2
-    nanim = nanim_pb2.Nanim()
-    animation = nanim.animations.add()
-    animation.name = "default"
-    i = 0
-    for layer in project.timeline:
-        for im in layer:
-            if not im:
-                im = exim
-            exim = im
-            nimage = nanim.images.add()
-            nimage.width = im.width()
-            nimage.height = im.height()
-            nimage.format = nanim_pb2.RGBA_8888
-            nimage.name = "img_%d" % i
-            i = i + 1
-            pixels = bytearray()
-            for y in range(im.height()):
-                for x in range(im.width()):
-                    colors = QtGui.QColor(im.pixel(x,y))
-                    pixels.append(colors.red())
-                    pixels.append(colors.green())
-                    pixels.append(colors.blue())
-                    pixels.append(colors.alpha())
-            nimage.pixels = str(pixels)
-
-            frame = animation.frames.add()
-            frame.imageName = nimage.name
-            frame.duration = 100
-            frame.u1 = 0
-            frame.v1 = 0
-            frame.u2 = 1
-            frame.v2 = 1
-    f = open(url, "wb")
-    f.write(nanim.SerializeToString())
-    f.close()
 
 if __name__ == '__main__':
     import sys
