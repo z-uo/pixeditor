@@ -18,7 +18,6 @@
 
 # export spritesheet
 # export all canvas
-# save url export url
 
 # Python 3 Compatibility
 from __future__ import division
@@ -129,11 +128,18 @@ class Scene(QtGui.QGraphicsView):
             self.scene.removeItem(i)
         if self.project.tool == "pen":
             pen = QtGui.QPen(QtCore.Qt.NoPen)
-            brush = QtGui.QColor(self.project.colorTable[self.project.color])
-            for i in self.project.pen:
-                p = QtGui.QGraphicsRectItem(i[0], i[1], 1, 1, self.penItem)
-                p.setPen(pen)
-                p.setBrush(brush)
+            if len(self.project.pen[0]) == 3:
+                for i in self.project.pen:
+                    brush = QtGui.QColor(self.project.colorTable[i[2]])
+                    p = QtGui.QGraphicsRectItem(i[0], i[1], 1, 1, self.penItem)
+                    p.setPen(pen)
+                    p.setBrush(brush)
+            else:
+                brush = QtGui.QColor(self.project.colorTable[self.project.color])
+                for i in self.project.pen:
+                    p = QtGui.QGraphicsRectItem(i[0], i[1], 1, 1, self.penItem)
+                    p.setPen(pen)
+                    p.setBrush(brush)
                 
     def updateBackground(self):
         self.setBackgroundBrush(QtGui.QBrush(self.project.bgColor))
