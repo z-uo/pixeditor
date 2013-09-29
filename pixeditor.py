@@ -19,9 +19,6 @@
 # export spritesheet
 # export all canvas
 # save url export url
-# add layer in save to undo
-# add saved state in undo to know if project is saved
-# watch about init Canvas
 
 # Python 3 Compatibility
 from __future__ import division
@@ -381,6 +378,7 @@ class OptionPen(QtGui.QGroupBox):
         self.brushW = QtGui.QComboBox(self)
         for i, j in self.project.brushList:
             self.brushW.addItem(j, i)
+        self.brushW.setCurrentIndex(self.brushW.findText("solid"))
         self.brushW.activated[str].connect(self.brushChooserClicked)
         
         ### Layout ###
@@ -433,6 +431,7 @@ class OptionFill(QtGui.QGroupBox):
         self.brushW = QtGui.QComboBox(self)
         for i, j in self.project.brushList:
             self.brushW.addItem(j, i)
+        self.brushW.setCurrentIndex(self.brushW.findText("solid"))
         self.brushW.activated[str].connect(self.brushChooserClicked)
         
         ### Layout ###
@@ -691,7 +690,6 @@ class MainWindow(QtGui.QMainWindow):
     """ Main windows of the application """
     def __init__(self):
         QtGui.QMainWindow.__init__(self)
-        #~ self.setWindowTitle("pixeditor")
 
         self.project = Project(self)
         self.toolsWidget = ToolsWidget(self.project)
@@ -802,7 +800,6 @@ class MainWindow(QtGui.QMainWindow):
         splitter2.addWidget(self.timelineWidget)
         self.setCentralWidget(splitter2)
         
-        
         #~ self.setDockNestingEnabled(True)
         #~ self.setCentralWidget(self.scene)
         #~ leftDock = QtGui.QDockWidget("tools")
@@ -812,7 +809,6 @@ class MainWindow(QtGui.QMainWindow):
         #~ bottomDock = QtGui.QDockWidget("timeline")
         #~ bottomDock.setWidget(self.timelineWidget)
         #~ self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, bottomDock)
-        
         self.show()
         
     ######## File menu #################################################
@@ -820,7 +816,6 @@ class MainWindow(QtGui.QMainWindow):
         xml, url = open_pix(self.project.dirUrl)
         if xml and url:
             self.project.saveToUndo("all")
-            #~ self.setWindowTitle("pixeditor | %s" %(os.path.basename(url)))
             self.project.importXml(xml, url)
             self.project.updateViewSign.emit()
             self.project.updatePaletteSign.emit()
@@ -837,7 +832,6 @@ class MainWindow(QtGui.QMainWindow):
                 self.project.dirUrl = os.path.dirname(url)
                 self.project.saved = True
                 self.updateTitle()
-                #~ self.setWindowTitle("pixeditor | %s" %(os.path.basename(url)))
         
     def saveAction(self):
         if self.project.url:
@@ -847,14 +841,13 @@ class MainWindow(QtGui.QMainWindow):
                 self.project.dirUrl = os.path.dirname(url)
                 self.project.saved = True
                 self.updateTitle()
-                #~ self.setWindowTitle("pixeditor | %s" %(os.path.basename(url)))
         else:
             self.saveAsAction()
 
     def importAsNewAction(self):
         size, frames, colorTable = import_img(self.project, 
                                               self.project.dirUrl)
-        if size and frames and colorTable:
+        if size and frames and colorTable and url:
             self.project.saveToUndo("all")
             self.project.initProject(size, colorTable, frames)
             self.project.updateViewSign.emit()
@@ -862,20 +855,19 @@ class MainWindow(QtGui.QMainWindow):
             self.project.updateTimelineSign.emit()
             
     def importAsLayerAction(self):
-        # colortable mutable
         size, frames, colorTable = import_img(self.project, 
                                               self.project.dirUrl,
                                               self.project.size,
                                               self.project.colorTable)
         if size and frames and colorTable:
             self.project.saveToUndo("all")
-            self.project.importImg(size, colorTable, frames,)
+            self.project.importImg(size, colorTable, frames)
             self.project.updateViewSign.emit()
             self.project.updatePaletteSign.emit()
             self.project.updateTimelineSign.emit()
     
     def exportAction(self):
-        export_png(self.project)
+        export_png(self.project, self.project.dirUrl)
 
     def exitAction(self):
         message = QtGui.QMessageBox()
@@ -910,7 +902,7 @@ class MainWindow(QtGui.QMainWindow):
             self.project.updateTimelineSign.emit()
             self.project.updateBackgroundSign.emit()
             self.project.updateFpsSign.emit()
-            self.setWindowTitle("pixeditor")
+            self.updateTitle()
 
     def cropAction(self):
         rect = CropDialog(self.project.size).getReturn()

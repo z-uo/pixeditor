@@ -17,6 +17,7 @@ class Project(QtCore.QObject):
     updateViewSign = QtCore.pyqtSignal()
     updatePaletteSign = QtCore.pyqtSignal()
     updateTimelineSign = QtCore.pyqtSignal()
+    updateTimelineSizeSign = QtCore.pyqtSignal()
     updateBackgroundSign = QtCore.pyqtSignal()
     updateFpsSign = QtCore.pyqtSignal()
     toolChangedSign = QtCore.pyqtSignal()
@@ -60,6 +61,7 @@ class Project(QtCore.QObject):
         self.curLayer = 0
         self.playing = False
         self.saved = True
+        self.updateTimelineSizeSign.emit()
         
     def importXml(self, rootElem, url):
         self.url = url
@@ -91,6 +93,7 @@ class Project(QtCore.QObject):
             self.timeline.append(layer)
         self.saved = True
         self.updateTitleSign.emit()
+        self.updateTimelineSizeSign.emit()
             
     def importXml02(self, rootElem):
         sizeElem = rootElem.find("size").attrib
@@ -111,6 +114,7 @@ class Project(QtCore.QObject):
             self.timeline.append(layer)
         self.saved = True
         self.updateTitleSign.emit()
+        self.updateTimelineSizeSign.emit()
         
     def exportXml(self):
         rootElem = ET.Element("pix", version="0.3")
@@ -137,14 +141,13 @@ class Project(QtCore.QObject):
         return rootElem
     
     def importImg(self, size, colorTable, frames):
-        for i in self.timeline.getAllCanvas():
-            pass
         self.timeline.applyToAllCanvas(
                 lambda c: Canvas(self, c.copy(QtCore.QRect(QtCore.QPoint(0, 0), size)), colorTable)
                 )
         self.size = size
         self.colorTable = colorTable
         self.timeline.append(Layer(self, frames, 'import'))
+        self.updateTimelineSizeSign.emit()
         
     def importResources(self):
         # brush
@@ -274,12 +277,9 @@ class Project(QtCore.QObject):
                 self.bgPattern = save[4]
                 self.updateBackgroundSign.emit()
                 self.url = save[5]
-                if self.url:
-                    self.parent.setWindowTitle("pixeditor | %s" %(os.path.basename(self.url)))
-                else:
-                    self.parent.setWindowTitle("pixeditor")
                 self.fps = save[6]
                 self.parent.timelineWidget.fpsW.setText(str(self.fps))
+                self.updateTitleSign.emit()
             elif obj == "background":
                 self.saveToUndo("background", "redoList")
                 self.bgColor = save[0]
@@ -288,6 +288,7 @@ class Project(QtCore.QObject):
                 
             self.updateViewSign.emit()
             self.updateTimelineSign.emit()
+            self.updateTimelineSizeSign.emit()
             self.updatePaletteSign.emit()
 
     def redo(self):
@@ -334,12 +335,9 @@ class Project(QtCore.QObject):
                 self.bgPattern = save[4]
                 self.updateBackgroundSign.emit()
                 self.url = save[5]
-                if self.url:
-                    self.parent.setWindowTitle("pixeditor | %s" %(os.path.basename(self.url)))
-                else:
-                    self.parent.setWindowTitle("pixeditor")
                 self.fps = save[6]
                 self.parent.timelineWidget.fpsW.setText(str(self.fps))
+                self.updateTitleSign.emit()
             elif obj == "background":
                 self.saveToUndo("background", "undolist")
                 self.bgColor = save[0]
@@ -348,6 +346,7 @@ class Project(QtCore.QObject):
 
             self.updateViewSign.emit()
             self.updateTimelineSign.emit()
+            self.updateTimelineSizeSign.emit()
             self.updatePaletteSign.emit()
 
     def makeCanvas(self):

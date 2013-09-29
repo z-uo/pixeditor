@@ -276,6 +276,7 @@ class TimelineWidget(QtGui.QWidget):
                 lambda v: self.layersV.verticalScrollBar().setValue(v))
         self.project.updateTimelineSign.connect(self.timelineCanvas.update)
         self.project.updateTimelineSign.connect(self.layersCanvas.update)
+        self.project.updateTimelineSizeSign.connect(self.adjustSize)
         
         ### adding and deleting layers ###
         self.addLayerB = Button("add layer", "icons/layer_add.png", self.addLayerClicked)

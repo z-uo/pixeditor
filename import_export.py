@@ -91,7 +91,7 @@ def import_img(project, dirName, size=QtCore.QSize(0, 0), colorTable=[]):
     urls = QtGui.QFileDialog.getOpenFileNames(
         None, "Import PNG and GIF", dirName, "PNG and GIF files (*.png *.gif);;All files (*)")
     if not urls:
-        return None, None, None
+        return None, None, None, None
     imgs = []
     canceled = []
     # open all img get the colortable and max size 
@@ -106,7 +106,6 @@ def import_img(project, dirName, size=QtCore.QSize(0, 0), colorTable=[]):
                 mov.jumpToFrame(i)
                 img = Canvas(project, mov.currentImage())
                 canvasList.append((img, str(url)))
-    print(canvasList)
     for img, url in canvasList:
         if img.format() == QtGui.QImage.Format_Indexed8:
             colorMixed = img.mixColortable(colorTable)
@@ -138,17 +137,16 @@ def import_img(project, dirName, size=QtCore.QSize(0, 0), colorTable=[]):
         message.setIcon(QtGui.QMessageBox.Warning)
         message.addButton("Ok", QtGui.QMessageBox.AcceptRole)
         message.exec_();
-        
     return  size, imgs, colorTable
 
 def export(project, url=None):
     # nanim requires google.protobuf, which is Python 2.x only
     if int(python_version_tuple()[0]) >= 3:
         url = QtGui.QFileDialog.getSaveFileName(
-            None, "export (.png)", "", "PNG files (*.png)", QtGui.QFileDialog.DontConfirmOverwrite)
+            None, "export (.png)", url, "PNG files (*.png)", QtGui.QFileDialog.DontConfirmOverwrite)
     else:
         url = QtGui.QFileDialog.getSaveFileName(
-            None, "export (.png or .nanim)", "",
+            None, "export (.png or .nanim)", url,
             "Png files (*.png);;Nanim files (*.nanim)")
     if url:
         # In Python 3.x, getSaveFileName returns a str, not a QString
@@ -156,6 +154,8 @@ def export(project, url=None):
             export_png(project, url)
         elif str(url).endswith("nanim"):
             export_nanim(project, url)
+        return os.path.dirname(url)
+    return None
 
 def export_png_all(project, url):
     url = os.path.splitext(str(url))[0]
