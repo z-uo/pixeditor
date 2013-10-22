@@ -190,23 +190,27 @@ class TimelineCanvas(QtGui.QWidget):
             else:
                 self.strechFrame = False
                 self.parent.selection = False
-            self.parent.layersCanvas.update()
-            self.update()
-            self.parent.changeCurrent(frame, layer)
+            if layer is not None:
+                self.parent.project.curLayer = layer
+                self.parent.layersCanvas.update()
+            if frame is not None:
+                self.parent.project.curFrame = frame
+                self.update()
+            if frame is not None or layer is not None:
+                self.parent.project.updateViewSign.emit()
             return True
         elif (event.type() == QtCore.QEvent.MouseMove and
               event.buttons() == QtCore.Qt.LeftButton):
             frame = self.frameAt(event.x())
-            layer = self.layerAt(event.y())
-            if layer is not None and not self.strechFrame and not self.parent.selection:
-                self.parent.project.curLayer = layer
             if frame is not None:
                 if self.parent.selection:
                     self.parent.selection[2] = frame
                 self.strech(frame)
-            self.parent.layersCanvas.update()
-            self.update()
-            self.parent.changeCurrent(frame, layer)
+                
+                self.parent.layersCanvas.update()
+                self.update()
+                self.parent.project.curFrame = frame
+                self.parent.project.updateViewSign.emit()
             return True
         return QtGui.QWidget.event(self, event)
         
@@ -344,15 +348,6 @@ class TimelineWidget(QtGui.QWidget):
         layout.addLayout(layerTools2, 1, 1)
         layout.addLayout(canvasTools, 1, 2)
         self.setLayout(layout)
-
-    def changeCurrent(self, frame=None, layer=None):
-        if not self.project.playing:
-            if frame is not None:
-                self.project.curFrame = frame
-            if layer is not None:
-                self.project.curLayer = layer
-            if frame is not None or layer is not None:
-                self.project.updateViewSign.emit()
             
     ######## Size adjust ###############################################
     def showEvent(self, event):
@@ -437,16 +432,16 @@ class TimelineWidget(QtGui.QWidget):
     ######## Buttons ###################################################
     def addFrameClicked(self):
         self.project.saveToUndo("frames")
-        layer = self.project.timeline[self.project.curLayer]
-        layer.insertCanvas(self.project.curFrame, self.project.makeCanvas())
+        self.project.timeline[self.project.curLayer].insertCanvas(
+                    self.project.curFrame, self.project.makeCanvas())
         self.adjustSize()
         self.project.updateViewSign.emit()
         
     def duplicateFrameClicked(self):
         self.project.saveToUndo("frames")
-        layer = self.project.timeline[self.project.curLayer]
-        layer.insertCanvas(self.project.curFrame, 
-                           layer.getCanvas(self.project.curFrame).copy_())
+        self.project.timeline[self.project.curLayer].insertCanvas(
+                    self.project.curFrame, 
+                    layer.getCanvas(self.project.curFrame).copy_())
         self.adjustSize()
         self.project.updateViewSign.emit()
         

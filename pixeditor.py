@@ -18,6 +18,9 @@
 
 # export spritesheet
 # export all canvas
+# selected layer when undo/redo
+# save custom brush
+# update brush
 
 # Python 3 Compatibility
 from __future__ import division
@@ -240,7 +243,7 @@ class Scene(QtGui.QGraphicsView):
             self.setDragMode(QtGui.QGraphicsView.NoDrag)
         # draw on canvas
         elif (event.buttons() == QtCore.Qt.LeftButton and
-                self.canvasList[l] and self.project.timeline[l].visible):
+              self.canvasList[l] and self.project.timeline[l].visible):
             pos = self.pointToInt(self.mapToScene(event.pos()))
             if self.project.tool == "move":
                 self.lastPos = pos
@@ -252,6 +255,12 @@ class Scene(QtGui.QGraphicsView):
                 self.canvasList[l].clic(pos)
                 self.itemList[l].pixmap().convertFromImage(self.canvasList[l])
                 self.itemList[l].update()
+        elif (event.buttons() == QtCore.Qt.LeftButton and
+              self.project.timeline[l].visible and self.project.tool == "pen"):
+            self.project.timeline[self.project.curLayer].insertCanvas(
+                    self.project.curFrame, self.project.makeCanvas())
+            self.project.updateTimelineSign.emit()
+            self.project.updateViewSign.emit()
         else:
             return QtGui.QGraphicsView.mousePressEvent(self, event)
 

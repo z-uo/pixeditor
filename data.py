@@ -439,8 +439,6 @@ class Layer(list):
                 index -= 1
         
     def insertCanvas(self, frame, canvas):
-        if frame is None:
-            frame = self.project.curFrame
         while frame >= len(self):
             self.append(0)
         if self[frame]:
