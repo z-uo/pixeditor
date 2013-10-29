@@ -21,6 +21,10 @@
 # selected layer when undo/redo
 # save custom brush
 # update brush
+# watch copy paste
+
+# add camera layer
+# add rough layer with higher resolution
 
 # Python 3 Compatibility
 from __future__ import division
@@ -75,7 +79,7 @@ class SelectionRect(QtGui.QGraphicsRectItem):
         
         
 class Scene(QtGui.QGraphicsView):
-    """ widget used to display the layers, ond onionskin, pen, background
+    """ widget used to display the layers, onionskin, pen, background
         it can zoom with mouseWheel, pan with mouseMiddleClic
         it send mouseRightClic info to the current Canvas"""
     def __init__(self, project):
@@ -174,7 +178,8 @@ class Scene(QtGui.QGraphicsView):
                 self.itemList[n].setVisible(False)
         # onionskin
         layer = self.project.timeline[self.project.curLayer]
-        if not self.project.playing and self.project.onionSkinPrev:
+        if (not self.project.playing and self.project.onionSkinPrev and 
+            self.project.timeline[self.project.curLayer].visible):
             frame = self.project.curFrame
             prev = False
             while 0 <= frame < len(layer):
@@ -194,7 +199,8 @@ class Scene(QtGui.QGraphicsView):
                 self.onionPrevItem.hide()
         else:
             self.onionPrevItem.hide()
-        if not self.project.playing and self.project.onionSkinNext:
+        if (not self.project.playing and self.project.onionSkinNext and 
+            self.project.timeline[self.project.curLayer].visible):
             frame = self.project.curFrame + 1
             nex = False
             while 0 <= frame < len(layer):
@@ -303,18 +309,20 @@ class Scene(QtGui.QGraphicsView):
         if event.button() == QtCore.Qt.LeftButton:
             l = self.project.curLayer
             if self.project.tool == "move" and self.canvasList[l] and self.itemList[l].pos():
-                    offset = (int(self.itemList[l].pos().x()), 
-                              int(self.itemList[l].pos().y()))
-                    self.canvasList[l].loadFromList(
-                                        self.canvasList[l].returnAsList(),
-                                        self.canvasList[l].width(), offset)
-                    self.itemList[l].setPos(QtCore.QPointF(0, 0))
-                    self.changeFrame()
+                self.project.saveToUndo("canvas")
+                offset = (int(self.itemList[l].pos().x()), 
+                          int(self.itemList[l].pos().y()))
+                self.canvasList[l].loadFromList(
+                                    self.canvasList[l].returnAsList(),
+                                    self.canvasList[l].width(), offset)
+                self.itemList[l].setPos(QtCore.QPointF(0, 0))
+                self.changeFrame()
             elif self.project.tool == "select": 
                 rect = self.selRect.getRect()
                 if rect.isValid():
                     sel = self.canvasList[l].returnAsMatrix(rect)
                     if self.project.selectMode == "cut":
+                        self.project.saveToUndo("canvas")
                         self.canvasList[l].drawRect(rect, 0)
                     self.project.customPenSign.emit(sel)
                     self.changeFrame()
@@ -375,7 +383,6 @@ class PaletteCanvas(QtGui.QWidget):
             return s
         return None
 
-
 class OptionPen(QtGui.QGroupBox):
     """ contextual option for the pen tool """
     def __init__(self, parent, project):
@@ -385,15 +392,10 @@ class OptionPen(QtGui.QGroupBox):
         
         ### pen size ###
         self.penW = QtGui.QComboBox(self)
-        for i, j in self.project.penList:
-            self.penW.addItem(j, i)
+        self.brushW = QtGui.QComboBox(self)
+        self.loadPenBrush()
         self.penW.activated[str].connect(self.penChooserClicked)
         self.project.customPenSign.connect(self.setCustomPen)
-        
-        self.brushW = QtGui.QComboBox(self)
-        for i, j in self.project.brushList:
-            self.brushW.addItem(j, i)
-        self.brushW.setCurrentIndex(self.brushW.findText("solid"))
         self.brushW.activated[str].connect(self.brushChooserClicked)
         
         ### Layout ###
@@ -403,6 +405,15 @@ class OptionPen(QtGui.QGroupBox):
         layout.addWidget(self.brushW)
         layout.addStretch()
         self.setLayout(layout)
+
+    def loadPenBrush(self):
+        self.penW.clear()
+        for i, j in self.project.penList:
+            self.penW.addItem(j, i)
+        self.brushW.clear()
+        for i, j in self.project.brushList:
+            self.brushW.addItem(j, i)
+        self.brushW.setCurrentIndex(self.brushW.findText("solid"))
         
     def penChooserClicked(self, text):
         self.project.pen = self.project.penDict[str(text)]
@@ -444,9 +455,7 @@ class OptionFill(QtGui.QGroupBox):
         self.similarFillRadio.pressed.connect(self.similarPressed)
         
         self.brushW = QtGui.QComboBox(self)
-        for i, j in self.project.brushList:
-            self.brushW.addItem(j, i)
-        self.brushW.setCurrentIndex(self.brushW.findText("solid"))
+        self.loadBrush()
         self.brushW.activated[str].connect(self.brushChooserClicked)
         
         ### Layout ###
@@ -457,6 +466,12 @@ class OptionFill(QtGui.QGroupBox):
         layout.addWidget(self.brushW)
         layout.addStretch()
         self.setLayout(layout)
+        
+    def loadBrush(self):
+        self.brushW.clear()
+        for i, j in self.project.brushList:
+            self.brushW.addItem(j, i)
+        self.brushW.setCurrentIndex(self.brushW.findText("solid"))
         
     def adjacentPressed(self):
         self.project.fillMode = "adjacent"
@@ -550,6 +565,7 @@ class ToolsWidget(QtGui.QWidget):
         self.layout = QtGui.QGridLayout()
         self.layout.setSpacing(4)
         self.layout.addLayout(tools, 0, 0, 3, 1)
+        #~ self.layout.addLayout(self.optionPen, 0, 1)
         self.layout.addWidget(self.optionPen, 0, 1)
         self.layout.addWidget(self.optionPipette, 0, 1)
         self.optionPipette.hide()
@@ -780,6 +796,8 @@ class MainWindow(QtGui.QMainWindow):
         cropAction.triggered.connect(self.cropAction)
         resizeAction = QtGui.QAction('Resize', self)
         resizeAction.triggered.connect(self.resizeAction)
+        replacePaletteAction = QtGui.QAction('replace palette', self)
+        replacePaletteAction.triggered.connect(self.replacePaletteAction)
         prefAction = QtGui.QAction('Background', self)
         prefAction.triggered.connect(self.backgroundAction)
         
@@ -787,8 +805,24 @@ class MainWindow(QtGui.QMainWindow):
         projectMenu.addAction(newAction)
         projectMenu.addAction(cropAction)
         projectMenu.addAction(resizeAction)
+        projectMenu.addAction(replacePaletteAction)
         projectMenu.addAction(prefAction)
 
+        ### resources menu ###
+        savePaletteAction = QtGui.QAction('save  current palette', self)
+        savePaletteAction.triggered.connect(self.savePaletteAction)
+        savePaletteAction.setDisabled(True)
+        saveBrushAction = QtGui.QAction('save custom brush', self)
+        saveBrushAction.triggered.connect(self.saveBrushAction)
+        saveBrushAction.setDisabled(True)
+        reloadResourcesAction = QtGui.QAction('reload resources', self)
+        reloadResourcesAction.triggered.connect(self.reloadResourcesAction)
+        
+        resourcesMenu = menubar.addMenu('Resources')
+        resourcesMenu.addAction(savePaletteAction)
+        resourcesMenu.addAction(saveBrushAction)
+        resourcesMenu.addAction(reloadResourcesAction)
+        
         ### shortcuts ###
         shortcut = QtGui.QShortcut(self)
         shortcut.setKey(QtCore.Qt.Key_Left)
@@ -831,12 +865,14 @@ class MainWindow(QtGui.QMainWindow):
         xml, url = open_pix(self.project.dirUrl)
         if xml and url:
             self.project.saveToUndo("all")
-            self.project.importXml(xml, url)
+            self.project.importXml(xml)
             self.project.updateViewSign.emit()
             self.project.updatePaletteSign.emit()
             self.project.updateTimelineSign.emit()
             self.project.updateBackgroundSign.emit()
             self.project.updateFpsSign.emit()
+            self.project.url = url
+            self.project.dirUrl = os.path.dirname(url)
 
     def saveAsAction(self):
         url = get_save_url(self.project.dirUrl)
@@ -850,7 +886,7 @@ class MainWindow(QtGui.QMainWindow):
         
     def saveAction(self):
         if self.project.url:
-            url = save_pix(self.project.exportXml(), url)
+            url = save_pix(self.project.exportXml(), self.project.url)
             if url:
                 self.project.url = url
                 self.project.dirUrl = os.path.dirname(url)
@@ -862,7 +898,7 @@ class MainWindow(QtGui.QMainWindow):
     def importAsNewAction(self):
         size, frames, colorTable = import_img(self.project, 
                                               self.project.dirUrl)
-        if size and frames and colorTable and url:
+        if size and frames and colorTable:
             self.project.saveToUndo("all")
             self.project.initProject(size, colorTable, frames)
             self.project.updateViewSign.emit()
@@ -897,10 +933,10 @@ class MainWindow(QtGui.QMainWindow):
         
     ######## Project menu ##############################################
     def newAction(self):
-        size = NewDialog().getReturn()
-        if size:
+        size, palette = NewDialog().getReturn()
+        if size and palette:
             self.project.saveToUndo("all")
-            self.project.initProject(size)
+            self.project.initProject(size, palette)
             self.project.updateViewSign.emit()
             self.project.updatePaletteSign.emit()
             self.project.updateTimelineSign.emit()
@@ -927,6 +963,9 @@ class MainWindow(QtGui.QMainWindow):
             self.project.size = newSize
             self.project.updateViewSign.emit()
             
+    def replacePaletteAction(self):
+        pass
+        
     def backgroundAction(self):
         color, pattern = BackgroundDialog(self.project.bgColor,
                                 self.project.bgPattern).getReturn()
@@ -936,6 +975,15 @@ class MainWindow(QtGui.QMainWindow):
             self.project.bgPattern = pattern
             self.project.updateBackgroundSign.emit()
 
+    def savePaletteAction(self):
+        export_palette(self.project.colorTable, "")
+    def saveBrushAction(self):
+        pass
+    def reloadResourcesAction(self):
+        self.project.importResources()
+        self.toolsWidget.optionPen.loadPenBrush()
+        self.toolsWidget.optionFill.loadBrush()
+        
     ######## Shortcuts #################################################
     def selectFrame(self, n):
         maxF = max([len(l) for l in self.project.timeline])

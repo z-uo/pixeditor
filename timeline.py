@@ -439,9 +439,9 @@ class TimelineWidget(QtGui.QWidget):
         
     def duplicateFrameClicked(self):
         self.project.saveToUndo("frames")
-        self.project.timeline[self.project.curLayer].insertCanvas(
-                    self.project.curFrame, 
-                    layer.getCanvas(self.project.curFrame).copy_())
+        layer = self.project.timeline[self.project.curLayer]
+        layer.insertCanvas(self.project.curFrame, 
+                           layer.getCanvas(self.project.curFrame).copy_())
         self.adjustSize()
         self.project.updateViewSign.emit()
         

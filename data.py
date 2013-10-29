@@ -63,9 +63,7 @@ class Project(QtCore.QObject):
         self.saved = True
         self.updateTimelineSizeSign.emit()
         
-    def importXml(self, rootElem, url):
-        self.url = url
-        self.dirUrl = os.path.dirname(url)
+    def importXml(self, rootElem):
         if rootElem.attrib["version"] == "0.2":
             return self.importXml02(rootElem)
         sizeElem = rootElem.find("size").attrib

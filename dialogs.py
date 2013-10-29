@@ -11,6 +11,7 @@ from PyQt4 import QtGui
 from PyQt4 import Qt
 from colorPicker import ColorDialog
 from widget import Background
+from import_export import import_palette
 
 
 class BackgroundDialog(QtGui.QDialog):
@@ -194,6 +195,18 @@ class NewDialog(QtGui.QDialog):
         self.hW.setValidator(QtGui.QIntValidator(self.hW))
         ### error ###
         self.errorL = QtGui.QLabel("")
+        
+        ### palette ###
+        palettePath = os.path.join("resources", "palette")
+        ls = os.listdir(palettePath)
+        ls.sort()
+        self.paletteDict = {}
+            
+        self.paletteW = QtGui.QComboBox(self)
+        for i in ls:
+            self.paletteDict[os.path.splitext(i)[0]] = os.path.join(palettePath, i)
+            self.paletteW.addItem(os.path.splitext(i)[0])
+            
         ### apply, undo ###
         self.cancelW = QtGui.QPushButton('cancel', self)
         self.cancelW.clicked.connect(self.cancelClicked)
@@ -209,6 +222,7 @@ class NewDialog(QtGui.QDialog):
         grid.addWidget(self.wW, 1, 1)
         grid.addWidget(self.hW, 2, 1)
         grid.addWidget(self.errorL, 3, 0, 1, 2)
+        grid.addWidget(self.paletteW, 4, 0, 1, 2)
 
         okBox = QtGui.QHBoxLayout()
         okBox.addStretch(0)
@@ -222,13 +236,15 @@ class NewDialog(QtGui.QDialog):
 
         self.setLayout(vBox)
         self.exec_()
-
+    def get_palette_list(self):
+        pass
     def newClicked(self):
         try:
             self.size = QtCore.QSize(int(self.wW.text()), int(self.hW.text()))
         except ValueError:
             self.errorL.setText("ERROR : You must enter a number !")
             return
+        self.palette = import_palette(self.paletteDict[self.paletteW.currentText()])
         if self.size.isEmpty():
             self.errorL.setText("ERROR : The size must be greater than 0 !")
         else:
@@ -239,7 +255,7 @@ class NewDialog(QtGui.QDialog):
 
     def getReturn(self):
         if self.result():
-            return self.size
+            return self.size, self.palette
 
 class CropDialog(QtGui.QDialog):
     def __init__(self, size):

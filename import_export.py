@@ -215,7 +215,48 @@ def export_png(project, fullUrl=""):
     # convert all png to a gif with imagemagick
     os.system("convert -delay 1/12 -dispose Background -loop 0 %s*.png %s.gif" %(url, url))
     return fullUrl
-
+    
+def import_palette(url):
+    """ take a file palette (.gpl or .pal) and return a list of QRgba """
+    save = open(url, "r")
+    palette = []
+    for line in save.readlines():
+        palette.append([""])
+        print(line)
+        for char in line:
+            if char.isdigit():
+                palette[-1][-1] += char
+            else:
+                if palette[-1][-1] != "":
+                    palette[-1].append("")
+    pal = []
+    black = False
+    print (palette)
+    for i in palette:
+        if 3 <= len(i) <= 5:
+            # avoid to fill palette of black as in some pal files
+            if i == ["0", "0", "0"]:
+                if black:
+                    continue
+                black = True
+            if i[3] != "":
+                pal.append(QtGui.QColor(int(i[0]), int(i[1]), int(i[2]), int(i[2])).rgba())
+            else:
+                pal.append(QtGui.QColor(int(i[0]), int(i[1]), int(i[2])).rgba())
+            
+    save.close()
+    return pal
+    
+def export_palette(pal, url, mod="gpl"):
+    """take a list of QRgba and write a palette file (.gpl or .pal) """
+    text = ""
+    for i in pal:
+        print(i)
+        col = QtGui.QColor.fromRgba(i)
+        text = "%s%s %s %s /n" %(text, col.red(), col.green(), col.blue())
+        
+    print(text)
+    
 if __name__ == '__main__':
     import sys
     app = QtGui.QApplication(sys.argv)
