@@ -18,6 +18,7 @@
 
 # export spritesheet
 # export all canvas
+
 # selected layer when undo/redo
 # save custom brush
 # update brush
@@ -860,6 +861,7 @@ class MainWindow(QtGui.QMainWindow):
         #~ self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, bottomDock)
         self.show()
         
+        
     ######## File menu #################################################
     def openAction(self):
         xml, url = open_pix(self.project.dirUrl)
@@ -919,7 +921,10 @@ class MainWindow(QtGui.QMainWindow):
     
     def exportAction(self):
         export_png(self.project, self.project.dirUrl)
-
+    
+    def closeEvent(self, event):
+        self.exitAction()
+        
     def exitAction(self):
         message = QtGui.QMessageBox()
         message.setWindowTitle("Quit?")
@@ -977,8 +982,10 @@ class MainWindow(QtGui.QMainWindow):
 
     def savePaletteAction(self):
         export_palette(self.project.colorTable, "")
+        
     def saveBrushAction(self):
         pass
+        
     def reloadResourcesAction(self):
         self.project.importResources()
         self.toolsWidget.optionPen.loadPenBrush()

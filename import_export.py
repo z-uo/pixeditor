@@ -247,13 +247,13 @@ def import_palette(url):
     save.close()
     return pal
     
-def export_palette(pal, url, mod="gpl"):
+def export_palette(pal, url):
     """take a list of QRgba and write a palette file (.gpl or .pal) """
-    text = ""
+    text = "GIMP Palette \nName: %s\nColumns: 4\n#\n" %(url)
     for i in pal:
         print(i)
         col = QtGui.QColor.fromRgba(i)
-        text = "%s%s %s %s /n" %(text, col.red(), col.green(), col.blue())
+        text = "%s%s %s %s %s \n" %(text, col.red(), col.green(), col.blue(), col.alpha())
         
     print(text)
     
