@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
 
-# Copyright Nicolas Bougère (pops451@gmail.com), 2012-2013
+# Copyright Nicolas Bougère (nicolas.bougere@z-uo.com), 2012-2013
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

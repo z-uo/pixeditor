@@ -452,24 +452,20 @@ class Canvas(QtGui.QImage):
                 a url string to load the image
                 a size tuple to create a new canvas """
         self.project = project
-        if isinstance(arg, QtGui.QImage) and type(col) is list:
+        if isinstance(arg, QtGui.QImage):
             QtGui.QImage.__init__(self, arg)
-            self.setColorTable(self.project.colorTable)
-        elif isinstance(arg, QtGui.QImage):
-            QtGui.QImage.__init__(self, arg)
+            if type(col) is list:
+                self.setColorTable(col)
         elif type(arg) is str:
             QtGui.QImage.__init__(self)
             self.load(arg)
-        elif isinstance(arg, QtCore.QSize) and type(col) is list:
-            QtGui.QImage.__init__(self, arg, QtGui.QImage.Format_Indexed8)
-            self.setColorTable(col)
-            self.fill(0)
         elif isinstance(arg, QtCore.QSize):
             QtGui.QImage.__init__(self, arg, QtGui.QImage.Format_Indexed8)
-            self.setColorTable(self.project.colorTable)
+            if type(col) is list:
+                self.setColorTable(col)
+            else:
+                self.setColorTable(self.project.colorTable)
             self.fill(0)
-
-        self.lastPoint = False
 
     ######## import/export #############################################
     def loadFromList(self, li, exWidth=None, offset=(0, 0)):
@@ -601,6 +597,7 @@ class Canvas(QtGui.QImage):
                 p = QtCore.QPoint(point.x()+i, point.y()+j)
                 if self.rect().contains(p) and self.project.brush(p.x()+p.y()):
                     self.setPixel(p, self.project.color)
+                    self.setPixel(p, 310)
         elif len(self.project.pen[0]) == 3:
             nc = self.colorCount()
             for i, j, c in self.project.pen:
