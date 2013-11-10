@@ -1,18 +1,13 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
 
-# Python 3 Compatibility
-from __future__ import division
-from __future__ import print_function
-from platform import python_version_tuple
-
 from PyQt4 import QtCore
 from PyQt4 import QtGui
-from PyQt4 import Qt
+
 import os
 import xml.etree.ElementTree as ET
 
-from data import Canvas, Layer, Timeline
+from data import Canvas
 
 ######## open/save ########
 def open_pix(dirName):
@@ -33,10 +28,7 @@ def open_pix(dirName):
 def save_pix(xml, url):
     try:
         save = open(url, "w")
-        if int(python_version_tuple()[0]) >= 3:
-            save.write(ET.tostring(xml, encoding="unicode"))
-        else:
-            save.write(ET.tostring(xml))
+        save.write(ET.tostring(xml, encoding="unicode"))
         save.close()
         print("saved")
         return url
@@ -223,26 +215,33 @@ def import_palette(url):
     for line in save.readlines():
         palette.append([""])
         print(line)
+        #~ for char in line:
+            #~ if char.isdigit():
+                #~ palette[-1][-1] += char
+            #~ else:
+                #~ if palette[-1][-1] != "":
+                    #~ palette[-1].append("")
+                    
         for char in line:
             if char.isdigit():
                 palette[-1][-1] += char
             else:
+                if len(palette[-1]) == 3 and palette[-1][-1] != "":
+                    break
                 if palette[-1][-1] != "":
                     palette[-1].append("")
     pal = []
     black = False
     print (palette)
     for i in palette:
-        if 3 <= len(i) <= 5:
+        #~ if 3 <= len(i) <= 5:
+        if len(i) == 3:
             # avoid to fill palette of black as in some pal files
             if i == ["0", "0", "0"]:
                 if black:
                     continue
                 black = True
-            if i[3] != "":
-                pal.append(QtGui.QColor(int(i[0]), int(i[1]), int(i[2]), int(i[2])).rgba())
-            else:
-                pal.append(QtGui.QColor(int(i[0]), int(i[1]), int(i[2])).rgba())
+            pal.append(QtGui.QColor(int(i[0]), int(i[1]), int(i[2])).rgba())
             
     save.close()
     return pal

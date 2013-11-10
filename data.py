@@ -1,15 +1,11 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
 
-# Python 3 Compatibility
-from __future__ import division
-from __future__ import print_function
-
 import sys
 import os
 from PyQt4 import QtCore
 from PyQt4 import QtGui
-from PyQt4 import Qt
+
 import xml.etree.ElementTree as ET
 
 class Project(QtCore.QObject):
@@ -45,8 +41,9 @@ class Project(QtCore.QObject):
         self.size = size
         if colorTable:
             self.colorTable = colorTable
+            self.colorTable.insert(0, QtGui.qRgba(0, 0, 0, 0))
         else:
-            self.colorTable = [QtGui.qRgba(0, 0, 0, 0), QtGui.qRgba(0, 0, 0, 255)]
+            self.colorTable = [QtGui.qRgba(0, 0, 0, 0), QtGui.qRgb(0, 0, 0)]
         self.color = 1
         if frames:
             self.timeline = Timeline(self, [Layer(self, frames, 'import')])
@@ -163,7 +160,7 @@ class Project(QtCore.QObject):
         self.brushList = []
         self.brushDict = {}
         for i in importedModules:
-            self.brushList.append((i.name, QtGui.QIcon(QtGui.QPixmap(os.path.join(brushPath, i.icon)))))
+            self.brushList.append((i.name, QtGui.QPixmap(os.path.join(brushPath, i.icon))))
             self.brushDict[i.name] = i.function
         # pen
         penPath = os.path.join("resources", "pen")
@@ -179,7 +176,7 @@ class Project(QtCore.QObject):
         self.penList = []
         self.penDict = {}
         for i in importedModules:
-            self.penList.append((i.name, QtGui.QIcon(QtGui.QPixmap(os.path.join(penPath, i.icon)))))
+            self.penList.append((i.name, QtGui.QPixmap(os.path.join(penPath, i.icon))))
             self.penDict[i.name] = i.pixelList
         
     def setColor(self, color):
@@ -276,7 +273,7 @@ class Project(QtCore.QObject):
                 self.updateBackgroundSign.emit()
                 self.url = save[5]
                 self.fps = save[6]
-                self.parent.timelineWidget.fpsW.setText(str(self.fps))
+                self.updateFpsSign.emit()
                 self.updateTitleSign.emit()
             elif obj == "background":
                 self.saveToUndo("background", "redoList")
@@ -334,7 +331,7 @@ class Project(QtCore.QObject):
                 self.updateBackgroundSign.emit()
                 self.url = save[5]
                 self.fps = save[6]
-                self.parent.timelineWidget.fpsW.setText(str(self.fps))
+                self.updateFpsSign.emit()
                 self.updateTitleSign.emit()
             elif obj == "background":
                 self.saveToUndo("background", "undolist")
@@ -503,20 +500,19 @@ class Canvas(QtGui.QImage):
         return Canvas(self.project, self)
         
     def mergeCanvas(self, canvas):
-        alpha = [i for i, c in enumerate(self.colorTable()) if QtGui.QColor.fromRgba(c).alpha() == 0]
         for y in range(self.height()):
             for x in range(self.width()):
                 col = canvas.pixelIndex(x, y)
-                if col not in alpha:
+                if col != 0:
                     self.setPixel(x, y, col)
-        
-    def mergeColor(self, exCol, newCol):
+                    
+    def delColor(self, color):
         for y in range(self.height()):
             for x in range(self.width()):
                 pixCol = self.pixelIndex(x, y)
-                if pixCol == exCol:
-                    self.setPixel(x, y, newCol)
-                elif pixCol > exCol:
+                if pixCol == color:
+                    self.setPixel(x, y, 0)
+                elif pixCol > color:
                      self.setPixel(x, y, pixCol-1)
 
     def swapColor(self, col1, col2):
@@ -568,7 +564,7 @@ class Canvas(QtGui.QImage):
         self.project.saveToUndo("canvas")
         self.fill(0)
     
-    def drawLine(self, p2):
+    def drawLine(self, p2, color):
         p1 = self.lastPoint
         # http://fr.wikipedia.org/wiki/Algorithme_de_trac%C3%A9_de_segment_de_Bresenham
         distx = abs(p2.x()-p1.x())
@@ -580,7 +576,7 @@ class Canvas(QtGui.QImage):
                     i = -i
                 x = p1.x() + i
                 y = int(step * i + p1.y() + 0.5)
-                self.drawPoint(QtCore.QPoint(x, y))
+                self.drawPoint(QtCore.QPoint(x, y), color)
         else:
             step = (p2.x()-p1.x()) / (p2.y()-p1.y() or 1)
             for i in range(disty):
@@ -588,17 +584,16 @@ class Canvas(QtGui.QImage):
                     i = -i
                 y = p1.y() + i
                 x = int(step * i + p1.x() + 0.5)
-                self.drawPoint(QtCore.QPoint(x, y))
-        self.drawPoint(p2)
+                self.drawPoint(QtCore.QPoint(x, y), color)
+        self.drawPoint(p2, color)
 
-    def drawPoint(self, point):
-        if len(self.project.pen[0]) == 2:
+    def drawPoint(self, point, color):
+        if self.project.pen and len(self.project.pen[0]) == 2:
             for i, j in self.project.pen:
                 p = QtCore.QPoint(point.x()+i, point.y()+j)
                 if self.rect().contains(p) and self.project.brush(p.x()+p.y()):
-                    self.setPixel(p, self.project.color)
-                    self.setPixel(p, 310)
-        elif len(self.project.pen[0]) == 3:
+                    self.setPixel(p, color)
+        elif self.project.pen and  len(self.project.pen[0]) == 3:
             nc = self.colorCount()
             for i, j, c in self.project.pen:
                 if c < nc:
@@ -606,60 +601,64 @@ class Canvas(QtGui.QImage):
                     if self.rect().contains(p):
                         self.setPixel(p, c)
 
-    def floodFill(self, point, col):
+    def floodFill(self, point, col1, col2):
         l = [(point.x(), point.y())]
         while l:
             p = l.pop(-1)
             x, y = p[0], p[1]
-            if self.rect().contains(x, y) and self.pixelIndex(x, y) == col:
+            if self.rect().contains(x, y) and self.pixelIndex(x, y) == col1:
                 if self.project.brush(x + y):
-                    self.setPixel(QtCore.QPoint(x, y), self.project.color)
+                    self.setPixel(QtCore.QPoint(x, y), col2)
                 l.append((x+1, y))
                 l.append((x-1, y))
                 l.append((x, y+1))
                 l.append((x, y-1))
                 
-    def drawRect(self, rect, color=None):
-        if color is None:
-            color = self.project.color
+    def delRect(self, rect):
         for y in range(max(rect.top(), 0), min(rect.bottom()+1, self.height())):
             for x in range(max(rect.left(), 0), min(rect.right()+1, self.width())):
-                self.setPixel(x, y, color)
+                self.setPixel(x, y, 0)
         
-    def clic(self, point):
-        if  (self.project.tool == "pipette" or
+    def clic(self, point, button):
+        color = self.project.color
+        if button == QtCore.Qt.RightButton:
+            color = 0
+        if  (button == QtCore.Qt.LeftButton and (self.project.tool == "pipette" or
              (self.project.tool == "pen" or self.project.tool == "fill") and
-             QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier):
-            if self.rect().contains(point):
-                self.project.setColor(self.pixelIndex(point))
-                self.lastPoint = False
+             QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier) and 
+             self.rect().contains(point)):
+            self.project.setColor(self.pixelIndex(point))
+            self.lastPoint = False
         elif self.project.tool == "pen":
             self.project.saveToUndo("canvas")
             if QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ShiftModifier and self.lastPoint:
-                self.drawLine(point)
+                self.drawLine(point, color)
             else:
-                self.drawPoint(point)
+                self.drawPoint(point, color)
             self.lastPoint = point
         elif (self.rect().contains(point) and self.project.tool == "fill" and 
-              self.project.color != self.pixelIndex(point)):
+              color != self.pixelIndex(point)):
             self.project.saveToUndo("canvas")
             if self.project.fillMode == "adjacent":
-                self.floodFill(point, self.pixelIndex(point))
+                self.floodFill(point, self.pixelIndex(point), color)
             elif self.project.fillMode == "similar":
-                self.replaceColor(self.pixelIndex(point), self.project.color)
+                self.replaceColor(self.pixelIndex(point), color)
             self.lastPoint = False
 
-    def move(self, point):
-        if  (self.project.tool == "pipette" or
+    def move(self, point, button):
+        color = self.project.color
+        if button == QtCore.Qt.RightButton:
+            color = 0
+        if  (button == QtCore.Qt.LeftButton and (self.project.tool == "pipette" or
              (self.project.tool == "pen" or self.project.tool == "fill") and
-             QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier):
-            if self.rect().contains(point):
-                self.project.setColor(self.pixelIndex(point))
-                self.lastPoint = False
+             QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier) and 
+             self.rect().contains(point)):
+            self.project.setColor(self.pixelIndex(point))
+            self.lastPoint = False
         elif self.project.tool == "pen":
             if self.lastPoint:
-                self.drawLine(point)
+                self.drawLine(point, color)
                 self.lastPoint = point
             else:
-                self.drawPoint(point)
+                self.drawPoint(point, color)
                 self.lastPoint = point

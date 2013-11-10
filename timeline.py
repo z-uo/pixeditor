@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 #-*- coding: utf-8 -*-
 
-# Python 3 Compatibility
-from __future__ import division
-from __future__ import print_function
 
 from PyQt4 import QtGui
 from PyQt4 import QtCore
-from PyQt4 import Qt
+
 from dialogs import RenameLayerDialog
 from widget import Button, Viewer
 

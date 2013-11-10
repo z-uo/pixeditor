@@ -362,7 +362,7 @@ class ColorDialog(QtGui.QDialog):
             
     def getRgba(self):
         if self.result():
-            return True , self.color.rgba()
+            return True , self.color.rgb()
         else:
             return False, None
             

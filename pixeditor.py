@@ -27,22 +27,17 @@
 # add camera layer
 # add rough layer with higher resolution
 
-# Python 3 Compatibility
-from __future__ import division
-from __future__ import print_function
-
 import sys
 import os
 from PyQt4 import QtCore
 from PyQt4 import QtGui
-from PyQt4 import Qt
 
 from data import Project
+from timeline import TimelineWidget
+from sidebar import ToolsWidget
 from dialogs import *
 from import_export import *
-from timeline import TimelineWidget
-from widget import Background, Button, Viewer
-from colorPicker import ColorDialog
+from widget import Background
 
 class SelectionRect(QtGui.QGraphicsRectItem):
     """ Rect item used in scene to display a selection """
@@ -134,7 +129,7 @@ class Scene(QtGui.QGraphicsView):
     def changePen(self):
         for i in self.penItem.childItems():
             self.scene.removeItem(i)
-        if self.project.tool == "pen":
+        if self.project.tool == "pen" and self.project.pen:
             pen = QtGui.QPen(QtCore.Qt.NoPen)
             if len(self.project.pen[0]) == 3:
                 for i in self.project.pen:
@@ -249,8 +244,24 @@ class Scene(QtGui.QGraphicsView):
             self.lastPos = QtCore.QPoint(QtGui.QCursor.pos())
             self.setDragMode(QtGui.QGraphicsView.NoDrag)
         # draw on canvas
-        elif (event.buttons() == QtCore.Qt.LeftButton and
-              self.canvasList[l] and self.project.timeline[l].visible):
+        elif (self.project.timeline[l].visible
+                and (event.buttons() == QtCore.Qt.LeftButton 
+                    or event.buttons() == QtCore.Qt.RightButton)
+                and self.project.tool == "pen" 
+                or self.project.tool == "pipette" 
+                or self.project.tool == "fill"):
+            pos = self.pointToInt(self.mapToScene(event.pos()))
+            if not self.canvasList[l] and self.project.tool == "pen" :
+                self.project.timeline[self.project.curLayer].insertCanvas(
+                        self.project.curFrame, self.project.makeCanvas())
+                self.project.updateTimelineSign.emit()
+                self.project.updateViewSign.emit()
+            self.canvasList[l].clic(pos, event.buttons())
+            self.itemList[l].pixmap().convertFromImage(self.canvasList[l])
+            self.itemList[l].update()
+        # move or select
+        elif (self.project.timeline[l].visible and self.canvasList[l]
+                and event.buttons() == QtCore.Qt.LeftButton):
             pos = self.pointToInt(self.mapToScene(event.pos()))
             if self.project.tool == "move":
                 self.lastPos = pos
@@ -258,24 +269,28 @@ class Scene(QtGui.QGraphicsView):
                 self.selRect = SelectionRect(pos)
                 self.selRect.setZValue(103)
                 self.scene.addItem(self.selRect)
-            else:
-                self.canvasList[l].clic(pos)
-                self.itemList[l].pixmap().convertFromImage(self.canvasList[l])
-                self.itemList[l].update()
-        elif (event.buttons() == QtCore.Qt.LeftButton and
-              self.project.timeline[l].visible and self.project.tool == "pen"):
-            self.project.timeline[self.project.curLayer].insertCanvas(
-                    self.project.curFrame, self.project.makeCanvas())
-            self.project.updateTimelineSign.emit()
-            self.project.updateViewSign.emit()
+                    
+        #~ elif (event.buttons() == QtCore.Qt.LeftButton and
+              #~ self.canvasList[l] and self.project.timeline[l].visible):
+            #~ pos = self.pointToInt(self.mapToScene(event.pos()))
+            #~ if self.project.tool == "move":
+                #~ self.lastPos = pos
+            #~ elif self.project.tool == "select":
+                #~ self.selRect = SelectionRect(pos)
+                #~ self.selRect.setZValue(103)
+                #~ self.scene.addItem(self.selRect)
+            #~ else:
+                #~ self.canvasList[l].clic(pos)
+                #~ self.itemList[l].pixmap().convertFromImage(self.canvasList[l])
+                #~ self.itemList[l].update()
+        #~ elif (event.buttons() == QtCore.Qt.LeftButton and
+              #~ self.project.timeline[l].visible and self.project.tool == "pen"):
+            #~ self.project.timeline[self.project.curLayer].insertCanvas(
+                    #~ self.project.curFrame, self.project.makeCanvas())
+            #~ self.project.updateTimelineSign.emit()
+            #~ self.project.updateViewSign.emit()
         else:
             return QtGui.QGraphicsView.mousePressEvent(self, event)
-
-    def enterEvent(self, event):
-        self.penItem.show()
-
-    def leaveEvent(self, event):
-        self.penItem.hide()
 
     def mouseMoveEvent(self, event):
         self.penItem.show()
@@ -289,8 +304,19 @@ class Scene(QtGui.QGraphicsView):
             self.verticalScrollBar().setValue(self.startScroll[1] -
                     globalPos.y() + self.lastPos.y())
         # draw on canvas
-        elif (event.buttons() == QtCore.Qt.LeftButton
-                and self.canvasList[l] and self.project.timeline[l].visible):
+        elif (self.project.timeline[l].visible and self.canvasList[l] 
+                and (event.buttons() == QtCore.Qt.LeftButton 
+                    or event.buttons() == QtCore.Qt.RightButton)
+                and self.project.tool == "pen"
+                or self.project.tool == "pipette" 
+                or self.project.tool == "fill"):
+            pos = self.pointToInt(self.mapToScene(event.pos()))
+            self.canvasList[l].move(pos, event.buttons())
+            self.itemList[l].pixmap().convertFromImage(self.canvasList[l])
+            self.itemList[l].update()
+        # move or select
+        elif (self.project.timeline[l].visible and self.canvasList[l]
+                and event.buttons() == QtCore.Qt.LeftButton):
             pos = self.pointToInt(self.mapToScene(event.pos()))
             if self.project.tool == "move":
                 dif = pos - self.lastPos
@@ -299,10 +325,22 @@ class Scene(QtGui.QGraphicsView):
                 self.lastPos = pos
             elif self.project.tool == "select": 
                 self.selRect.scale(pos)
-            else:
-                self.canvasList[l].move(pos)
-                self.itemList[l].pixmap().convertFromImage(self.canvasList[l])
-                self.itemList[l].update()
+                    
+                    
+        #~ elif (event.buttons() == QtCore.Qt.LeftButton
+                #~ and self.canvasList[l] and self.project.timeline[l].visible):
+            #~ pos = self.pointToInt(self.mapToScene(event.pos()))
+            #~ if self.project.tool == "move":
+                #~ dif = pos - self.lastPos
+                #~ intPos = self.pointToInt(self.itemList[l].pos())
+                #~ self.itemList[l].setPos(QtCore.QPointF(intPos + dif))
+                #~ self.lastPos = pos
+            #~ elif self.project.tool == "select": 
+                #~ self.selRect.scale(pos)
+            #~ else:
+                #~ self.canvasList[l].move(pos)
+                #~ self.itemList[l].pixmap().convertFromImage(self.canvasList[l])
+                #~ self.itemList[l].update()
         else:
             return QtGui.QGraphicsView.mouseMoveEvent(self, event)
 
@@ -324,7 +362,7 @@ class Scene(QtGui.QGraphicsView):
                     sel = self.canvasList[l].returnAsMatrix(rect)
                     if self.project.selectMode == "cut":
                         self.project.saveToUndo("canvas")
-                        self.canvasList[l].drawRect(rect, 0)
+                        self.canvasList[l].delRect(rect)
                     self.project.customPenSign.emit(sel)
                     self.changeFrame()
                 self.scene.removeItem(self.selRect)
@@ -332,390 +370,11 @@ class Scene(QtGui.QGraphicsView):
         else:
             return QtGui.QGraphicsView.mouseReleaseEvent(self, event)
 
+    def enterEvent(self, event):
+        self.penItem.show()
 
-class PaletteCanvas(QtGui.QWidget):
-    """ Canvas where the palette is draw """
-    def __init__(self, parent):
-        QtGui.QWidget.__init__(self)
-        self.parent = parent
-        self.setFixedSize(164, 644)
-        self.background = QtGui.QBrush(self.parent.project.bgColor)
-        self.alpha = QtGui.QPixmap("icons/color_alpha.png")
-        self.black = QtGui.QBrush(QtGui.QColor(0, 0, 0))
-        self.white = QtGui.QBrush(QtGui.QColor(255, 255, 255))
-        self.parent.project.updateBackgroundSign.connect(self.updateBackground)
-        
-    def updateBackground(self):
-         self.background = QtGui.QBrush(self.parent.project.bgColor)
-         self.update()
-         
-    def paintEvent(self, ev=''):
-        p = QtGui.QPainter(self)
-        p.fillRect (0, 0, self.width(), self.height(), self.background)
-        for n, i in enumerate(self.parent.project.colorTable):
-            y = ((n // 8) * 20) + 2
-            x = ((n % 8) * 20) + 2
-            if n == self.parent.project.color:
-                p.fillRect (x, y, 20, 20, self.black)
-                p.fillRect (x+1, y+1, 18, 18, self.white)
-            p.drawPixmap(x+2, y+2, self.alpha)
-            p.fillRect(x+2, y+2, 16, 16, QtGui.QBrush(QtGui.QColor().fromRgba(i)))
-
-    def event(self, event):
-        if (event.type() == QtCore.QEvent.MouseButtonPress and
-                       event.button()==QtCore.Qt.LeftButton):
-            item = self.getItem(event.x(), event.y())
-            if item is not None:
-                self.parent.project.setColor(item)
-        elif (event.type() == QtCore.QEvent.MouseButtonDblClick and
-                       event.button()==QtCore.Qt.LeftButton):
-            item = self.getItem(event.x(), event.y())
-            if item is not None:
-                self.parent.editColor(item)
-        return QtGui.QWidget.event(self, event)
-        
-    def getItem(self, x, y):
-        x, y = ((x-2) // 20), ((y-2) // 20)
-        if y == 0:
-            s = x
-        else:
-            s = (y * 8) + x
-        if s >= 0 and s < len(self.parent.project.colorTable):
-            return s
-        return None
-
-class OptionPen(QtGui.QGroupBox):
-    """ contextual option for the pen tool """
-    def __init__(self, parent, project):
-        QtGui.QGroupBox .__init__(self, "Pen")
-        self.project = project
-        self.parent = parent
-        
-        ### pen size ###
-        self.penW = QtGui.QComboBox(self)
-        self.brushW = QtGui.QComboBox(self)
-        self.loadPenBrush()
-        self.penW.activated[str].connect(self.penChooserClicked)
-        self.project.customPenSign.connect(self.setCustomPen)
-        self.brushW.activated[str].connect(self.brushChooserClicked)
-        
-        ### Layout ###
-        layout = QtGui.QVBoxLayout()
-        layout.setSpacing(0)
-        layout.addWidget(self.penW)
-        layout.addWidget(self.brushW)
-        layout.addStretch()
-        self.setLayout(layout)
-
-    def loadPenBrush(self):
-        self.penW.clear()
-        for i, j in self.project.penList:
-            self.penW.addItem(j, i)
-        self.brushW.clear()
-        for i, j in self.project.brushList:
-            self.brushW.addItem(j, i)
-        self.brushW.setCurrentIndex(self.brushW.findText("solid"))
-        
-    def penChooserClicked(self, text):
-        self.project.pen = self.project.penDict[str(text)]
-        self.project.penChangedSign.emit()
-        
-    def setCustomPen(self, li):
-        nLi = []
-        mY = len(li)//2
-        mX = len(li[0])//2
-        for y in range(len(li)):
-            py = y - mY
-            for x in range(len(li[y])):
-                col = li[y][x]
-                if col:
-                    px = x - mX
-                    nLi.append((px, py, col))
-        if nLi:
-            self.project.penDict["custom"] = nLi
-            self.penW.setCurrentIndex(self.penW.findText("custom"))
-            self.parent.penClicked()
-            self.penChooserClicked("custom")
-            
-    def brushChooserClicked(self, text):
-        self.project.brush = self.project.brushDict[str(text)]
-        self.parent.optionFill.brushW.setCurrentIndex(self.brushW.currentIndex())
-        
-            
-class OptionFill(QtGui.QGroupBox):
-    """ contextual option for the fill tool """
-    def __init__(self, parent, project):
-        QtGui.QGroupBox .__init__(self, "Fill")
-        self.project = project
-        self.parent = parent
-        
-        self.adjacentFillRadio = QtGui.QRadioButton("adjacent colors", self)
-        self.adjacentFillRadio.pressed.connect(self.adjacentPressed)
-        self.adjacentFillRadio.setChecked(True)
-        self.similarFillRadio = QtGui.QRadioButton("similar colors", self)
-        self.similarFillRadio.pressed.connect(self.similarPressed)
-        
-        self.brushW = QtGui.QComboBox(self)
-        self.loadBrush()
-        self.brushW.activated[str].connect(self.brushChooserClicked)
-        
-        ### Layout ###
-        layout = QtGui.QVBoxLayout()
-        layout.setSpacing(0)
-        layout.addWidget(self.adjacentFillRadio)
-        layout.addWidget(self.similarFillRadio)
-        layout.addWidget(self.brushW)
-        layout.addStretch()
-        self.setLayout(layout)
-        
-    def loadBrush(self):
-        self.brushW.clear()
-        for i, j in self.project.brushList:
-            self.brushW.addItem(j, i)
-        self.brushW.setCurrentIndex(self.brushW.findText("solid"))
-        
-    def adjacentPressed(self):
-        self.project.fillMode = "adjacent"
-        
-    def similarPressed(self):
-        self.project.fillMode = "similar"
-        
-    def brushChooserClicked(self, text):
-        self.project.brush = self.project.brushDict[str(text)]
-        self.parent.optionPen.brushW.setCurrentIndex(self.brushW.currentIndex())
-        
-        
-class OptionSelect(QtGui.QGroupBox):
-    """ contextual option for the select tool """
-    def __init__(self, parent, project):
-        QtGui.QGroupBox .__init__(self, "Select")
-        self.project = project
-        
-        self.cutFillRadio = QtGui.QRadioButton("cut", self)
-        self.cutFillRadio.pressed.connect(self.cutPressed)
-        self.cutFillRadio.setChecked(True)
-        self.copyFillRadio = QtGui.QRadioButton("copy", self)
-        self.copyFillRadio.pressed.connect(self.copyPressed)
-        
-        ### Layout ###
-        layout = QtGui.QVBoxLayout()
-        layout.setSpacing(0)
-        layout.addWidget(self.cutFillRadio)
-        layout.addWidget(self.copyFillRadio)
-        layout.addStretch()
-        self.setLayout(layout)
-        
-    def cutPressed(self):
-        self.project.selectMode = "cut"
-    
-    def copyPressed(self):
-        self.project.selectMode = "copy"
-        
-        
-class ToolsWidget(QtGui.QWidget):
-    """ side widget cantaining tools buttons and palette """
-    def __init__(self, project):
-        QtGui.QWidget.__init__(self)
-        self.project = project
-
-        ### tools buttons ###
-        self.penB = Button("pen", "icons/tool_pen.png", self.penClicked, True)
-        self.optionPen = OptionPen(self, self.project)
-        self.penB.setChecked(True)
-        self.pipetteB = Button("pipette", "icons/tool_pipette.png", self.pipetteClicked, True)
-        self.optionPipette = QtGui.QGroupBox("Pipette")
-        self.fillB = Button("fill", "icons/tool_fill.png", self.fillClicked, True)
-        self.optionFill = OptionFill(self, self.project)
-        self.moveB = Button("move", "icons/tool_move.png", self.moveClicked, True)
-        self.optionMove = QtGui.QGroupBox("Move")
-        self.selectB = Button("select", "icons/tool_select.png", self.selectClicked, True)
-        self.optionSelect = OptionSelect(self, self.project)
-
-        ### palette ###
-        self.paletteCanvas = PaletteCanvas(self)
-        self.paletteV = Viewer()
-        self.paletteV.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.paletteV.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
-        self.paletteV.setWidget(self.paletteCanvas)
-        
-        self.project.updatePaletteSign.connect(self.paletteCanvas.update)
-        addColorB = Button("add color",
-            "icons/color_add.png", self.addColor)
-        delColorB = Button("delete color",
-            "icons/color_del.png", self.delColor)
-        moveLeftColorB = Button("move color left",
-            "icons/color_move_left.png", self.moveColorLeft)
-        moveRightColorB = Button("move color right",
-            "icons/color_move_right.png", self.moveColorRight)
-
-        ### Layout ###
-        tools = QtGui.QVBoxLayout()
-        tools.setSpacing(0)
-        tools.addWidget(self.penB)
-        tools.addWidget(self.pipetteB)
-        tools.addWidget(self.fillB)
-        tools.addWidget(self.moveB)
-        tools.addWidget(self.selectB)
-        tools.addStretch()
-        colors = QtGui.QHBoxLayout()
-        colors.setSpacing(0)
-        colors.addWidget(addColorB)
-        colors.addWidget(delColorB)
-        colors.addWidget(moveLeftColorB)
-        colors.addWidget(moveRightColorB)
-        self.layout = QtGui.QGridLayout()
-        self.layout.setSpacing(4)
-        self.layout.addLayout(tools, 0, 0, 3, 1)
-        #~ self.layout.addLayout(self.optionPen, 0, 1)
-        self.layout.addWidget(self.optionPen, 0, 1)
-        self.layout.addWidget(self.optionPipette, 0, 1)
-        self.optionPipette.hide()
-        self.layout.addWidget(self.optionFill, 0, 1)
-        self.optionFill.hide()
-        self.layout.addWidget(self.optionMove, 0, 1)
-        self.optionMove.hide()
-        self.layout.addWidget(self.optionSelect, 0, 1)
-        self.optionSelect.hide()
-        self.layout.addWidget(self.paletteV, 1, 1)
-        self.layout.addLayout(colors, 2, 1)
-        self.setLayout(self.layout)
-        self.optionPipette.hide()
-
-    def showEvent(self, event):
-        self.paletteV.setMinimumWidth(self.paletteCanvas.width() + 
-                    self.paletteV.verticalScrollBar().width() + 2)
-        # watch about Qframe margin 
-        self.setFixedWidth(self.width())
-        
-    ######## Tools #####################################################
-    def penClicked(self):
-        self.project.tool = "pen"
-        self.penB.setChecked(True)
-        self.pipetteB.setChecked(False)
-        self.fillB.setChecked(False)
-        self.moveB.setChecked(False)
-        self.selectB.setChecked(False)
-        self.project.toolChangedSign.emit()
-        self.optionPen.show()
-        self.optionPipette.hide()
-        self.optionFill.hide()
-        self.optionMove.hide()
-        self.optionSelect.hide()
-
-    def pipetteClicked(self):
-        self.project.tool = "pipette"
-        self.penB.setChecked(False)
-        self.fillB.setChecked(False)
-        self.pipetteB.setChecked(True)
-        self.moveB.setChecked(False)
-        self.selectB.setChecked(False)
-        self.project.toolChangedSign.emit()
-        self.optionPen.hide()
-        self.optionPipette.show()
-        self.optionFill.hide()
-        self.optionMove.hide()
-        self.optionSelect.hide()
-
-    def fillClicked(self):
-        self.project.tool = "fill"
-        self.fillB.setChecked(True)
-        self.pipetteB.setChecked(False)
-        self.penB.setChecked(False)
-        self.moveB.setChecked(False)
-        self.selectB.setChecked(False)
-        self.project.toolChangedSign.emit()
-        self.optionPen.hide()
-        self.optionPipette.hide()
-        self.optionFill.show()
-        self.optionMove.hide()
-        self.optionSelect.hide()
-
-    def moveClicked(self):
-        self.project.tool = "move"
-        self.fillB.setChecked(False)
-        self.pipetteB.setChecked(False)
-        self.penB.setChecked(False)
-        self.moveB.setChecked(True)
-        self.selectB.setChecked(False)
-        self.project.toolChangedSign.emit()
-        self.optionPen.hide()
-        self.optionPipette.hide()
-        self.optionFill.hide()
-        self.optionMove.show()
-        self.optionSelect.hide()
-
-    def selectClicked(self):
-        self.project.tool = "select"
-        self.fillB.setChecked(False)
-        self.pipetteB.setChecked(False)
-        self.penB.setChecked(False)
-        self.moveB.setChecked(False)
-        self.selectB.setChecked(True)
-        self.project.toolChangedSign.emit()
-        self.optionPen.hide()
-        self.optionPipette.hide()
-        self.optionFill.hide()
-        self.optionMove.hide()
-        self.optionSelect.show()
-        
-    ######## Color #####################################################
-    def editColor(self, n):
-        col = self.project.colorTable[self.project.color]
-        ok, color = ColorDialog(True, col).getRgba()
-        if not ok:
-            return
-        self.project.saveToUndo("colorTable")
-        self.project.colorTable[n] = color
-        for i in self.project.timeline.getAllCanvas():
-            i.setColorTable(self.project.colorTable)
-        self.project.updateViewSign.emit()
-        self.paletteCanvas.update()
-        self.project.colorChangedSign.emit()
-
-    def addColor(self):
-        """ select a color and add it to the palette"""
-        if not len(self.project.colorTable) >= 256:
-            col = self.project.colorTable[self.project.color]
-            ok, color = ColorDialog(True, col).getRgba()
-            if not ok:
-                return
-            self.project.saveToUndo("colorTable_frames")
-            self.project.colorTable.append(color)
-            self.project.setColor(len(self.project.colorTable)-1)
-            for i in self.project.timeline.getAllCanvas():
-                i.setColorTable(self.project.colorTable)
-            self.project.updateViewSign.emit()
-
-    def delColor(self):
-        col, table = self.project.color, self.project.colorTable
-        if col != 0:
-            self.project.saveToUndo("colorTable_frames")
-            table.pop(col)
-            for i in self.project.timeline.getAllCanvas():
-                i.mergeColor(col, 0)
-                i.setColorTable(table)
-            self.project.setColor(col-1)
-            self.project.updateViewSign.emit()
-
-    def moveColorLeft(self):
-        col, table = self.project.color, self.project.colorTable
-        if col != 0:
-            self.project.saveToUndo("colorTable_frames")
-            table[col], table[col-1] = table[col-1], table[col]
-            for i in self.project.timeline.getAllCanvas():
-                i.swapColor(col, col-1)
-                i.setColorTable(table)
-            self.project.setColor(col-1)
-
-    def moveColorRight(self):
-        col, table = self.project.color, self.project.colorTable
-        if col != len(table)-1:
-            self.project.saveToUndo("colorTable_frames")
-            table[col], table[col+1] = table[col+1], table[col]
-            for i in self.project.timeline.getAllCanvas():
-                i.swapColor(col, col+1)
-                i.setColorTable(table)
-            self.project.setColor(col+1)
+    def leaveEvent(self, event):
+        self.penItem.hide()
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -861,6 +520,8 @@ class MainWindow(QtGui.QMainWindow):
         #~ self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, bottomDock)
         self.show()
         
+    def showEvent(self, event):
+        self.toolsWidget.setFixedWidth(self.toolsWidget.width())
         
     ######## File menu #################################################
     def openAction(self):
