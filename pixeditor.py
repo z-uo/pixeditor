@@ -18,10 +18,6 @@
 
 # export spritesheet
 # export all canvas
-
-# selected layer when undo/redo
-# save custom brush
-# update brush
 # watch copy paste
 
 # add camera layer
