@@ -246,6 +246,13 @@ def export_palette(pal):
         text = "%s%s %s %s\n" %(text, col.red(), col.green(), col.blue())
     return text
     
+def export_pen(pen, name):
+    text = '#!/usr/bin/env python\n#-*- coding: utf-8 -*-\n\nname = "%s"\nicon = "custom.png"\npixelList = (' %(name)
+    for i in pen:
+        text = "%s(%s, %s)," %(text, i[0], i[1])
+    text = "%s)" %(text)
+    return text
+    
 if __name__ == '__main__':
     import sys
     app = QtGui.QApplication(sys.argv)

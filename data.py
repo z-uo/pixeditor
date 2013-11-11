@@ -160,8 +160,11 @@ class Project(QtCore.QObject):
         self.brushList = []
         self.brushDict = {}
         for i in importedModules:
-            self.brushList.append((i.name, QtGui.QPixmap(os.path.join(brushPath, i.icon))))
-            self.brushDict[i.name] = i.function
+            try:
+                self.brushList.append((i.name, QtGui.QPixmap(os.path.join(brushPath, i.icon))))
+                self.brushDict[i.name] = i.function
+            except AttributeError:
+                print("error on brush import")
         # pen
         penPath = os.path.join("resources", "pen")
         ls = os.listdir(penPath)
@@ -176,8 +179,11 @@ class Project(QtCore.QObject):
         self.penList = []
         self.penDict = {}
         for i in importedModules:
-            self.penList.append((i.name, QtGui.QPixmap(os.path.join(penPath, i.icon))))
-            self.penDict[i.name] = i.pixelList
+            try:
+                self.penList.append((i.name, QtGui.QPixmap(os.path.join(penPath, i.icon))))
+                self.penDict[i.name] = i.pixelList
+            except AttributeError:
+                print("error on pen import")
         
     def setColor(self, color):
         self.color = color

@@ -435,16 +435,14 @@ class MainWindow(QtGui.QMainWindow):
         ### resources menu ###
         savePaletteAction = QtGui.QAction('save  current palette', self)
         savePaletteAction.triggered.connect(self.savePaletteAction)
-        #~ savePaletteAction.setDisabled(True)
-        saveBrushAction = QtGui.QAction('save custom brush', self)
-        saveBrushAction.triggered.connect(self.saveBrushAction)
-        saveBrushAction.setDisabled(True)
+        savePenAction = QtGui.QAction('save custom pen', self)
+        savePenAction.triggered.connect(self.savePenAction)
         reloadResourcesAction = QtGui.QAction('reload resources', self)
         reloadResourcesAction.triggered.connect(self.reloadResourcesAction)
         
         resourcesMenu = menubar.addMenu('Resources')
         resourcesMenu.addAction(savePaletteAction)
-        resourcesMenu.addAction(saveBrushAction)
+        resourcesMenu.addAction(savePenAction)
         resourcesMenu.addAction(reloadResourcesAction)
         
         ### shortcuts ###
@@ -606,7 +604,7 @@ class MainWindow(QtGui.QMainWindow):
             self.project.updateBackgroundSign.emit()
 
     def savePaletteAction(self):
-        url = get_save_url(self.project.dirUrl, "pal")
+        url = get_save_url(os.path.join("resources", "palette"), "pal")
         pal = export_palette(self.project.colorTable)
         try:
             save = open(url, "w")
@@ -616,8 +614,18 @@ class MainWindow(QtGui.QMainWindow):
         except IOError:
             print("Can't open file")
         
-    def saveBrushAction(self):
-        pass
+    def savePenAction(self):
+        if self.project.penDict["custom"]:
+            url = get_save_url(os.path.join("resources", "pen"), "py")
+            pen = export_pen(self.project.penDict["custom"], os.path.splitext(os.path.basename(url))[0])
+            try:
+                save = open(url, "w")
+                save.write(pen)
+                save.close()
+                print("saved")
+            except IOError:
+                print("Can't open file")
+        
         
     def reloadResourcesAction(self):
         self.project.importResources()
