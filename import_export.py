@@ -36,46 +36,7 @@ def save_pix(xml, url):
         print("Can't open file")
         return None
         
-#~ def get_save_url(dirName):
-    #~ if not dirName:
-        #~ dirName = os.path.expanduser("~")
-    #~ while True:
-        #~ url = str(QtGui.QFileDialog.getSaveFileName(None, "save pix file", dirName, "Pix files (*.pix )"))
-        #~ if url:
-            #~ dirName = os.path.dirname(url)
-            #~ fileName, ext = os.path.splitext(url)
-            #~ if ext.lower() == ".pix" or ext == "":
-                #~ pixurl = fileName + ".pix"
-                #~ break
-            #~ else:
-                #~ pixurl = os.path.splitext(url)[0] + ".pix"
-                #~ if os.path.isfile(pixurl):
-                    #~ message = """It seems that you try to save as %s, unfortunaly, I can't do that.
-#~ I can save your animation as :
-#~ %s
-#~ but this file allready exit.
-#~ Should I overwrite it ?""" %(ext, pixurl)
-                    #~ okButton = "Overwrite"
-                #~ else:
-                    #~ message = """It seems that you try to save as %s, unfortunaly, I can't do that.
-#~ Should I save your animation as :
-#~ %s ?""" %(ext, pixurl)
-                    #~ okButton = "Save"
-#~ 
-                #~ messageBox = QtGui.QMessageBox()
-                #~ messageBox.setWindowTitle("Oups !")
-                #~ messageBox.setText(message);
-                #~ messageBox.setIcon(QtGui.QMessageBox.Warning)
-                #~ messageBox.addButton("Cancel", QtGui.QMessageBox.RejectRole)
-                #~ messageBox.addButton(okButton, QtGui.QMessageBox.AcceptRole)
-                #~ ret = messageBox.exec_();
-                #~ if ret:
-                    #~ break
-        #~ else:
-            #~ return None
-    #~ return pixurl
-        
-def get_save_url(dirName, ext="pix"):
+def get_save_url(dirName=None, ext="pix"):
     if not dirName:
         dirName = os.path.expanduser("~")
     while True:
@@ -83,38 +44,35 @@ def get_save_url(dirName, ext="pix"):
                                         dirName, "%s files (*.%s )" %(ext, ext)))
         if url:
             dirName = os.path.dirname(url)
-            fileName, nExt = os.path.splitext(url)
-            if nExt.lower() == ".%s" %(ext) or nExt == "":
-                pixurl = fileName + ".%s" %(ext)
-                break
-                # bug do not confirm overwrite
+            if os.path.splitext(url)[1].lower() == ".%s" %(ext):
+                return url
             else:
-                pixurl = os.path.splitext(url)[0] + ".%s" %(ext)
-                if os.path.isfile(pixurl):
-                    message = """It seems that you try to save as %s, unfortunaly, I can't do that.
-I can save your animation as :
-%s
-but this file allready exit.
-Should I overwrite it ?""" %(nExt, pixurl)
-                    okButton = "Overwrite"
+                url = os.path.splitext(url)[0] + ".%s" %(ext)
+                if os.path.isfile(url):
+                    message = "The file %s allready exist.\n" %(os.path.basename(url))
+                    message = "%sDo you want to overwrite it ?" %(message)
+                    messageBox = QtGui.QMessageBox()
+                    messageBox.setWindowTitle("Overwrite ?")
+                    messageBox.setText(message);
+                    messageBox.setIcon(QtGui.QMessageBox.Warning)
+                    messageBox.addButton("Cancel", QtGui.QMessageBox.RejectRole)
+                    messageBox.addButton("Overwrite", QtGui.QMessageBox.AcceptRole)
+                    ret = messageBox.exec_();
+                    if ret:
+                        return url
                 else:
-                    message = """It seems that you try to save as %s, unfortunaly, I can't do that.
-Should I save your animation as :
-%s ?""" %(nExt, pixurl)
-                    okButton = "Save"
-
-                messageBox = QtGui.QMessageBox()
-                messageBox.setWindowTitle("Oups !")
-                messageBox.setText(message);
-                messageBox.setIcon(QtGui.QMessageBox.Warning)
-                messageBox.addButton("Cancel", QtGui.QMessageBox.RejectRole)
-                messageBox.addButton(okButton, QtGui.QMessageBox.AcceptRole)
-                ret = messageBox.exec_();
-                if ret:
-                    break
+                    message = "The file will be save as %s.\n" %(os.path.basename(url))
+                    messageBox = QtGui.QMessageBox()
+                    messageBox.setWindowTitle("Save ?")
+                    messageBox.setText(message);
+                    messageBox.setIcon(QtGui.QMessageBox.Question)
+                    messageBox.addButton("Cancel", QtGui.QMessageBox.RejectRole)
+                    messageBox.addButton("Save", QtGui.QMessageBox.AcceptRole)
+                    ret = messageBox.exec_();
+                    if ret:
+                        return url
         else:
-            return None
-    return pixurl
+            return
 
 ######## import ########
 def import_img(project, dirName, size=QtCore.QSize(0, 0), colorTable=[0]):
@@ -277,7 +235,7 @@ def import_palette(url):
     save.close()
     return pal
     
-def export_palette(pal, url):
+def export_palette(pal):
     """take a list of QRgb and write a palette file .pal
        without the first alpha color"""
     text = "JASC-PAL\n0100\n%s\n" %(len(pal)-1)
@@ -286,11 +244,10 @@ def export_palette(pal, url):
             continue
         col = QtGui.QColor.fromRgb(i)
         text = "%s%s %s %s\n" %(text, col.red(), col.green(), col.blue())
-        
-    print(text)
+    return text
     
 if __name__ == '__main__':
     import sys
     app = QtGui.QApplication(sys.argv)
-    import_gif("/media/donnees/programation/pixeditor/dup.gif")
+    print(get_save_url())
     sys.exit(app.exec_())

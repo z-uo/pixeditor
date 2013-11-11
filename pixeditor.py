@@ -606,7 +606,15 @@ class MainWindow(QtGui.QMainWindow):
             self.project.updateBackgroundSign.emit()
 
     def savePaletteAction(self):
-        export_palette(self.project.colorTable, "")
+        url = get_save_url(self.project.dirUrl, "pal")
+        pal = export_palette(self.project.colorTable)
+        try:
+            save = open(url, "w")
+            save.write(pal)
+            save.close()
+            print("saved")
+        except IOError:
+            print("Can't open file")
         
     def saveBrushAction(self):
         pass
