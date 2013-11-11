@@ -269,26 +269,6 @@ class Scene(QtGui.QGraphicsView):
                 self.selRect = SelectionRect(pos)
                 self.selRect.setZValue(103)
                 self.scene.addItem(self.selRect)
-                    
-        #~ elif (event.buttons() == QtCore.Qt.LeftButton and
-              #~ self.canvasList[l] and self.project.timeline[l].visible):
-            #~ pos = self.pointToInt(self.mapToScene(event.pos()))
-            #~ if self.project.tool == "move":
-                #~ self.lastPos = pos
-            #~ elif self.project.tool == "select":
-                #~ self.selRect = SelectionRect(pos)
-                #~ self.selRect.setZValue(103)
-                #~ self.scene.addItem(self.selRect)
-            #~ else:
-                #~ self.canvasList[l].clic(pos)
-                #~ self.itemList[l].pixmap().convertFromImage(self.canvasList[l])
-                #~ self.itemList[l].update()
-        #~ elif (event.buttons() == QtCore.Qt.LeftButton and
-              #~ self.project.timeline[l].visible and self.project.tool == "pen"):
-            #~ self.project.timeline[self.project.curLayer].insertCanvas(
-                    #~ self.project.curFrame, self.project.makeCanvas())
-            #~ self.project.updateTimelineSign.emit()
-            #~ self.project.updateViewSign.emit()
         else:
             return QtGui.QGraphicsView.mousePressEvent(self, event)
 
@@ -325,22 +305,6 @@ class Scene(QtGui.QGraphicsView):
                 self.lastPos = pos
             elif self.project.tool == "select": 
                 self.selRect.scale(pos)
-                    
-                    
-        #~ elif (event.buttons() == QtCore.Qt.LeftButton
-                #~ and self.canvasList[l] and self.project.timeline[l].visible):
-            #~ pos = self.pointToInt(self.mapToScene(event.pos()))
-            #~ if self.project.tool == "move":
-                #~ dif = pos - self.lastPos
-                #~ intPos = self.pointToInt(self.itemList[l].pos())
-                #~ self.itemList[l].setPos(QtCore.QPointF(intPos + dif))
-                #~ self.lastPos = pos
-            #~ elif self.project.tool == "select": 
-                #~ self.selRect.scale(pos)
-            #~ else:
-                #~ self.canvasList[l].move(pos)
-                #~ self.itemList[l].pixmap().convertFromImage(self.canvasList[l])
-                #~ self.itemList[l].update()
         else:
             return QtGui.QGraphicsView.mouseMoveEvent(self, event)
 
@@ -471,7 +435,7 @@ class MainWindow(QtGui.QMainWindow):
         ### resources menu ###
         savePaletteAction = QtGui.QAction('save  current palette', self)
         savePaletteAction.triggered.connect(self.savePaletteAction)
-        savePaletteAction.setDisabled(True)
+        #~ savePaletteAction.setDisabled(True)
         saveBrushAction = QtGui.QAction('save custom brush', self)
         saveBrushAction.triggered.connect(self.saveBrushAction)
         saveBrushAction.setDisabled(True)
@@ -649,8 +613,8 @@ class MainWindow(QtGui.QMainWindow):
         
     def reloadResourcesAction(self):
         self.project.importResources()
-        self.toolsWidget.optionPen.loadPenBrush()
-        self.toolsWidget.optionFill.loadBrush()
+        self.toolsWidget.penWidget.loadPen()
+        self.toolsWidget.brushWidget.loadBrush()
         
     ######## Shortcuts #################################################
     def selectFrame(self, n):

@@ -71,24 +71,23 @@ class AlphaCanvas(QtGui.QWidget):
     def updateBackground(self):
          self.background = QtGui.QBrush(self.parent.project.bgColor)
          self.update()
-         
-    def paintEvent(self, ev=''):
-        p = QtGui.QPainter(self)
-        p.fillRect (0, 0, self.width(), self.height(), 
-                QtGui.QBrush(QtGui.QColor(70, 70, 70)))
-        p.fillRect (1, 1, self.width()-2, self.height()-2, self.background)
-        if self.parent.project.color == 0:
-            p.fillRect (3, 3, 20, 20, QtGui.QBrush(QtGui.QColor(0, 0, 0)))
-            p.fillRect (4, 4, 18, 18, QtGui.QBrush(QtGui.QColor(255, 255, 255)))
-        p.drawPixmap(5, 5, self.alpha)
-        # just to be sure alpha is the first color
-        p.fillRect(5, 5, 16, 16, QtGui.QBrush(
-            QtGui.QColor().fromRgba(self.parent.project.colorTable[0])))
 
     def event(self, event):
         if (event.type() == QtCore.QEvent.MouseButtonPress and
                        event.button()==QtCore.Qt.LeftButton):
             self.parent.project.setColor(0)
+        elif event.type() == QtCore.QEvent.Paint:
+            p = QtGui.QPainter(self)
+            p.fillRect (0, 0, self.width(), self.height(), 
+                    QtGui.QBrush(QtGui.QColor(70, 70, 70)))
+            p.fillRect (1, 1, self.width()-2, self.height()-2, self.background)
+            if self.parent.project.color == 0:
+                p.fillRect (3, 3, 20, 20, QtGui.QBrush(QtGui.QColor(0, 0, 0)))
+                p.fillRect (4, 4, 18, 18, QtGui.QBrush(QtGui.QColor(255, 255, 255)))
+            p.drawPixmap(5, 5, self.alpha)
+            # just to be sure alpha is the first color
+            p.fillRect(5, 5, 16, 16, QtGui.QBrush(
+                QtGui.QColor().fromRgba(self.parent.project.colorTable[0])))
         return QtGui.QWidget.event(self, event)
 
     

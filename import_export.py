@@ -36,30 +36,71 @@ def save_pix(xml, url):
         print("Can't open file")
         return None
         
-def get_save_url(dirName):
+#~ def get_save_url(dirName):
+    #~ if not dirName:
+        #~ dirName = os.path.expanduser("~")
+    #~ while True:
+        #~ url = str(QtGui.QFileDialog.getSaveFileName(None, "save pix file", dirName, "Pix files (*.pix )"))
+        #~ if url:
+            #~ dirName = os.path.dirname(url)
+            #~ fileName, ext = os.path.splitext(url)
+            #~ if ext.lower() == ".pix" or ext == "":
+                #~ pixurl = fileName + ".pix"
+                #~ break
+            #~ else:
+                #~ pixurl = os.path.splitext(url)[0] + ".pix"
+                #~ if os.path.isfile(pixurl):
+                    #~ message = """It seems that you try to save as %s, unfortunaly, I can't do that.
+#~ I can save your animation as :
+#~ %s
+#~ but this file allready exit.
+#~ Should I overwrite it ?""" %(ext, pixurl)
+                    #~ okButton = "Overwrite"
+                #~ else:
+                    #~ message = """It seems that you try to save as %s, unfortunaly, I can't do that.
+#~ Should I save your animation as :
+#~ %s ?""" %(ext, pixurl)
+                    #~ okButton = "Save"
+#~ 
+                #~ messageBox = QtGui.QMessageBox()
+                #~ messageBox.setWindowTitle("Oups !")
+                #~ messageBox.setText(message);
+                #~ messageBox.setIcon(QtGui.QMessageBox.Warning)
+                #~ messageBox.addButton("Cancel", QtGui.QMessageBox.RejectRole)
+                #~ messageBox.addButton(okButton, QtGui.QMessageBox.AcceptRole)
+                #~ ret = messageBox.exec_();
+                #~ if ret:
+                    #~ break
+        #~ else:
+            #~ return None
+    #~ return pixurl
+        
+def get_save_url(dirName, ext="pix"):
     if not dirName:
         dirName = os.path.expanduser("~")
     while True:
-        url = str(QtGui.QFileDialog.getSaveFileName(None, "save pix file", dirName, "Pix files (*.pix )"))
+        url = str(QtGui.QFileDialog.getSaveFileName(None, "save %s file" %(ext), 
+                                        dirName, "%s files (*.%s )" %(ext, ext)))
         if url:
             dirName = os.path.dirname(url)
-            fileName, ext = os.path.splitext(url)
-            if ext.lower() == ".pix" or ext == "":
-                pixurl = fileName + ".pix"
+            fileName, nExt = os.path.splitext(url)
+            if nExt.lower() == ".%s" %(ext) or nExt == "":
+                pixurl = fileName + ".%s" %(ext)
                 break
+                # bug do not confirm overwrite
             else:
-                pixurl = os.path.splitext(url)[0] + ".pix"
+                pixurl = os.path.splitext(url)[0] + ".%s" %(ext)
                 if os.path.isfile(pixurl):
                     message = """It seems that you try to save as %s, unfortunaly, I can't do that.
 I can save your animation as :
 %s
 but this file allready exit.
-Should I overwrite it ?""" %(ext, pixurl)
+Should I overwrite it ?""" %(nExt, pixurl)
                     okButton = "Overwrite"
                 else:
                     message = """It seems that you try to save as %s, unfortunaly, I can't do that.
 Should I save your animation as :
-%s ?""" %(ext, pixurl)
+%s ?""" %(nExt, pixurl)
                     okButton = "Save"
 
                 messageBox = QtGui.QMessageBox()
@@ -75,9 +116,8 @@ Should I save your animation as :
             return None
     return pixurl
 
-
 ######## import ########
-def import_img(project, dirName, size=QtCore.QSize(0, 0), colorTable=[]):
+def import_img(project, dirName, size=QtCore.QSize(0, 0), colorTable=[0]):
     if not dirName:
         dirName = os.path.expanduser("~")
     urls = QtGui.QFileDialog.getOpenFileNames(
@@ -98,6 +138,7 @@ def import_img(project, dirName, size=QtCore.QSize(0, 0), colorTable=[]):
                 mov.jumpToFrame(i)
                 img = Canvas(project, mov.currentImage())
                 canvasList.append((img, str(url)))
+                
     for img, url in canvasList:
         if img.format() == QtGui.QImage.Format_Indexed8:
             colorMixed = img.mixColortable(colorTable)
@@ -214,14 +255,6 @@ def import_palette(url):
     palette = []
     for line in save.readlines():
         palette.append([""])
-        print(line)
-        #~ for char in line:
-            #~ if char.isdigit():
-                #~ palette[-1][-1] += char
-            #~ else:
-                #~ if palette[-1][-1] != "":
-                    #~ palette[-1].append("")
-                    
         for char in line:
             if char.isdigit():
                 palette[-1][-1] += char
@@ -232,27 +265,27 @@ def import_palette(url):
                     palette[-1].append("")
     pal = []
     black = False
-    print (palette)
     for i in palette:
-        #~ if 3 <= len(i) <= 5:
         if len(i) == 3:
             # avoid to fill palette of black as in some pal files
             if i == ["0", "0", "0"]:
                 if black:
                     continue
                 black = True
-            pal.append(QtGui.QColor(int(i[0]), int(i[1]), int(i[2])).rgba())
+            pal.append(QtGui.QColor(int(i[0]), int(i[1]), int(i[2])).rgb())
             
     save.close()
     return pal
     
 def export_palette(pal, url):
-    """take a list of QRgba and write a palette file (.gpl or .pal) """
-    text = "GIMP Palette \nName: %s\nColumns: 4\n#\n" %(url)
+    """take a list of QRgb and write a palette file .pal
+       without the first alpha color"""
+    text = "JASC-PAL\n0100\n%s\n" %(len(pal)-1)
     for i in pal:
-        print(i)
-        col = QtGui.QColor.fromRgba(i)
-        text = "%s%s %s %s %s \n" %(text, col.red(), col.green(), col.blue(), col.alpha())
+        if i == 0:
+            continue
+        col = QtGui.QColor.fromRgb(i)
+        text = "%s%s %s %s\n" %(text, col.red(), col.green(), col.blue())
         
     print(text)
     
