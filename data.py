@@ -325,7 +325,7 @@ class Project(QtCore.QObject):
                 self.saveToUndo("timeline_canvas", "undoList")
                 self.timeline = save
             elif obj == "all":
-                self.saveToUndo("all", "undolist")
+                self.saveToUndo("all", "undoList")
                 self.timeline = save[0]
                 self.colorTable = save[1]
                 for i in self.timeline.getAllCanvas():
@@ -339,7 +339,7 @@ class Project(QtCore.QObject):
                 self.updateFpsSign.emit()
                 self.updateTitleSign.emit()
             elif obj == "background":
-                self.saveToUndo("background", "undolist")
+                self.saveToUndo("background", "undoList")
                 self.bgColor = save[0]
                 self.bgPattern = save[1]
                 self.updateBackgroundSign.emit()

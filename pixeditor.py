@@ -611,25 +611,27 @@ class MainWindow(QtGui.QMainWindow):
     def savePaletteAction(self):
         url = get_save_url(os.path.join("resources", "palette"), "pal")
         pal = export_palette(self.project.colorTable)
-        try:
-            save = open(url, "w")
-            save.write(pal)
-            save.close()
-            print("saved")
-        except IOError:
-            print("Can't open file")
+        if url:
+            try:
+                save = open(url, "w")
+                save.write(pal)
+                save.close()
+                print("saved")
+            except IOError:
+                print("Can't open file")
         
     def savePenAction(self):
         if self.project.penDict["custom"]:
             url = get_save_url(os.path.join("resources", "pen"), "py")
             pen = export_pen(self.project.penDict["custom"], os.path.splitext(os.path.basename(url))[0])
-            try:
-                save = open(url, "w")
-                save.write(pen)
-                save.close()
-                print("saved")
-            except IOError:
-                print("Can't open file")
+            if url:
+                try:
+                    save = open(url, "w")
+                    save.write(pen)
+                    save.close()
+                    print("saved")
+                except IOError:
+                    print("Can't open file")
         
         
     def reloadResourcesAction(self):
