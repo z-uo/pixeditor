@@ -207,7 +207,7 @@ def export_png(project, fullUrl=""):
     os.system("convert -delay 1/12 -dispose Background -loop 0 %s*.png %s.gif" %(url, url))
     return fullUrl
     
-def import_palette(url):
+def import_palette(url, nColor=0):
     """ take a file palette (.gpl or .pal) and return a list of QRgba """
     save = open(url, "r")
     palette = []
@@ -221,7 +221,7 @@ def import_palette(url):
                     break
                 if palette[-1][-1] != "":
                     palette[-1].append("")
-    pal = []
+    pal = [QtGui.QColor(0, 0, 0, 0).rgba()]
     black = False
     for i in palette:
         if len(i) == 3:
@@ -231,8 +231,9 @@ def import_palette(url):
                     continue
                 black = True
             pal.append(QtGui.QColor(int(i[0]), int(i[1]), int(i[2])).rgb())
-            
     save.close()
+    while len(pal) < nColor:
+        pal.append(QtGui.QColor(0, 0, 0).rgb())
     return pal
     
 def export_palette(pal):

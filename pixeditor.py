@@ -592,7 +592,16 @@ class MainWindow(QtGui.QMainWindow):
             self.project.updateViewSign.emit()
             
     def replacePaletteAction(self):
-        pass
+        url = QtGui.QFileDialog.getOpenFileName(None, "open palette file", 
+                os.path.join("resources", "palette"), "Palette files (*.pal, *.gpl );;All files (*)")
+        if url:
+            pal = import_palette(url, len(self.project.colorTable))
+            if pal:
+                self.project.colorTable = pal
+                for i in self.project.timeline.getAllCanvas():
+                    i.setColorTable(self.project.colorTable)
+                self.project.updateViewSign.emit()
+                self.project.updatePaletteSign.emit()
         
     def backgroundAction(self):
         color, pattern = BackgroundDialog(self.project.bgColor,

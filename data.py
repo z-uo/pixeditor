@@ -41,7 +41,6 @@ class Project(QtCore.QObject):
         self.size = size
         if colorTable:
             self.colorTable = colorTable
-            self.colorTable.insert(0, QtGui.qRgba(0, 0, 0, 0))
         else:
             self.colorTable = [QtGui.qRgba(0, 0, 0, 0), QtGui.qRgb(0, 0, 0)]
         self.color = 1
