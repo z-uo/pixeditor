@@ -341,6 +341,9 @@ class MainWindow(QtGui.QMainWindow):
     """ Main windows of the application """
     def __init__(self):
         QtGui.QMainWindow.__init__(self)
+        
+        QtGui.QApplication.setOrganizationName("z-uo")
+        QtGui.QApplication.setApplicationName("pixeditor")
 
         self.project = Project(self)
         self.toolsWidget = ToolsWidget(self.project)
@@ -467,15 +470,24 @@ class MainWindow(QtGui.QMainWindow):
         splitter2.addWidget(self.timelineWidget)
         self.setCentralWidget(splitter2)
         
-        #~ self.setDockNestingEnabled(True)
-        #~ self.setCentralWidget(self.scene)
-        #~ leftDock = QtGui.QDockWidget("tools")
-        #~ leftDock.setWidget(self.toolsWidget)
-        #~ self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, leftDock)
-        #~ 
-        #~ bottomDock = QtGui.QDockWidget("timeline")
-        #~ bottomDock.setWidget(self.timelineWidget)
-        #~ self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, bottomDock)
+        self.setDockNestingEnabled(True)
+        self.setCentralWidget(self.scene)
+        leftDock = QtGui.QDockWidget("tools")
+        leftDock.setWidget(self.toolsWidget)
+        leftDock.setObjectName("leftDock")
+        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, leftDock)
+        
+        bottomDock = QtGui.QDockWidget("timeline")
+        bottomDock.setWidget(self.timelineWidget)
+        bottomDock.setObjectName("bottomDock")
+        self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, bottomDock)
+
+        settings = QtCore.QSettings()
+        try:
+            self.restoreState(settings.value("DOCK_LOCATIONS"))
+        except TypeError:
+            pass # no locations to restore so leave as is
+
         self.show()
         
     def showEvent(self, event):
@@ -553,6 +565,8 @@ class MainWindow(QtGui.QMainWindow):
         message.addButton("Yes", QtGui.QMessageBox.AcceptRole)
         ret = message.exec_();
         if ret:
+            settings = QtCore.QSettings()
+            settings.setValue("DOCK_LOCATIONS", self.saveState())
             QtGui.qApp.quit()
         
     ######## Project menu ##############################################
