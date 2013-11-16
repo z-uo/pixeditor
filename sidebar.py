@@ -13,27 +13,50 @@ class PaletteCanvas(QtGui.QWidget):
     def __init__(self, parent):
         QtGui.QWidget.__init__(self)
         self.parent = parent
-        self.setFixedSize(164, 644)
         self.background = QtGui.QBrush(self.parent.project.bgColor)
-        self.black = QtGui.QBrush(QtGui.QColor(0, 0, 0))
-        self.white = QtGui.QBrush(QtGui.QColor(255, 255, 255))
+        self.black = QtGui.QColor(0, 0, 0)
+        self.white = QtGui.QColor(255, 255, 255)
         self.parent.project.updateBackgroundSign.connect(self.updateBackground)
+        self.rowLength = 8
+        self.swatchWidth = self.swatchHeight = 16
+        self.swatchHorizontalPadding = self.swatchVerticalPadding = 2
+        self.swatchOffsetX = self.swatchWidth + 2 * self.swatchHorizontalPadding
+        self.swatchOffsetY = self.swatchHeight + 2 * self.swatchVerticalPadding
+        self.setFixedSize(self.rowLength * self.swatchOffsetX + self.swatchHorizontalPadding,
+                          self.rowLength * self.swatchOffsetY + self.swatchVerticalPadding)
         
     def updateBackground(self):
          self.background = QtGui.QBrush(self.parent.project.bgColor)
          self.update()
-         
+
+    def swatchIndexToGridCoord(self, index):
+        return (index % self.rowLength, index // self.rowLength)
+    
+    def swatchGridCoordToIndex(self, x, y):
+        return y * self.rowLength + x
+    
+    def swatchRect(self, x, y):
+        return QtCore.QRect(x * self.swatchOffsetX + self.swatchHorizontalPadding,
+                            y * self.swatchOffsetY + self.swatchVerticalPadding,
+                            self.swatchWidth, self.swatchHeight)
+    
     def paintEvent(self, ev=''):
         p = QtGui.QPainter(self)
         p.fillRect (0, 0, self.width(), self.height(), self.background)
         for n, i in enumerate(self.parent.project.colorTable):
-            if n > 0:
-                y = (((n-1) // 8) * 20) + 2
-                x = (((n-1) % 8) * 20) + 2
-                if n == self.parent.project.color:
-                    p.fillRect (x, y, 20, 20, self.black)
-                    p.fillRect (x+1, y+1, 18, 18, self.white)
-                p.fillRect(x+2, y+2, 16, 16, QtGui.QBrush(QtGui.QColor().fromRgba(i)))
+            rect = self.swatchRect(*(self.swatchIndexToGridCoord(n)))
+            color = QtGui.QColor().fromRgba(i)
+            if n == 0:
+                p.fillRect(rect.adjusted(0, 0, -rect.width() // 2, -rect.height() // 2), QtGui.QBrush(color))
+                p.fillRect(rect.adjusted(rect.width() // 2, rect.height() // 2, 0, 0), QtGui.QBrush(color))
+            else:
+                p.fillRect(rect, QtGui.QBrush(color))
+
+        rect = self.swatchRect(*(self.swatchIndexToGridCoord(self.parent.project.color)))
+        p.setPen(self.black)
+        p.drawRect (rect.adjusted(-2, -2, 1, 1))
+        p.setPen(self.white)
+        p.drawRect (rect.adjusted(-1, -1, 0, 0))
 
     def event(self, event):
         if (event.type() == QtCore.QEvent.MouseButtonPress and
@@ -49,11 +72,8 @@ class PaletteCanvas(QtGui.QWidget):
         return QtGui.QWidget.event(self, event)
         
     def getItem(self, x, y):
-        x, y = ((x-2) // 20), ((y-2) // 20)
-        if y == 0:
-            s = x + 1
-        else:
-            s = (y * 8) + x + 1
+        x, y = (x - self.swatchHorizontalPadding) // self.swatchOffsetX, (y - self.swatchVerticalPadding) // self.swatchOffsetY
+        s = self.swatchGridCoordToIndex(x, y)
         if s >= 0 and s < len(self.parent.project.colorTable):
             return s
         return None
