@@ -620,12 +620,17 @@ class MainWindow(QtGui.QMainWindow):
         dockWidgets = self.findChildren(QtGui.QDockWidget)
         for dock in dockWidgets:
             if action.isChecked():
-                dock.setFeatures(QtGui.QDockWidget.NoDockWidgetFeatures)
-                dock.setTitleBarWidget(QtGui.QWidget())
+                if dock.isFloating():
+                    dock.setTitleBarWidget(None)
+                    dock.setAllowedAreas(QtCore.Qt.NoDockWidgetArea)
+                    dock.setFeatures(QtGui.QDockWidget.DockWidgetFloatable)
+                else:
+                    dock.setTitleBarWidget(QtGui.QWidget())
+                    dock.setFeatures(QtGui.QDockWidget.NoDockWidgetFeatures)
             else:
                 dock.setFeatures(QtGui.QDockWidget.AllDockWidgetFeatures)
                 dock.setTitleBarWidget(None)
-        pass
+                dock.setAllowedAreas(QtCore.Qt.AllDockWidgetAreas)
     
     ######## Project menu ##############################################
     def newAction(self):
