@@ -360,7 +360,45 @@ class MainWindow(QtGui.QMainWindow):
         self.updateTitle()
         self.project.updateTitleSign.connect(self.updateTitle)
         self.setDockNestingEnabled(True)
+
+        ### layout #####################################################
+        #splitter = QtGui.QSplitter()
+        #splitter.addWidget(self.toolsWidget)
+        #splitter.addWidget(self.scene)
+        #splitter2 = QtGui.QSplitter(QtCore.Qt.Vertical)
+        #splitter2.addWidget(splitter)
+        #splitter2.addWidget(self.timelineWidget)
+        #self.setCentralWidget(splitter2)
         
+        self.setDockNestingEnabled(True)
+        self.setCentralWidget(self.scene)
+        
+        toolsDock = QtGui.QDockWidget("tools")
+        toolsDock.setWidget(self.toolsWidget)
+        toolsDock.setObjectName("toolsDock")
+        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, toolsDock)
+
+        contextDock = QtGui.QDockWidget("context")
+        contextDock.setWidget(self.contextWidget)
+        contextDock.setObjectName("contextDock")
+        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, contextDock)
+
+        optionsDock = QtGui.QDockWidget("options")
+        optionsDock.setWidget(self.optionsWidget)
+        optionsDock.setObjectName("optionsDock")
+        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, optionsDock)
+
+        paletteDock = QtGui.QDockWidget("palette")
+        paletteDock.setWidget(self.paletteWidget)
+        paletteDock.setObjectName("paletteDock")
+        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, paletteDock)
+        
+        timelineDock = Dock("timeline")
+        timelineDock.setWidget(self.timelineWidget)
+        timelineDock.setObjectName("timelineDock")
+        timelineDock.setFeatures(QtGui.QDockWidget.DockWidgetVerticalTitleBar | QtGui.QDockWidget.AllDockWidgetFeatures)
+        self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, timelineDock)
+
         ### File menu ###
         menubar = self.menuBar()
         openAction = QtGui.QAction('Open', self)
@@ -420,6 +458,18 @@ class MainWindow(QtGui.QMainWindow):
         editMenu.addAction(copyAction)
         editMenu.addAction(pasteAction)
         
+        ### view menu ###
+        viewMenu = menubar.addMenu('View')
+        dockWidgets = self.findChildren(QtGui.QDockWidget)
+        for dock in dockWidgets:
+            viewMenu.addAction(dock.toggleViewAction())
+        viewMenu.addSeparator()
+        lockDocksAction = QtGui.QAction('Lock Docks', self)
+        lockDocksAction.setCheckable(True)
+        #lockDocksAction.triggered.connect(self.lockDocksAction(lockDocksAction))
+        lockDocksAction.triggered.connect(lambda: self.lockDocksAction(lockDocksAction))
+        viewMenu.addAction(lockDocksAction)
+        
         ### project menu ###
         newAction = QtGui.QAction('New', self)
         newAction.triggered.connect(self.newAction)
@@ -469,44 +519,7 @@ class MainWindow(QtGui.QMainWindow):
         shortcut5.setKey(QtCore.Qt.Key_Space)
         shortcut5.activated.connect(self.timelineWidget.playPauseClicked)
 
-        ### layout #####################################################
-        splitter = QtGui.QSplitter()
-        splitter.addWidget(self.toolsWidget)
-        splitter.addWidget(self.scene)
-        splitter2 = QtGui.QSplitter(QtCore.Qt.Vertical)
-        splitter2.addWidget(splitter)
-        splitter2.addWidget(self.timelineWidget)
-        self.setCentralWidget(splitter2)
-        
-        self.setDockNestingEnabled(True)
-        self.setCentralWidget(self.scene)
-        
-        toolsDock = QtGui.QDockWidget("tools")
-        toolsDock.setWidget(self.toolsWidget)
-        toolsDock.setObjectName("toolsDock")
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, toolsDock)
-
-        contextDock = QtGui.QDockWidget("context")
-        contextDock.setWidget(self.contextWidget)
-        contextDock.setObjectName("contextDock")
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, contextDock)
-
-        optionsDock = QtGui.QDockWidget("options")
-        optionsDock.setWidget(self.optionsWidget)
-        optionsDock.setObjectName("optionsDock")
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, optionsDock)
-
-        paletteDock = QtGui.QDockWidget("palette")
-        paletteDock.setWidget(self.paletteWidget)
-        paletteDock.setObjectName("paletteDock")
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, paletteDock)
-        
-        timelineDock = Dock("timeline")
-        timelineDock.setWidget(self.timelineWidget)
-        timelineDock.setObjectName("timelineDock")
-        timelineDock.setFeatures(QtGui.QDockWidget.DockWidgetVerticalTitleBar | QtGui.QDockWidget.AllDockWidgetFeatures)
-        self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, timelineDock)
-
+        ### settings ###
         settings = QtCore.QSettings()
         try:
             self.restoreGeometry(settings.value("geometry"))
@@ -602,6 +615,18 @@ class MainWindow(QtGui.QMainWindow):
             #settings.setValue("DOCK_LOCATIONS", self.saveState())
             QtGui.qApp.quit()
         
+    ######## View menu ##############################################
+    def lockDocksAction(self, action):
+        dockWidgets = self.findChildren(QtGui.QDockWidget)
+        for dock in dockWidgets:
+            if action.isChecked():
+                dock.setFeatures(QtGui.QDockWidget.NoDockWidgetFeatures)
+                dock.setTitleBarWidget(QtGui.QWidget())
+            else:
+                dock.setFeatures(QtGui.QDockWidget.AllDockWidgetFeatures)
+                dock.setTitleBarWidget(None)
+        pass
+    
     ######## Project menu ##############################################
     def newAction(self):
         size, palette = NewDialog().getReturn()

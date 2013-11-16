@@ -79,7 +79,7 @@ class PaletteCanvas(QtGui.QWidget):
         return None
 
 class AlphaCanvas(QtGui.QWidget):
-    """ Canvas where the palette is draw """
+    """ Canvas where the palette is drawn """
     def __init__(self, parent):
         QtGui.QWidget.__init__(self)
         self.parent = parent
