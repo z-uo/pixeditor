@@ -7,7 +7,16 @@ from __future__ import print_function
 
 from PyQt4 import QtCore
 from PyQt4 import QtGui
+from PyQt4 import Qt
 
+    
+class Dock(QtGui.QDockWidget):
+    """ dock """
+    def __init__(self, title, parent=None, flags=QtCore.Qt.WindowFlags(0)):
+        QtGui.QDockWidget.__init__(self, title, parent, flags)
+        self.setTitleBarWidget(QtGui.QWidget())
+        self.setTitleBarWidget(None)
+        orientation = Qt.Qt.Orientation(Qt.Qt.Horizontal)
     
 class Button(QtGui.QToolButton):
     """ button """

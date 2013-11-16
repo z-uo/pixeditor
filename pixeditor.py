@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #-*- coding: utf-8 -*-
 
 # Copyright Nicolas Bougère (nicolas.bougere@z-uo.com), 2012-2013
@@ -31,7 +31,11 @@ from PyQt4 import QtGui
 from data import Project
 from timeline import TimelineWidget
 from sidebar import ToolsWidget
+from sidebar import PaletteWidget
+from sidebar import ContextWidget
+from sidebar import OptionsWidget
 from dialogs import *
+from widget import Dock
 from import_export import *
 from widget import Background
 
@@ -347,11 +351,15 @@ class MainWindow(QtGui.QMainWindow):
 
         self.project = Project(self)
         self.toolsWidget = ToolsWidget(self.project)
+        self.contextWidget = ContextWidget(self.project)
+        self.optionsWidget = OptionsWidget(self.project)
+        self.paletteWidget = PaletteWidget(self.project)
         self.timelineWidget = TimelineWidget(self.project)
         self.scene = Scene(self.project)
         
         self.updateTitle()
         self.project.updateTitleSign.connect(self.updateTitle)
+        self.setDockNestingEnabled(True)
         
         ### File menu ###
         menubar = self.menuBar()
@@ -472,21 +480,42 @@ class MainWindow(QtGui.QMainWindow):
         
         self.setDockNestingEnabled(True)
         self.setCentralWidget(self.scene)
-        leftDock = QtGui.QDockWidget("tools")
-        leftDock.setWidget(self.toolsWidget)
-        leftDock.setObjectName("leftDock")
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, leftDock)
         
-        bottomDock = QtGui.QDockWidget("timeline")
-        bottomDock.setWidget(self.timelineWidget)
-        bottomDock.setObjectName("bottomDock")
-        self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, bottomDock)
+        toolsDock = QtGui.QDockWidget("tools")
+        toolsDock.setWidget(self.toolsWidget)
+        toolsDock.setObjectName("toolsDock")
+        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, toolsDock)
+
+        contextDock = QtGui.QDockWidget("context")
+        contextDock.setWidget(self.contextWidget)
+        contextDock.setObjectName("contextDock")
+        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, contextDock)
+
+        optionsDock = QtGui.QDockWidget("options")
+        optionsDock.setWidget(self.optionsWidget)
+        optionsDock.setObjectName("optionsDock")
+        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, optionsDock)
+
+        paletteDock = QtGui.QDockWidget("palette")
+        paletteDock.setWidget(self.paletteWidget)
+        paletteDock.setObjectName("paletteDock")
+        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, paletteDock)
+        
+        timelineDock = Dock("timeline")
+        timelineDock.setWidget(self.timelineWidget)
+        timelineDock.setObjectName("timelineDock")
+        timelineDock.setFeatures(QtGui.QDockWidget.DockWidgetVerticalTitleBar | QtGui.QDockWidget.AllDockWidgetFeatures)
+        self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, timelineDock)
 
         settings = QtCore.QSettings()
         try:
-            self.restoreState(settings.value("DOCK_LOCATIONS"))
+            self.restoreGeometry(settings.value("geometry"))
         except TypeError:
-            pass # no locations to restore so leave as is
+            pass # no geometry to restore so leave as is
+        try:
+            self.restoreState(settings.value("windowState"))
+        except TypeError:
+            pass # no state to restore so leave as is
 
         self.show()
         
@@ -554,7 +583,11 @@ class MainWindow(QtGui.QMainWindow):
         export_png(self.project, self.project.dirUrl)
     
     def closeEvent(self, event):
+        settings = QtCore.QSettings()
+        settings.setValue("geometry", self.saveGeometry())
+        settings.setValue("windowState", self.saveState())
         self.exitAction()
+        #QMainWindow.closeEvent(self, event)
         
     def exitAction(self):
         message = QtGui.QMessageBox()
@@ -565,8 +598,8 @@ class MainWindow(QtGui.QMainWindow):
         message.addButton("Yes", QtGui.QMessageBox.AcceptRole)
         ret = message.exec_();
         if ret:
-            settings = QtCore.QSettings()
-            settings.setValue("DOCK_LOCATIONS", self.saveState())
+            #settings = QtCore.QSettings()
+            #settings.setValue("DOCK_LOCATIONS", self.saveState())
             QtGui.qApp.quit()
         
     ######## Project menu ##############################################
