@@ -367,6 +367,7 @@ class OptionsWidget(QtGui.QWidget):
         self.alphaWidget = AlphaWidget(self)
         self.project.updatePaletteSign.connect(self.alphaWidget.update)
         
+        self.optionPen = QtGui.QLabel("Ctrl to pick color\nShift to draw line")
         self.optionFill = OptionFill(self, self.project)
         self.optionSelect = OptionSelect(self, self.project)
         self.project.toolChangedSign.connect(self.toolChanged)
@@ -382,6 +383,7 @@ class OptionsWidget(QtGui.QWidget):
         layout = QtGui.QVBoxLayout()
         layout.setSpacing(4)
         layout.addLayout(context)
+        layout.addWidget(self.optionPen)
         layout.addWidget(self.optionFill)
         self.optionFill.hide()
         layout.addWidget(self.optionSelect)
@@ -391,13 +393,20 @@ class OptionsWidget(QtGui.QWidget):
         self.setLayout(layout)
         
     def toolChanged(self):
+        if self.project.tool == "pen":
+            self.optionFill.hide()
+            self.optionSelect.hide()
+            self.optionPen.show()
         if self.project.tool == "fill":
             self.optionSelect.hide()
+            self.optionPen.hide()
             self.optionFill.show()
         elif self.project.tool == "select":
             self.optionFill.hide()
+            self.optionPen.hide()
             self.optionSelect.show()
         else:
+            self.optionPen.hide()
             self.optionFill.hide()
             self.optionSelect.hide()
             
@@ -409,12 +418,12 @@ class ToolsWidget(QtGui.QWidget):
         self.project = project
 
         ### tools buttons ###
-        self.penB = Button("pen", "icons/tool_pen.png", self.penClicked, True)
+        self.penB = Button("pen (P)", "icons/tool_pen.png", self.penClicked, True)
         self.penB.setChecked(True)
         self.pipetteB = Button("pipette", "icons/tool_pipette.png", self.pipetteClicked, True)
-        self.fillB = Button("fill", "icons/tool_fill.png", self.fillClicked, True)
-        self.moveB = Button("move", "icons/tool_move.png", self.moveClicked, True)
-        self.selectB = Button("select", "icons/tool_select.png", self.selectClicked, True)
+        self.fillB = Button("fill (F)", "icons/tool_fill.png", self.fillClicked, True)
+        self.moveB = Button("move (M)", "icons/tool_move.png", self.moveClicked, True)
+        self.selectB = Button("select (S)", "icons/tool_select.png", self.selectClicked, True)
 
         ### Layout ###
         layout = QtGui.QVBoxLayout()
