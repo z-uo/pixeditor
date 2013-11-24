@@ -12,12 +12,12 @@ from PyQt4 import Qt
     
 class Dock(QtGui.QDockWidget):
     """ dock """
-    def __init__(self, widget, title, vertical=False):
+    def __init__(self, widget, title, lock=False):
         QtGui.QDockWidget.__init__(self, title)
+        if lock:
+            self.setTitleBarWidget(QtGui.QWidget())
+            self.setFeatures(QtGui.QDockWidget.NoDockWidgetFeatures)
         self.setWidget(widget)
-        self.vertical = vertical
-        if vertical:
-            self.setFeatures(QtGui.QDockWidget.DockWidgetVerticalTitleBar | QtGui.QDockWidget.AllDockWidgetFeatures)
         
     def lock(self, state):
         if state:
@@ -28,10 +28,7 @@ class Dock(QtGui.QDockWidget):
                 self.setTitleBarWidget(QtGui.QWidget())
                 self.setFeatures(QtGui.QDockWidget.NoDockWidgetFeatures)
         else:
-            if self.vertical:
-                self.setFeatures(QtGui.QDockWidget.DockWidgetVerticalTitleBar | QtGui.QDockWidget.AllDockWidgetFeatures)
-            else:
-                self.setFeatures(QtGui.QDockWidget.AllDockWidgetFeatures)
+            self.setFeatures(QtGui.QDockWidget.AllDockWidgetFeatures)
             self.setTitleBarWidget(None)
             self.setAllowedAreas(QtCore.Qt.AllDockWidgetAreas)
             

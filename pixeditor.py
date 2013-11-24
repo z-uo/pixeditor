@@ -345,12 +345,8 @@ class MainWindow(QtGui.QMainWindow):
     def __init__(self):
         QtGui.QMainWindow.__init__(self)
         
-        QtGui.QApplication.setOrganizationName("z-uo")
-        QtGui.QApplication.setApplicationName("pixeditor")
-
         self.project = Project(self)
         self.toolsWidget = ToolsWidget(self.project)
-        #~ self.contextWidget = ContextWidget(self.project)
         self.optionsWidget = OptionsWidget(self.project)
         self.paletteWidget = PaletteWidget(self.project)
         self.timelineWidget = TimelineWidget(self.project)
@@ -363,19 +359,28 @@ class MainWindow(QtGui.QMainWindow):
         self.setDockNestingEnabled(True)
         self.setCentralWidget(self.scene)
         
-        toolsDock = Dock(self.toolsWidget, "tools", True)
+        QtGui.QApplication.setOrganizationName("z-uo")
+        QtGui.QApplication.setApplicationName("pixeditor")
+        settings = QtCore.QSettings()
+        settings.beginGroup("mainWindow")
+        try:
+            lock = bool(int(settings.value("lock")))
+        except TypeError:
+            lock = True
+        
+        toolsDock = Dock(self.toolsWidget, "tools", lock)
         toolsDock.setObjectName("toolsDock")
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, toolsDock)
 
-        optionsDock = Dock(self.optionsWidget, "options")
+        optionsDock = Dock(self.optionsWidget, "options", lock)
         optionsDock.setObjectName("optionsDock")
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, optionsDock)
 
-        paletteDock = Dock(self.paletteWidget, "palette")
+        paletteDock = Dock(self.paletteWidget, "palette", lock)
         paletteDock.setObjectName("paletteDock")
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, paletteDock)
         
-        timelineDock = Dock(self.timelineWidget, "timeline", True)
+        timelineDock = Dock(self.timelineWidget, "timeline", lock)
         timelineDock.setObjectName("timelineDock")
         self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, timelineDock)
 
@@ -476,10 +481,11 @@ class MainWindow(QtGui.QMainWindow):
         for dock in dockWidgets:
             viewMenu.addAction(dock.toggleViewAction())
         viewMenu.addSeparator()
-        lockLayoutAction = QtGui.QAction('Lock Layout', self)
-        lockLayoutAction.setCheckable(True)
-        lockLayoutAction.triggered.connect(lambda: self.lockLayoutAction(lockLayoutAction))
-        viewMenu.addAction(lockLayoutAction)
+        self.lockLayoutWidget = QtGui.QAction('Lock Layout', self)
+        self.lockLayoutWidget.setCheckable(True)
+        self.lockLayoutWidget.setChecked(lock)
+        self.lockLayoutWidget.toggled.connect(self.lockLayoutAction)
+        viewMenu.addAction(self.lockLayoutWidget)
         
         ### shortcuts ###
         QtGui.QShortcut(QtCore.Qt.Key_Left, self, lambda : self.selectFrame(-1))
@@ -487,26 +493,15 @@ class MainWindow(QtGui.QMainWindow):
         QtGui.QShortcut(QtCore.Qt.Key_Up, self, lambda : self.selectLayer(-1))
         QtGui.QShortcut(QtCore.Qt.Key_Down, self, lambda : self.selectLayer(1))
         QtGui.QShortcut(QtCore.Qt.Key_Space, self, self.timelineWidget.playPauseClicked)
-        QtGui.QShortcut(QtCore.Qt.Key_P, self, toolsDock.widget().penClicked)
-        QtGui.QShortcut(QtCore.Qt.Key_F, self, toolsDock.widget().fillClicked)
-        QtGui.QShortcut(QtCore.Qt.Key_M, self, toolsDock.widget().moveClicked)
-        QtGui.QShortcut(QtCore.Qt.Key_S, self, toolsDock.widget().selectClicked)
+        QtGui.QShortcut(QtCore.Qt.Key_1, self, toolsDock.widget().penClicked)
+        QtGui.QShortcut(QtCore.Qt.Key_2, self, toolsDock.widget().pipetteClicked)
+        QtGui.QShortcut(QtCore.Qt.Key_3, self, toolsDock.widget().fillClicked)
+        QtGui.QShortcut(QtCore.Qt.Key_4, self, toolsDock.widget().moveClicked)
+        QtGui.QShortcut(QtCore.Qt.Key_5, self, toolsDock.widget().selectClicked)
+        self.hiddenDock = []
+        QtGui.QShortcut(QtCore.Qt.Key_Tab, self, self.hideDock)
         
         ### settings ###
-        self.readSettings()
-        self.show()
-
-    def writeSettings(self):
-        settings = QtCore.QSettings()
-        settings.beginGroup("mainWindow")
-        settings.setValue("geometry", self.saveGeometry())
-        settings.setValue("windowState", self.saveState())
-        # save the lock state
-        settings.endGroup()
-
-    def readSettings(self):
-        settings = QtCore.QSettings()
-        settings.beginGroup("mainWindow")
         try:
             self.restoreGeometry(settings.value("geometry"))
         except TypeError:
@@ -516,6 +511,7 @@ class MainWindow(QtGui.QMainWindow):
         except TypeError:
             pass # no state to restore so leave as is
         settings.endGroup()
+        self.show()
 
     ######## File menu #################################################
     def openAction(self):
@@ -589,14 +585,14 @@ class MainWindow(QtGui.QMainWindow):
         message.addButton("Yes", QtGui.QMessageBox.AcceptRole)
         ret = message.exec_();
         if ret:
-            self.writeSettings()
+            settings = QtCore.QSettings()
+            settings.beginGroup("mainWindow")
+            settings.setValue("geometry", self.saveGeometry())
+            settings.setValue("windowState", self.saveState())
+            settings.setValue("lock", int(self.lockLayoutWidget.isChecked()))
+            settings.endGroup()
             QtGui.qApp.quit()
         
-    ######## View menu ##############################################
-    def lockLayoutAction(self, action):
-        for dock in self.findChildren(QtGui.QDockWidget):
-            dock.lock(action.isChecked())
-    
     ######## Project menu ##############################################
     def newAction(self):
         size, palette = NewDialog().getReturn()
@@ -681,6 +677,30 @@ class MainWindow(QtGui.QMainWindow):
         self.toolsWidget.penWidget.loadPen()
         self.toolsWidget.brushWidget.loadBrush()
         
+    ######## View menu ##############################################
+    def lockLayoutAction(self, check):
+        for dock in self.findChildren(QtGui.QDockWidget):
+            dock.lock(check)
+    
+    def hideDock(self):
+        hide = False
+        for dock in self.findChildren(QtGui.QDockWidget):
+            if dock.isVisible():
+                hide = True
+        if hide:
+            self.hiddenDock = []
+            for dock in self.findChildren(QtGui.QDockWidget):
+                if dock.isVisible():
+                    self.hiddenDock.append(dock.objectName())
+                    dock.hide()
+        elif self.hiddenDock:
+            for dock in self.findChildren(QtGui.QDockWidget):
+                if dock.objectName() in self.hiddenDock:
+                    dock.show()
+        else:
+            for dock in self.findChildren(QtGui.QDockWidget):
+                dock.show()
+            
     ######## Shortcuts #################################################
     def selectFrame(self, n):
         maxF = max([len(l) for l in self.project.timeline])

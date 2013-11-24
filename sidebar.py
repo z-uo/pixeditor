@@ -59,7 +59,7 @@ class PaletteCanvas(QtGui.QWidget):
 
 
 class AlphaWidget(QtGui.QWidget):
-    """ Canvas where the palette is drawn """
+    """ widget for alpha color, select on clic"""
     def __init__(self, parent):
         QtGui.QWidget.__init__(self)
         self.parent = parent
@@ -92,6 +92,7 @@ class AlphaWidget(QtGui.QWidget):
 
     
 class PenWidget(QtGui.QWidget):
+    """ widget for pen, menu on clic """
     def __init__(self, parent, project):
         QtGui.QWidget.__init__(self)
         self.parent = parent
@@ -157,6 +158,7 @@ class PenWidget(QtGui.QWidget):
 
 
 class BrushWidget(QtGui.QWidget):
+    """ widget for brush, menu on clic """
     def __init__(self, parent, project):
         QtGui.QWidget.__init__(self)
         self.parent = parent
@@ -418,12 +420,12 @@ class ToolsWidget(QtGui.QWidget):
         self.project = project
 
         ### tools buttons ###
-        self.penB = Button("pen (P)", "icons/tool_pen.png", self.penClicked, True)
+        self.penB = Button("pen (1)", "icons/tool_pen.png", self.penClicked, True)
         self.penB.setChecked(True)
-        self.pipetteB = Button("pipette", "icons/tool_pipette.png", self.pipetteClicked, True)
-        self.fillB = Button("fill (F)", "icons/tool_fill.png", self.fillClicked, True)
-        self.moveB = Button("move (M)", "icons/tool_move.png", self.moveClicked, True)
-        self.selectB = Button("select (S)", "icons/tool_select.png", self.selectClicked, True)
+        self.pipetteB = Button("pipette (2)", "icons/tool_pipette.png", self.pipetteClicked, True)
+        self.fillB = Button("fill (3)", "icons/tool_fill.png", self.fillClicked, True)
+        self.moveB = Button("move (4)", "icons/tool_move.png", self.moveClicked, True)
+        self.selectB = Button("select (5)", "icons/tool_select.png", self.selectClicked, True)
 
         ### Layout ###
         layout = QtGui.QVBoxLayout()
