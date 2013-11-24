@@ -577,13 +577,16 @@ class MainWindow(QtGui.QMainWindow):
         self.exitAction()
         
     def exitAction(self):
-        message = QtGui.QMessageBox()
-        message.setWindowTitle("Quit?")
-        message.setText("Are you sure you want to quit?");
-        message.setIcon(QtGui.QMessageBox.Warning)
-        message.addButton("Cancel", QtGui.QMessageBox.RejectRole)
-        message.addButton("Yes", QtGui.QMessageBox.AcceptRole)
-        ret = message.exec_();
+        if not self.project.saved:
+            message = QtGui.QMessageBox()
+            message.setWindowTitle("Quit?")
+            message.setText("Are you sure you want to quit?");
+            message.setIcon(QtGui.QMessageBox.Warning)
+            message.addButton("Cancel", QtGui.QMessageBox.RejectRole)
+            message.addButton("Yes", QtGui.QMessageBox.AcceptRole)
+            ret = message.exec_();
+        else:
+            ret = True
         if ret:
             settings = QtCore.QSettings()
             settings.beginGroup("mainWindow")
