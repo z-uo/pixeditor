@@ -29,10 +29,10 @@ from PyQt4 import QtCore
 from PyQt4 import QtGui
 
 from data import Project
-from timeline import TimelineWidget
-from sidebar import ToolsWidget
-from sidebar import PaletteWidget
-from sidebar import OptionsWidget
+from dock_timeline import TimelineWidget
+from dock_tools import ToolsWidget
+from dock_palette import PaletteWidget
+from dock_options import OptionsWidget
 from dialogs import *
 from widget import Dock
 from import_export import *
@@ -173,8 +173,7 @@ class Scene(QtGui.QGraphicsView):
                 self.itemList[n].setVisible(False)
         # onionskin
         layer = self.project.timeline[self.project.curLayer]
-        if (not self.project.playing and self.project.onionSkinPrev and 
-            self.project.timeline[self.project.curLayer].visible):
+        if not self.project.playing and self.project.onionSkinPrev and layer.visible:
             frame = self.project.curFrame
             prev = False
             while 0 <= frame < len(layer):
@@ -194,8 +193,7 @@ class Scene(QtGui.QGraphicsView):
                 self.onionPrevItem.hide()
         else:
             self.onionPrevItem.hide()
-        if (not self.project.playing and self.project.onionSkinNext and 
-            self.project.timeline[self.project.curLayer].visible):
+        if not self.project.playing and self.project.onionSkinNext and layer.visible:
             frame = self.project.curFrame + 1
             nex = False
             while 0 <= frame < len(layer):

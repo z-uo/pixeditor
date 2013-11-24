@@ -360,7 +360,7 @@ class ColorDialog(QtGui.QDialog):
         else:
             return False, None
             
-    def getRgba(self):
+    def getRgb(self):
         if self.result():
             return True , self.color.rgb()
         else:
