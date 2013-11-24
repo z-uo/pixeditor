@@ -500,6 +500,7 @@ class MainWindow(QtGui.QMainWindow):
         QtGui.QShortcut(QtCore.Qt.Key_5, self, toolsDock.widget().selectClicked)
         self.hiddenDock = []
         QtGui.QShortcut(QtCore.Qt.Key_Tab, self, self.hideDock)
+        QtGui.QShortcut(QtCore.Qt.Key_E, self, self.project.changeColor)
         
         ### settings ###
         try:

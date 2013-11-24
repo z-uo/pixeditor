@@ -58,15 +58,21 @@ class PaletteCanvas(QtGui.QWidget):
         return None
 
 
-class AlphaWidget(QtGui.QWidget):
-    """ widget for alpha color, select on clic"""
-    def __init__(self, parent):
+class ColorWidget(QtGui.QWidget):
+    """ widget for alpha and current color, select on clic"""
+    def __init__(self, color, parent):
         QtGui.QWidget.__init__(self)
         self.parent = parent
         self.setFixedSize(26, 26)
         self.background = QtGui.QBrush(self.parent.project.bgColor)
         self.alpha = QtGui.QPixmap("icons/color_alpha.png")
         self.parent.project.updateBackgroundSign.connect(self.updateBackground)
+        self.color = color
+        self.parent.project.updatePaletteSign.connect(self.update)
+        if color:
+            self.setToolTip("current color (E)")
+        else:
+            self.setToolTip("alpha color (E)")
         
     def updateBackground(self):
          self.background = QtGui.QBrush(self.parent.project.bgColor)
@@ -75,19 +81,28 @@ class AlphaWidget(QtGui.QWidget):
     def event(self, event):
         if (event.type() == QtCore.QEvent.MouseButtonPress and
                        event.button()==QtCore.Qt.LeftButton):
-            self.parent.project.changeColor(0)
+            if self.color:
+                self.parent.project.changeColor(self.parent.project.currentColor)
+            else:
+                self.parent.project.changeColor(0)
         elif event.type() == QtCore.QEvent.Paint:
+            col, cur = self.parent.project.color, self.parent.project.currentColor
             p = QtGui.QPainter(self)
             p.fillRect (0, 0, self.width(), self.height(), 
                     QtGui.QBrush(QtGui.QColor(70, 70, 70)))
             p.fillRect (1, 1, self.width()-2, self.height()-2, self.background)
-            if self.parent.project.color == 0:
+            if ((not self.color and self.parent.project.color == 0)
+                or (self.color and col == cur)):
                 p.fillRect (3, 3, 20, 20, QtGui.QBrush(QtGui.QColor(0, 0, 0)))
                 p.fillRect (4, 4, 18, 18, QtGui.QBrush(QtGui.QColor(255, 255, 255)))
-            p.drawPixmap(5, 5, self.alpha)
-            # just to be sure alpha is the first color
-            p.fillRect(5, 5, 16, 16, QtGui.QBrush(
-                QtGui.QColor().fromRgba(self.parent.project.colorTable[0])))
+            if self.color:
+                p.fillRect(5, 5, 16, 16, QtGui.QBrush(
+                    QtGui.QColor().fromRgba(self.parent.project.colorTable[self.parent.project.currentColor])))
+            else:
+                p.drawPixmap(5, 5, self.alpha)
+                # just to be sure alpha is the first color
+                p.fillRect(5, 5, 16, 16, QtGui.QBrush(
+                    QtGui.QColor().fromRgba(self.parent.project.colorTable[0])))
         return QtGui.QWidget.event(self, event)
 
     
@@ -366,10 +381,9 @@ class OptionsWidget(QtGui.QWidget):
 
         self.penWidget = PenWidget(self, self.project)
         self.brushWidget = BrushWidget(self, self.project)
-        self.alphaWidget = AlphaWidget(self)
-        self.project.updatePaletteSign.connect(self.alphaWidget.update)
+        self.alphaWidget = ColorWidget(False, self)
+        self.colorWidget = ColorWidget(True, self)
         
-        self.optionPen = QtGui.QLabel("Ctrl to pick color\nShift to draw line")
         self.optionFill = OptionFill(self, self.project)
         self.optionSelect = OptionSelect(self, self.project)
         self.project.toolChangedSign.connect(self.toolChanged)
@@ -378,6 +392,7 @@ class OptionsWidget(QtGui.QWidget):
         context = QtGui.QHBoxLayout()
         context.setSpacing(8)
         context.addWidget(self.alphaWidget)
+        context.addWidget(self.colorWidget)
         context.addStretch()
         context.addWidget(self.penWidget)
         context.addWidget(self.brushWidget)
@@ -385,7 +400,6 @@ class OptionsWidget(QtGui.QWidget):
         layout = QtGui.QVBoxLayout()
         layout.setSpacing(4)
         layout.addLayout(context)
-        layout.addWidget(self.optionPen)
         layout.addWidget(self.optionFill)
         self.optionFill.hide()
         layout.addWidget(self.optionSelect)
@@ -395,20 +409,13 @@ class OptionsWidget(QtGui.QWidget):
         self.setLayout(layout)
         
     def toolChanged(self):
-        if self.project.tool == "pen":
-            self.optionFill.hide()
-            self.optionSelect.hide()
-            self.optionPen.show()
         if self.project.tool == "fill":
             self.optionSelect.hide()
-            self.optionPen.hide()
             self.optionFill.show()
         elif self.project.tool == "select":
             self.optionFill.hide()
-            self.optionPen.hide()
             self.optionSelect.show()
         else:
-            self.optionPen.hide()
             self.optionFill.hide()
             self.optionSelect.hide()
             

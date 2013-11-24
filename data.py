@@ -44,6 +44,7 @@ class Project(QtCore.QObject):
         else:
             self.colorTable = [QtGui.qRgba(0, 0, 0, 0), QtGui.qRgb(0, 0, 0)]
         self.color = 1
+        self.currentColor = 1
         if frames:
             self.timeline = Timeline(self, [Layer(self, frames, 'import')])
         else:
@@ -184,14 +185,18 @@ class Project(QtCore.QObject):
             except AttributeError:
                 print("error on pen import")
         
-    def changeColor(self, color):
-        self.color = color
+    def changeColor(self, color=None):
+        if color == None:
+            if self.color == self.currentColor:
+                self.color = 0
+            else:
+                self.color = self.currentColor
+        else:
+            self.color = color
+            if color != 0:
+                self.currentColor = color
         self.colorChangedSign.emit()
         self.updatePaletteSign.emit()
-        
-    def changeTool(self, tool):
-        self.tool = tool
-        self.toolChangedSign.emit()
         
     ######## undo/redo #################################################
     def saveToUndo(self, obj, save=False):
