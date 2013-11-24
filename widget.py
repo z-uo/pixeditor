@@ -35,13 +35,16 @@ class Dock(QtGui.QDockWidget):
     
 class Button(QtGui.QToolButton):
     """ button """
-    def __init__(self, tooltip, iconUrl, connection, checkable=False):
+    def __init__(self, tooltip, icon, connection, checkable=False):
         QtGui.QToolButton.__init__(self)
         self.setToolTip(tooltip)
         self.setAutoRaise(True)
         self.setCheckable(checkable)
-        self.setIconSize(QtCore.QSize(24, 24)) 
-        self.setIcon(QtGui.QIcon(QtGui.QPixmap(iconUrl)))
+        if isinstance(icon, QtGui.QIcon):
+            self.setIcon(icon)
+        elif type(icon) is str:
+            self.setIconSize(QtCore.QSize(24, 24)) 
+            self.setIcon(QtGui.QIcon(QtGui.QPixmap(icon)))
         self.clicked.connect(connection)
 
 

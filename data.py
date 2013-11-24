@@ -32,8 +32,12 @@ class Project(QtCore.QObject):
         self.fillMode = "adjacent"
         self.selectMode = "cut"
         self.loop = False
-        self.onionSkinPrev = False
-        self.onionSkinNext = False
+        self.onionSkin = {"check"     : False,
+                          "color"     : False,
+                          "prevColor" : None,
+                          "prev"      : [[True, 0.5], [True, 0.5], [True, 0.5]],
+                          "nextColor" : None,
+                          "next"      : [[True, 0.5], [True, 0.5], [True, 0.5]]}
         self.initProject()
         self.importResources()
         
@@ -439,13 +443,58 @@ class Layer(list):
                 layer[n] = layer[n].copy_()
         return layer
         
-    def getCanvas(self, index):
+    def getCanvas(self, index, ref=False):
         """ return the canvas at a specific frame """
         while 0 <= index < len(self):
             if self[index]:
-                return self[index]
+                if ref:
+                    return index
+                else:
+                    return self[index]
             else:
                 index -= 1
+    
+    def getPrevCanvas(self, limit=1):
+        li = []
+        frame = self.getCanvas(self.project.curFrame, True)
+        if frame is None:
+            return li
+        prev = frame
+        loop = self.project.loop
+        while 0 <= prev < len(self) and len(li) < limit:
+            prev -= 1
+            if prev == frame:
+                break
+            if prev < 0:
+                if loop:
+                    prev = len(self) - 1
+                    loop = False
+                else:
+                    break
+            if self[prev]:
+                li.append(self[prev])
+        return li
+                
+    def getNextCanvas(self, limit=1):
+        li = []
+        frame = self.getCanvas(self.project.curFrame, True)
+        if frame is None:
+            return li
+        nex = frame + 1
+        loop = self.project.loop
+        while 0 < nex <= len(self) and len(li) < limit:
+            if nex == frame:
+                break
+            if nex >= len(self):
+                if loop:
+                    nex = 0
+                    loop = False
+                else:
+                    break
+            if self[nex]:
+                li.append(self[nex])
+            nex += 1
+        return li
         
     def insertCanvas(self, frame, canvas):
         while frame >= len(self):

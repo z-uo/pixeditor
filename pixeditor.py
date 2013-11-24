@@ -33,6 +33,7 @@ from dock_timeline import TimelineWidget
 from dock_tools import ToolsWidget
 from dock_palette import PaletteWidget
 from dock_options import OptionsWidget
+from dock_onionskin import OnionSkinWidget
 from dialogs import *
 from widget import Dock
 from import_export import *
@@ -99,16 +100,21 @@ class Scene(QtGui.QGraphicsView):
         self.itemList = []
         self.canvasList = []
         # OnionSkin
-        p = QtGui.QPixmap(self.project.size)
-        self.onionPrevItem = self.scene.addPixmap(p)
-        self.onionPrevItem.setZValue(101)
-        self.onionPrevItem.setOpacity(0.5)
-        self.onionPrevItem.hide()
-        p = QtGui.QPixmap(self.project.size)
-        self.onionNextItem = self.scene.addPixmap(p)
-        self.onionNextItem.setZValue(102)
-        self.onionNextItem.setOpacity(0.5)
-        self.onionNextItem.hide()
+        self.onionPrevItems = []
+        for i in range(3):
+            p = QtGui.QPixmap(self.project.size)
+            self.onionPrevItems.append(self.scene.addPixmap(p))
+            self.onionPrevItems[-1].setZValue(100+i)
+            #~ self.onionPrevItems[-1].setOpacity(0.5)
+            self.onionPrevItems[-1].hide()
+        self.onionNextItems = []
+        for i in range(3):
+            p = QtGui.QPixmap(self.project.size)
+            self.onionNextItems.append(self.scene.addPixmap(p))
+            self.onionNextItems[-1].setZValue(103+i)
+            #~ self.onionNextItems[-1].setOpacity(0.5)
+            self.onionNextItems[-1].hide()
+        
         # pen
         self.penItem = QtGui.QGraphicsRectItem(0, 0, 1, 1)
         self.penItem.setBrush(QtGui.QBrush(QtGui.QColor(0, 0, 0, 0)))
@@ -172,45 +178,25 @@ class Scene(QtGui.QGraphicsView):
             else:
                 self.itemList[n].setVisible(False)
         # onionskin
+        for i in self.onionPrevItems:
+            i.hide()
+        for i in self.onionNextItems:
+            i.hide()
         layer = self.project.timeline[self.project.curLayer]
-        if not self.project.playing and self.project.onionSkinPrev and layer.visible:
-            frame = self.project.curFrame
-            prev = False
-            while 0 <= frame < len(layer):
-                if layer[frame]:
-                    if frame == 0 and self.project.loop:
-                        prev = layer.getCanvas(len(layer)-1)
-                    else:
-                        prev = layer.getCanvas(frame-1)
-                    if prev and prev != layer.getCanvas(self.project.curFrame):
-                        self.onionPrevItem.pixmap().convertFromImage(prev)
-                        self.onionPrevItem.show()
-                    else:
-                        self.onionPrevItem.hide()
-                    break
-                frame -= 1
-            else:
-                self.onionPrevItem.hide()
-        else:
-            self.onionPrevItem.hide()
-        if not self.project.playing and self.project.onionSkinNext and layer.visible:
-            frame = self.project.curFrame + 1
-            nex = False
-            while 0 <= frame < len(layer):
-                if layer[frame]:
-                    self.onionNextItem.pixmap().convertFromImage(layer[frame])
-                    self.onionNextItem.show()
-                    break
-                frame += 1
-            else:
-                if (frame == len(layer) and self.project.loop and 
-                    layer[0] != layer.getCanvas(self.project.curFrame)):
-                    self.onionNextItem.pixmap().convertFromImage(layer[0])
-                    self.onionNextItem.show()
-                else:
-                    self.onionNextItem.hide()
-        else:
-            self.onionNextItem.hide()
+        if (not self.project.playing and self.project.onionSkin["check"] and 
+             layer.visible and self.project.curFrame < len(layer)):
+            # previous frames
+            for n, i in enumerate(layer.getPrevCanvas(3)):
+                if self.project.onionSkin["prev"][n][0]:
+                    self.onionPrevItems[n].pixmap().convertFromImage(i)
+                    self.onionPrevItems[n].setOpacity(self.project.onionSkin["prev"][n][1]/100)
+                    self.onionPrevItems[n].show()
+            # next frames
+            for n, i in enumerate(layer.getNextCanvas(3)):
+                if self.project.onionSkin["next"][n][0]:
+                    self.onionNextItems[n].pixmap().convertFromImage(i)
+                    self.onionNextItems[n].setOpacity(self.project.onionSkin["next"][n][1]/100)
+                    self.onionNextItems[n].show()
 
     def wheelEvent(self, event):
         if event.delta() > 0:
@@ -347,6 +333,7 @@ class MainWindow(QtGui.QMainWindow):
         self.toolsWidget = ToolsWidget(self.project)
         self.optionsWidget = OptionsWidget(self.project)
         self.paletteWidget = PaletteWidget(self.project)
+        self.onionSkinWidget = OnionSkinWidget(self.project)
         self.timelineWidget = TimelineWidget(self.project)
         self.scene = Scene(self.project)
         
@@ -377,6 +364,10 @@ class MainWindow(QtGui.QMainWindow):
         paletteDock = Dock(self.paletteWidget, "palette", lock)
         paletteDock.setObjectName("paletteDock")
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, paletteDock)
+        
+        onionSkinDock = Dock(self.onionSkinWidget, "onion skin", lock)
+        onionSkinDock.setObjectName("onionSkinDock")
+        self.addDockWidget(QtCore.Qt.RightDockWidgetArea, onionSkinDock)
         
         timelineDock = Dock(self.timelineWidget, "timeline", lock)
         timelineDock.setObjectName("timelineDock")

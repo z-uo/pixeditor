@@ -4,6 +4,8 @@
 from PyQt4 import QtCore
 from PyQt4 import QtGui
 
+from widget import Button
+
 
 class ColorWidget(QtGui.QWidget):
     """ widget for alpha and current color, select on clic"""
@@ -231,6 +233,8 @@ class OptionsWidget(QtGui.QWidget):
         self.brushWidget = BrushWidget(self, self.project)
         self.alphaWidget = ColorWidget(False, self)
         self.colorWidget = ColorWidget(True, self)
+        self.onionSkinB = Button("onion skin",
+            "icons/onionskin_prev.png", self.onionskinClicked, True)
         
         self.optionFill = OptionFill(self, self.project)
         self.optionSelect = OptionSelect(self, self.project)
@@ -241,6 +245,8 @@ class OptionsWidget(QtGui.QWidget):
         context.setSpacing(8)
         context.addWidget(self.alphaWidget)
         context.addWidget(self.colorWidget)
+        context.addStretch()
+        context.addWidget(self.onionSkinB)
         context.addStretch()
         context.addWidget(self.penWidget)
         context.addWidget(self.brushWidget)
@@ -267,3 +273,6 @@ class OptionsWidget(QtGui.QWidget):
             self.optionFill.hide()
             self.optionSelect.hide()
             
+    def onionskinClicked(self):
+        self.project.onionSkin["check"] = self.onionSkinB.isChecked()
+        self.project.updateViewSign.emit()

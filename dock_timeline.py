@@ -293,12 +293,6 @@ class TimelineWidget(QtGui.QWidget):
         self.delFrameB = Button("delete frame", "icons/frame_del.png", self.deleteFrameClicked)
         self.clearFrameB = Button("clear frame", "icons/frame_clear.png", self.clearFrameClicked)
         
-        ### ponionskin ###
-        self.onionSkinPrevB = Button("onion skin - previous frame",
-            "icons/onionskin_prev.png", self.onionskinPrevClicked, True)
-        self.onionSkinNextB = Button("onion skin - next frame",
-            "icons/onionskin_next.png", self.onionskinNextClicked, True)
-            
         ### play the animation ###
         self.fpsW = QtGui.QSpinBox(self)
         self.fpsW.setValue(self.project.fps)
@@ -331,8 +325,6 @@ class TimelineWidget(QtGui.QWidget):
         canvasTools.addWidget(self.delFrameB)
         canvasTools.addWidget(self.clearFrameB)
         canvasTools.addStretch()
-        canvasTools.addWidget(self.onionSkinPrevB)
-        canvasTools.addWidget(self.onionSkinNextB)
         canvasTools.addWidget(self.fpsW)
         canvasTools.addWidget(self.repeatB)
         canvasTools.addWidget(self.playFrameB)
@@ -548,15 +540,6 @@ class TimelineWidget(QtGui.QWidget):
             self.project.saveToUndo("frames")
             self.project.timeline[l].name = str(nName)
             self.project.updateTimelineSign.emit()
-
-    ######## Onionskin #################################################
-    def onionskinPrevClicked(self):
-        self.project.onionSkinPrev = self.onionSkinPrevB.isChecked()
-        self.project.updateViewSign.emit()
-
-    def onionskinNextClicked(self):
-        self.project.onionSkinNext = self.onionSkinNextB.isChecked()
-        self.project.updateViewSign.emit()
         
     ######## Play ######################################################
     def fpsChanged(self):
