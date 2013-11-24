@@ -184,10 +184,14 @@ class Project(QtCore.QObject):
             except AttributeError:
                 print("error on pen import")
         
-    def setColor(self, color):
+    def changeColor(self, color):
         self.color = color
         self.colorChangedSign.emit()
         self.updatePaletteSign.emit()
+        
+    def changeTool(self, tool):
+        self.tool = tool
+        self.toolChangedSign.emit()
         
     ######## undo/redo #################################################
     def saveToUndo(self, obj, save=False):
@@ -632,7 +636,7 @@ class Canvas(QtGui.QImage):
              (self.project.tool == "pen" or self.project.tool == "fill") and
              QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier) and 
              self.rect().contains(point)):
-            self.project.setColor(self.pixelIndex(point))
+            self.project.changeColor(self.pixelIndex(point))
             self.lastPoint = False
         elif self.project.tool == "pen":
             self.project.saveToUndo("canvas")
@@ -658,7 +662,7 @@ class Canvas(QtGui.QImage):
              (self.project.tool == "pen" or self.project.tool == "fill") and
              QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier) and 
              self.rect().contains(point)):
-            self.project.setColor(self.pixelIndex(point))
+            self.project.changeColor(self.pixelIndex(point))
             self.lastPoint = False
         elif self.project.tool == "pen":
             if self.lastPoint:

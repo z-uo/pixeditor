@@ -12,11 +12,29 @@ from PyQt4 import Qt
     
 class Dock(QtGui.QDockWidget):
     """ dock """
-    def __init__(self, title, parent=None, flags=QtCore.Qt.WindowFlags(0)):
-        QtGui.QDockWidget.__init__(self, title, parent, flags)
-        self.setTitleBarWidget(QtGui.QWidget())
-        self.setTitleBarWidget(None)
-        orientation = Qt.Qt.Orientation(Qt.Qt.Horizontal)
+    def __init__(self, widget, title, vertical=False):
+        QtGui.QDockWidget.__init__(self, title)
+        self.setWidget(widget)
+        self.vertical = vertical
+        if vertical:
+            self.setFeatures(QtGui.QDockWidget.DockWidgetVerticalTitleBar | QtGui.QDockWidget.AllDockWidgetFeatures)
+        
+    def lock(self, state):
+        if state:
+            if self.isFloating():
+                self.setTitleBarWidget(None)
+                self.setAllowedAreas(QtCore.Qt.NoDockWidgetArea)
+            else:
+                self.setTitleBarWidget(QtGui.QWidget())
+                self.setFeatures(QtGui.QDockWidget.NoDockWidgetFeatures)
+        else:
+            if self.vertical:
+                self.setFeatures(QtGui.QDockWidget.DockWidgetVerticalTitleBar | QtGui.QDockWidget.AllDockWidgetFeatures)
+            else:
+                self.setFeatures(QtGui.QDockWidget.AllDockWidgetFeatures)
+            self.setTitleBarWidget(None)
+            self.setAllowedAreas(QtCore.Qt.AllDockWidgetAreas)
+            
     
 class Button(QtGui.QToolButton):
     """ button """

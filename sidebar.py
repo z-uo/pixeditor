@@ -7,63 +7,39 @@ from PyQt4 import QtGui
 from widget import Button, Viewer
 from colorPicker import ColorDialog
 
-
 class PaletteCanvas(QtGui.QWidget):
     """ Canvas where the palette is draw """
     def __init__(self, parent):
         QtGui.QWidget.__init__(self)
         self.parent = parent
+        self.setFixedSize(164, 644)
         self.background = QtGui.QBrush(self.parent.project.bgColor)
-        self.black = QtGui.QColor(0, 0, 0)
-        self.white = QtGui.QColor(255, 255, 255)
+        self.black = QtGui.QBrush(QtGui.QColor(0, 0, 0))
+        self.white = QtGui.QBrush(QtGui.QColor(255, 255, 255))
         self.parent.project.updateBackgroundSign.connect(self.updateBackground)
-        self.rowLength = 8
-        self.swatchWidth = self.swatchHeight = 16
-        self.swatchHorizontalPadding = self.swatchVerticalPadding = 2
-        self.swatchOffsetX = self.swatchWidth + 2 * self.swatchHorizontalPadding
-        self.swatchOffsetY = self.swatchHeight + 2 * self.swatchVerticalPadding
-        self.setFixedSize(self.rowLength * self.swatchOffsetX + self.swatchHorizontalPadding,
-                          self.rowLength * self.swatchOffsetY + self.swatchVerticalPadding)
         
     def updateBackground(self):
          self.background = QtGui.QBrush(self.parent.project.bgColor)
          self.update()
-
-    def swatchIndexToGridCoord(self, index):
-        return (index % self.rowLength, index // self.rowLength)
-    
-    def swatchGridCoordToIndex(self, x, y):
-        return y * self.rowLength + x
-    
-    def swatchRect(self, x, y):
-        return QtCore.QRect(x * self.swatchOffsetX + self.swatchHorizontalPadding,
-                            y * self.swatchOffsetY + self.swatchVerticalPadding,
-                            self.swatchWidth, self.swatchHeight)
-    
+         
     def paintEvent(self, ev=''):
         p = QtGui.QPainter(self)
         p.fillRect (0, 0, self.width(), self.height(), self.background)
         for n, i in enumerate(self.parent.project.colorTable):
-            rect = self.swatchRect(*(self.swatchIndexToGridCoord(n)))
-            color = QtGui.QColor().fromRgba(i)
-            if n == 0:
-                p.fillRect(rect.adjusted(0, 0, -rect.width() // 2, -rect.height() // 2), QtGui.QBrush(color))
-                p.fillRect(rect.adjusted(rect.width() // 2, rect.height() // 2, 0, 0), QtGui.QBrush(color))
-            else:
-                p.fillRect(rect, QtGui.QBrush(color))
-
-        rect = self.swatchRect(*(self.swatchIndexToGridCoord(self.parent.project.color)))
-        p.setPen(self.black)
-        p.drawRect (rect.adjusted(-2, -2, 1, 1))
-        p.setPen(self.white)
-        p.drawRect (rect.adjusted(-1, -1, 0, 0))
+            if n > 0:
+                y = (((n-1) // 8) * 20) + 2
+                x = (((n-1) % 8) * 20) + 2
+                if n == self.parent.project.color:
+                    p.fillRect (x, y, 20, 20, self.black)
+                    p.fillRect (x+1, y+1, 18, 18, self.white)
+                p.fillRect(x+2, y+2, 16, 16, QtGui.QBrush(QtGui.QColor().fromRgba(i)))
 
     def event(self, event):
         if (event.type() == QtCore.QEvent.MouseButtonPress and
                        event.button()==QtCore.Qt.LeftButton):
             item = self.getItem(event.x(), event.y())
             if item is not None:
-                self.parent.project.setColor(item)
+                self.parent.project.changeColor(item)
         elif (event.type() == QtCore.QEvent.MouseButtonDblClick and
                        event.button()==QtCore.Qt.LeftButton):
             item = self.getItem(event.x(), event.y())
@@ -72,13 +48,17 @@ class PaletteCanvas(QtGui.QWidget):
         return QtGui.QWidget.event(self, event)
         
     def getItem(self, x, y):
-        x, y = (x - self.swatchHorizontalPadding) // self.swatchOffsetX, (y - self.swatchVerticalPadding) // self.swatchOffsetY
-        s = self.swatchGridCoordToIndex(x, y)
+        x, y = ((x-2) // 20), ((y-2) // 20)
+        if y == 0:
+            s = x + 1
+        else:
+            s = (y * 8) + x + 1
         if s >= 0 and s < len(self.parent.project.colorTable):
             return s
         return None
 
-class AlphaCanvas(QtGui.QWidget):
+
+class AlphaWidget(QtGui.QWidget):
     """ Canvas where the palette is drawn """
     def __init__(self, parent):
         QtGui.QWidget.__init__(self)
@@ -95,7 +75,7 @@ class AlphaCanvas(QtGui.QWidget):
     def event(self, event):
         if (event.type() == QtCore.QEvent.MouseButtonPress and
                        event.button()==QtCore.Qt.LeftButton):
-            self.parent.project.setColor(0)
+            self.parent.project.changeColor(0)
         elif event.type() == QtCore.QEvent.Paint:
             p = QtGui.QPainter(self)
             p.fillRect (0, 0, self.width(), self.height(), 
@@ -282,8 +262,6 @@ class PaletteWidget(QtGui.QWidget):
         QtGui.QWidget.__init__(self)
         self.project = project
 
-        self.alphaCanvas = AlphaCanvas(self)
-
         ### palette ###
         self.paletteCanvas = PaletteCanvas(self)
         self.paletteV = Viewer()
@@ -292,7 +270,6 @@ class PaletteWidget(QtGui.QWidget):
         self.paletteV.setWidget(self.paletteCanvas)
         
         self.project.updatePaletteSign.connect(self.paletteCanvas.update)
-        self.project.updatePaletteSign.connect(self.alphaCanvas.update)
         addColorB = Button("add color",
             "icons/color_add.png", self.addColor)
         delColorB = Button("delete color",
@@ -309,15 +286,10 @@ class PaletteWidget(QtGui.QWidget):
         colorButtons.addWidget(delColorB)
         colorButtons.addWidget(moveLeftColorB)
         colorButtons.addWidget(moveRightColorB)
-        paintOption = QtGui.QHBoxLayout()
-        paintOption.setSpacing(0)
-        paintOption.addWidget(self.alphaCanvas)
-        paintOption.addStretch()
-        self.layout = QtGui.QGridLayout()
+        self.layout = QtGui.QVBoxLayout()
         self.layout.setSpacing(0)
-        self.layout.addLayout(paintOption, 1, 1)
-        self.layout.addWidget(self.paletteV, 2, 1)
-        self.layout.addLayout(colorButtons, 3, 1)
+        self.layout.addWidget(self.paletteV)
+        self.layout.addLayout(colorButtons)
         self.layout.setContentsMargins(6, 0, 6, 0)
         self.setLayout(self.layout)
 
@@ -348,7 +320,7 @@ class PaletteWidget(QtGui.QWidget):
                 return
             self.project.saveToUndo("colorTable_frames")
             self.project.colorTable.append(color)
-            self.project.setColor(len(self.project.colorTable)-1)
+            self.project.changeColor(len(self.project.colorTable)-1)
             for i in self.project.timeline.getAllCanvas():
                 i.setColorTable(self.project.colorTable)
             self.project.updateViewSign.emit()
@@ -361,7 +333,7 @@ class PaletteWidget(QtGui.QWidget):
             for i in self.project.timeline.getAllCanvas():
                 i.delColor(col)
                 i.setColorTable(table)
-            self.project.setColor(col-1)
+            self.project.changeColor(col-1)
             self.project.updateViewSign.emit()
 
     def moveColorLeft(self):
@@ -372,7 +344,7 @@ class PaletteWidget(QtGui.QWidget):
             for i in self.project.timeline.getAllCanvas():
                 i.swapColor(col, col-1)
                 i.setColorTable(table)
-            self.project.setColor(col-1)
+            self.project.changeColor(col-1)
 
     def moveColorRight(self):
         col, table = self.project.color, self.project.colorTable
@@ -382,31 +354,53 @@ class PaletteWidget(QtGui.QWidget):
             for i in self.project.timeline.getAllCanvas():
                 i.swapColor(col, col+1)
                 i.setColorTable(table)
-            self.project.setColor(col+1)
+            self.project.changeColor(col+1)
 
-class ContextWidget(QtGui.QWidget):
-    """ side widget cantaining painting context """
+class OptionsWidget(QtGui.QWidget):
+    """ side widget cantaining options """
     def __init__(self, project):
         QtGui.QWidget.__init__(self)
         self.project = project
 
         self.penWidget = PenWidget(self, self.project)
         self.brushWidget = BrushWidget(self, self.project)
+        self.alphaWidget = AlphaWidget(self)
+        self.project.updatePaletteSign.connect(self.alphaWidget.update)
+        
+        self.optionFill = OptionFill(self, self.project)
+        self.optionSelect = OptionSelect(self, self.project)
+        self.project.toolChangedSign.connect(self.toolChanged)
 
         ### Layout ###
-        self.layout = QtGui.QHBoxLayout()
-        self.layout.setSpacing(0)
-        self.layout.addWidget(self.penWidget)
-        self.layout.addWidget(self.brushWidget)
-        self.layout.addStretch()
-        self.layout.setContentsMargins(6, 0, 6, 0)
-        self.setLayout(self.layout)
-                
-class OptionsWidget(QtGui.QWidget):
-    """ side widget cantaining options """
-    def __init__(self, project):
-        QtGui.QWidget.__init__(self)
-        self.project = project
+        context = QtGui.QHBoxLayout()
+        context.setSpacing(8)
+        context.addWidget(self.alphaWidget)
+        context.addStretch()
+        context.addWidget(self.penWidget)
+        context.addWidget(self.brushWidget)
+        context.setContentsMargins(0, 0, 0, 0)
+        layout = QtGui.QVBoxLayout()
+        layout.setSpacing(4)
+        layout.addLayout(context)
+        layout.addWidget(self.optionFill)
+        self.optionFill.hide()
+        layout.addWidget(self.optionSelect)
+        self.optionSelect.hide()
+        layout.addStretch()
+        
+        self.setLayout(layout)
+        
+    def toolChanged(self):
+        if self.project.tool == "fill":
+            self.optionSelect.hide()
+            self.optionFill.show()
+        elif self.project.tool == "select":
+            self.optionFill.hide()
+            self.optionSelect.show()
+        else:
+            self.optionFill.hide()
+            self.optionSelect.hide()
+            
         
 class ToolsWidget(QtGui.QWidget):
     """ side widget cantaining tools buttons """
@@ -419,30 +413,20 @@ class ToolsWidget(QtGui.QWidget):
         self.penB.setChecked(True)
         self.pipetteB = Button("pipette", "icons/tool_pipette.png", self.pipetteClicked, True)
         self.fillB = Button("fill", "icons/tool_fill.png", self.fillClicked, True)
-        self.optionFill = OptionFill(self, self.project)
         self.moveB = Button("move", "icons/tool_move.png", self.moveClicked, True)
         self.selectB = Button("select", "icons/tool_select.png", self.selectClicked, True)
-        self.optionSelect = OptionSelect(self, self.project)
 
         ### Layout ###
-        tools = QtGui.QHBoxLayout()
-        tools.setSpacing(0)
-        tools.addWidget(self.penB)
-        tools.addWidget(self.pipetteB)
-        tools.addWidget(self.fillB)
-        tools.addWidget(self.moveB)
-        tools.addWidget(self.selectB)
-        tools.addStretch()
-        self.layout = QtGui.QGridLayout()
-        self.layout.setSpacing(4)
-        self.layout.addLayout(tools, 0, 0, 4, 1)
-        self.layout.addWidget(self.optionSelect, 0, 1)
-        self.layout.addWidget(self.optionFill, 0, 1)
-        self.optionFill.hide()
-        self.layout.addWidget(self.optionSelect, 0, 1)
-        self.optionSelect.hide()
-        self.layout.setContentsMargins(6, 0, 6, 0)
-        self.setLayout(self.layout)
+        layout = QtGui.QVBoxLayout()
+        layout.setSpacing(0)
+        layout.addWidget(self.penB)
+        layout.addWidget(self.pipetteB)
+        layout.addWidget(self.fillB)
+        layout.addWidget(self.moveB)
+        layout.addWidget(self.selectB)
+        layout.addStretch()
+        layout.setContentsMargins(6, 0, 6, 0)
+        self.setLayout(layout)
         
     ######## Tools #####################################################
     def penClicked(self):
@@ -453,8 +437,6 @@ class ToolsWidget(QtGui.QWidget):
         self.moveB.setChecked(False)
         self.selectB.setChecked(False)
         self.project.toolChangedSign.emit()
-        self.optionFill.hide()
-        self.optionSelect.hide()
 
     def pipetteClicked(self):
         self.project.tool = "pipette"
@@ -464,8 +446,6 @@ class ToolsWidget(QtGui.QWidget):
         self.moveB.setChecked(False)
         self.selectB.setChecked(False)
         self.project.toolChangedSign.emit()
-        self.optionFill.hide()
-        self.optionSelect.hide()
 
     def fillClicked(self):
         self.project.tool = "fill"
@@ -475,8 +455,6 @@ class ToolsWidget(QtGui.QWidget):
         self.moveB.setChecked(False)
         self.selectB.setChecked(False)
         self.project.toolChangedSign.emit()
-        self.optionFill.show()
-        self.optionSelect.hide()
 
     def moveClicked(self):
         self.project.tool = "move"
@@ -486,9 +464,7 @@ class ToolsWidget(QtGui.QWidget):
         self.moveB.setChecked(True)
         self.selectB.setChecked(False)
         self.project.toolChangedSign.emit()
-        self.optionFill.hide()
-        self.optionSelect.hide()
-
+        
     def selectClicked(self):
         self.project.tool = "select"
         self.fillB.setChecked(False)
@@ -497,6 +473,3 @@ class ToolsWidget(QtGui.QWidget):
         self.moveB.setChecked(False)
         self.selectB.setChecked(True)
         self.project.toolChangedSign.emit()
-        self.optionFill.hide()
-        self.optionSelect.show()
-        
