@@ -340,7 +340,7 @@ class PaletteWidget(QtGui.QWidget):
 
     def moveColorLeft(self):
         col, table = self.project.color, self.project.colorTable
-        if col != 0:
+        if col != 0 and col != 1:
             self.project.saveToUndo("colorTable_frames")
             table[col], table[col-1] = table[col-1], table[col]
             for i in self.project.timeline.getAllCanvas():
@@ -350,7 +350,7 @@ class PaletteWidget(QtGui.QWidget):
 
     def moveColorRight(self):
         col, table = self.project.color, self.project.colorTable
-        if col != len(table)-1:
+        if col != len(table)-1 and col != 0:
             self.project.saveToUndo("colorTable_frames")
             table[col], table[col+1] = table[col+1], table[col]
             for i in self.project.timeline.getAllCanvas():
