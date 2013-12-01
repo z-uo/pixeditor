@@ -104,15 +104,13 @@ class Scene(QtGui.QGraphicsView):
         for i in range(3):
             p = QtGui.QPixmap(self.project.size)
             self.onionPrevItems.append(self.scene.addPixmap(p))
-            self.onionPrevItems[-1].setZValue(100+i)
-            #~ self.onionPrevItems[-1].setOpacity(0.5)
+            self.onionPrevItems[-1].setZValue(101+i)
             self.onionPrevItems[-1].hide()
         self.onionNextItems = []
         for i in range(3):
             p = QtGui.QPixmap(self.project.size)
             self.onionNextItems.append(self.scene.addPixmap(p))
-            self.onionNextItems[-1].setZValue(103+i)
-            #~ self.onionNextItems[-1].setOpacity(0.5)
+            self.onionNextItems[-1].setZValue(104+i)
             self.onionNextItems[-1].hide()
         
         # pen
@@ -120,7 +118,7 @@ class Scene(QtGui.QGraphicsView):
         self.penItem.setBrush(QtGui.QBrush(QtGui.QColor(0, 0, 0, 0)))
         self.penItem.setPen(QtGui.QPen(QtCore.Qt.NoPen))
         self.scene.addItem(self.penItem)
-        self.penItem.setZValue(103)
+        self.penItem.setZValue(120)
         self.penItem.hide()
         self.project.penChangedSign.connect(self.changePen)
         self.project.toolChangedSign.connect(self.changePen)
@@ -189,13 +187,25 @@ class Scene(QtGui.QGraphicsView):
             for n, i in enumerate(layer.getPrevCanvas(3)):
                 if self.project.onionSkin["prev"][n][0]:
                     self.onionPrevItems[n].pixmap().convertFromImage(i)
-                    self.onionPrevItems[n].setOpacity(self.project.onionSkin["prev"][n][1]/100)
+                    if self.project.onionSkin["color"]:
+                        prevEffect = QtGui.QGraphicsColorizeEffect()
+                        prevEffect.setColor(self.project.onionSkin["prev_color"])
+                        self.onionPrevItems[n].setGraphicsEffect(prevEffect)
+                    else:
+                        self.onionPrevItems[n].setGraphicsEffect(None)
+                    self.onionPrevItems[n].setOpacity(self.project.onionSkin["prev"][n][1])
                     self.onionPrevItems[n].show()
             # next frames
             for n, i in enumerate(layer.getNextCanvas(3)):
                 if self.project.onionSkin["next"][n][0]:
                     self.onionNextItems[n].pixmap().convertFromImage(i)
-                    self.onionNextItems[n].setOpacity(self.project.onionSkin["next"][n][1]/100)
+                    if self.project.onionSkin["color"]:
+                        nextEffect = QtGui.QGraphicsColorizeEffect()
+                        nextEffect.setColor(self.project.onionSkin["next_color"])
+                        self.onionNextItems[n].setGraphicsEffect(nextEffect)
+                    else:
+                        self.onionNextItems[n].setGraphicsEffect(None)
+                    self.onionNextItems[n].setOpacity(self.project.onionSkin["next"][n][1])
                     self.onionNextItems[n].show()
 
     def wheelEvent(self, event):

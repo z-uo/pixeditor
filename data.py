@@ -32,12 +32,12 @@ class Project(QtCore.QObject):
         self.fillMode = "adjacent"
         self.selectMode = "cut"
         self.loop = False
-        self.onionSkin = {"check"     : False,
-                          "color"     : False,
-                          "prevColor" : None,
-                          "prev"      : [[True, 0.5], [True, 0.5], [True, 0.5]],
-                          "nextColor" : None,
-                          "next"      : [[True, 0.5], [True, 0.5], [True, 0.5]]}
+        self.onionSkin = {"check"      : False,
+                          "color"      : False,
+                          "prev_color" : QtGui.QColor(255, 0, 0),
+                          "prev"       : [[True, 0.5], [False, 0.25], [False, 0.125]],
+                          "next_color" : QtGui.QColor(0, 0, 255),
+                          "next"       : [[True, 0.5], [False, 0.25], [False, 0.125]]}
         self.initProject()
         self.importResources()
         
@@ -65,6 +65,8 @@ class Project(QtCore.QObject):
         self.updateTimelineSizeSign.emit()
         
     def importXml(self, rootElem):
+        self.curFrame = 0
+        self.curLayer = 0
         if rootElem.attrib["version"] == "0.2":
             return self.importXml02(rootElem)
         sizeElem = rootElem.find("size").attrib
