@@ -310,7 +310,7 @@ class Scene(QtGui.QGraphicsView):
                           int(self.itemList[l].pos().y()))
                 self.canvasList[l].loadFromList(
                                     self.canvasList[l].returnAsList(),
-                                    self.canvasList[l].width(), offset)
+                                    None, offset, self.project.moveMode)
                 self.itemList[l].setPos(QtCore.QPointF(0, 0))
                 self.changeFrame()
             elif self.project.tool == "select": 

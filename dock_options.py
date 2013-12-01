@@ -221,7 +221,35 @@ class OptionSelect(QtGui.QWidget):
     
     def copyPressed(self):
         self.project.selectMode = "copy"
+
+
+class OptionMove(QtGui.QWidget):
+    """ contextual option for the select tool """
+    def __init__(self, parent, project):
+        QtGui.QVBoxLayout .__init__(self)
+        self.project = project
         
+        self.noWrapRadio = QtGui.QRadioButton("no wrap", self)
+        self.noWrapRadio.pressed.connect(self.noWrapPressed)
+        self.noWrapRadio.setChecked(True)
+        self.wrapRadio = QtGui.QRadioButton("wrap", self)
+        self.wrapRadio.pressed.connect(self.wrapPressed)
+        
+        ### Layout ###
+        layout = QtGui.QVBoxLayout()
+        layout.setSpacing(0)
+        layout.addWidget(self.noWrapRadio)
+        layout.addWidget(self.wrapRadio)
+        layout.addStretch()
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(layout)
+        
+    def noWrapPressed(self):
+        self.project.moveMode = "no_wrap"
+    
+    def wrapPressed(self):
+        self.project.moveMode = "wrap"
+
 
 class OptionsWidget(QtGui.QWidget):
     """ widget cantaining options """
@@ -237,6 +265,7 @@ class OptionsWidget(QtGui.QWidget):
             "icons/onionskin_prev.png", self.onionskinClicked, True)
         
         self.optionFill = OptionFill(self, self.project)
+        self.optionMove = OptionMove(self, self.project)
         self.optionSelect = OptionSelect(self, self.project)
         self.project.toolChangedSign.connect(self.toolChanged)
 
@@ -256,6 +285,8 @@ class OptionsWidget(QtGui.QWidget):
         layout.addLayout(context)
         layout.addWidget(self.optionFill)
         self.optionFill.hide()
+        layout.addWidget(self.optionMove)
+        self.optionMove.hide()
         layout.addWidget(self.optionSelect)
         self.optionSelect.hide()
         layout.addStretch()
@@ -265,12 +296,19 @@ class OptionsWidget(QtGui.QWidget):
     def toolChanged(self):
         if self.project.tool == "fill":
             self.optionSelect.hide()
+            self.optionMove.hide()
             self.optionFill.show()
+        elif self.project.tool == "move":
+            self.optionFill.hide()
+            self.optionSelect.hide()
+            self.optionMove.show()
         elif self.project.tool == "select":
             self.optionFill.hide()
+            self.optionMove.hide()
             self.optionSelect.show()
         else:
             self.optionFill.hide()
+            self.optionMove.hide()
             self.optionSelect.hide()
             
     def onionskinClicked(self):

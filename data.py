@@ -30,6 +30,7 @@ class Project(QtCore.QObject):
         self.brush = lambda n : True
         self.tool = "pen"
         self.fillMode = "adjacent"
+        self.moveMode = "no_wrap"
         self.selectMode = "cut"
         self.loop = False
         self.onionSkin = {"check"      : False,
@@ -530,14 +531,24 @@ class Canvas(QtGui.QImage):
             self.fill(0)
 
     ######## import/export #############################################
-    def loadFromList(self, li, exWidth=None, offset=(0, 0)):
+    def loadFromList(self, li, exWidth=None, offset=(0, 0), mode="no_wrap"):
         self.fill(0)
-        if not exWidth:
+        if exWidth is None:
             exWidth = self.width()
         x, y = 0, 0
         for i in li:
             nx, ny = x + offset[0], y + offset[1]
             if self.rect().contains(nx, ny):
+                self.setPixel(QtCore.QPoint(nx, ny), int(i))
+            elif mode == "wrap":
+                while nx >= self.width():
+                    nx -= self.width()
+                while nx < 0:
+                    nx += self.width()
+                while ny >= self.height():
+                    ny -= self.height()
+                while ny < 0:
+                    ny += self.height()
                 self.setPixel(QtCore.QPoint(nx, ny), int(i))
             x += 1
             if x >= exWidth:
