@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
 
-from __future__ import division
 import sys
 from PyQt4 import QtCore
 from PyQt4 import QtGui
@@ -18,11 +17,14 @@ class SatVal(QtGui.QGraphicsView):
     def __init__(self, parent, H, S, V):
         QtGui.QGraphicsView.__init__(self)
         self.parent = parent
-
+        self.setFixedSize(258, 258)
+        self.setFrameShape(QtGui.QFrame.Box)
+        self.setFrameShadow(QtGui.QFrame.Plain)
+        self.setLineWidth(1)
+        
         self.scene = QtGui.QGraphicsScene(self)
         self.scene.setItemIndexMethod(QtGui.QGraphicsScene.NoIndex)
         self.setScene(self.scene)
-        self.setFixedSize(258, 258)
         self.scene.setSceneRect(0, 0, 256, 256)
         
         self.colorGrad = QtGui.QLinearGradient()
@@ -88,6 +90,9 @@ class Hue(QtGui.QGraphicsView):
         QtGui.QGraphicsView.__init__(self)
         self.parent = parent
         self.setFixedSize(18, 258)
+        self.setFrameShape(QtGui.QFrame.Box)
+        self.setFrameShadow(QtGui.QFrame.Plain)
+        self.setLineWidth(1)
         
         self.scene = QtGui.QGraphicsScene(self)
         self.setScene(self.scene)
@@ -138,11 +143,14 @@ class Alpha(QtGui.QGraphicsView):
     def __init__(self, parent, A):
         QtGui.QGraphicsView.__init__(self)
         self.parent = parent
+        self.setFixedSize(18, 258)
+        self.setFrameShape(QtGui.QFrame.Box)
+        self.setFrameShadow(QtGui.QFrame.Plain)
+        self.setLineWidth(1)
 
         self.scene = QtGui.QGraphicsScene(self)
         self.scene.setItemIndexMethod(QtGui.QGraphicsScene.NoIndex)
         self.setScene(self.scene)
-        self.setFixedSize(18, 258)
         self.scene.setSceneRect(0, 0, 16, 256)
         self.setBackgroundBrush(QtGui.QBrush(QtGui.QPixmap('icons/color_picker_alpha.png')))
         
@@ -186,11 +194,14 @@ class ColorPreview(QtGui.QGraphicsView):
     def __init__(self, parent, color, ex=True):
         QtGui.QGraphicsView.__init__(self)
         self.parent = parent
+        self.setFixedSize(130, 66)
+        self.setFrameShape(QtGui.QFrame.Box)
+        self.setFrameShadow(QtGui.QFrame.Plain)
+        self.setLineWidth(1)
 
         self.scene = QtGui.QGraphicsScene(self)
         self.scene.setItemIndexMethod(QtGui.QGraphicsScene.NoIndex)
         self.setScene(self.scene)
-        self.setFixedSize(130, 66)
         self.scene.setSceneRect(0, 0, 128, 64)
         self.setBackgroundBrush(QtGui.QBrush(QtGui.QPixmap('icons/color_picker_alpha.png')))
         
@@ -366,8 +377,13 @@ class ColorDialog(QtGui.QDialog):
         else:
             return False, None
             
+    def getRgba(self):
+        if self.result():
+            return True , self.color.rgba()
+        else:
+            return False, None
+            
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)
-    mainWin = ColorDialog(False).getRgba()
-    print(mainWin)
+    print(ColorDialog(True).getRgba())
     sys.exit(app.exec_())
