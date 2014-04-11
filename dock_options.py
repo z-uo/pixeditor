@@ -117,8 +117,7 @@ class PenWidget(QtGui.QWidget):
             self.project.pen = self.project.penDict["custom"]
             self.icon = None
             self.update()
-            self.project.penChangedSign.emit()
-            self.parent.penClicked()
+            self.project.toolSetPenSign.emit()
 
 
 class BrushWidget(QtGui.QWidget):

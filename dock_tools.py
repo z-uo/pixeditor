@@ -15,6 +15,7 @@ class ToolsWidget(QtGui.QWidget):
         ### tools buttons ###
         self.penB = Button("pen (1)", "icons/tool_pen.png", self.penClicked, True)
         self.penB.setChecked(True)
+        self.project.toolSetPenSign.connect(self.penClicked)
         self.pipetteB = Button("pipette (2)", "icons/tool_pipette.png", self.pipetteClicked, True)
         self.fillB = Button("fill (3)", "icons/tool_fill.png", self.fillClicked, True)
         self.moveB = Button("move (4)", "icons/tool_move.png", self.moveClicked, True)

@@ -17,6 +17,7 @@ class Project(QtCore.QObject):
     updateBackgroundSign = QtCore.pyqtSignal()
     updateFpsSign = QtCore.pyqtSignal()
     toolChangedSign = QtCore.pyqtSignal()
+    toolSetPenSign = QtCore.pyqtSignal()
     penChangedSign = QtCore.pyqtSignal()
     colorChangedSign = QtCore.pyqtSignal()
     customPenSign = QtCore.pyqtSignal(list)
