@@ -70,6 +70,7 @@ class PenWidget(QtGui.QWidget):
         self.project.customPenSign.connect(self.setCustomPen)
 
     def loadPen(self):
+        self.customAction = None
         self.penMenu.clear()
         for name, icon in self.project.penList:
             action = QtGui.QAction(QtGui.QIcon(icon), name, self)
@@ -78,6 +79,8 @@ class PenWidget(QtGui.QWidget):
             self.penMenu.addAction(action)
             if not self.currentAction:
                 self.currentAction = action
+            if name == "custom":
+                self.customAction = action
 
     def event(self, event):
         if event.type() == QtCore.QEvent.MouseButtonPress:
@@ -115,9 +118,9 @@ class PenWidget(QtGui.QWidget):
         if nLi:
             self.project.penDict["custom"] = nLi
             self.project.pen = self.project.penDict["custom"]
-            self.icon = None
-            self.update()
+            self.currentAction = self.customAction
             self.project.toolSetPenSign.emit()
+            self.update()
 
 
 class BrushWidget(QtGui.QWidget):
