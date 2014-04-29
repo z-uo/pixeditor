@@ -619,10 +619,9 @@ class MainWindow(QtGui.QMainWindow):
             self.project.updateViewSign.emit()
 
     def resizeAction(self):
-        factor = ResizeDialog(self.project.size).getReturn()
-        if factor and factor != 1:
+        newSize = ResizeDialog(self.project.size).getReturn()
+        if newSize:
             self.project.saveToUndo("size")
-            newSize = self.project.size*factor
             self.project.timeline.applyToAllCanvas(
                     lambda c: Canvas(self.project, c.scaled(newSize)))
             self.project.size = newSize
