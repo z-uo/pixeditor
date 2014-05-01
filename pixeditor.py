@@ -705,9 +705,20 @@ class MainWindow(QtGui.QMainWindow):
             
     ######## Shortcuts #################################################
     def selectFrame(self, n):
-        maxF = max([len(l) for l in self.project.timeline])
-        if 0 <= self.project.curFrame+n < maxF:
-            self.project.curFrame += n
+        exf = self.project.curFrame
+        f = self.project.curFrame + n
+        lf = self.project.timeline.frameVisibleCount()
+        if f < 0:
+            if self.project.loop:
+                self.project.curFrame = lf -1
+        elif f >= lf:
+            if self.project.loop:
+                self.project.curFrame = 0
+            else: 
+                self.project.curFrame = f
+        else:
+            self.project.curFrame = f
+        if self.project.curFrame != exf:
             self.project.updateTimelineSign.emit()
             self.project.updateViewSign.emit()
 
