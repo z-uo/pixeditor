@@ -566,8 +566,7 @@ class TimelineWidget(QtGui.QWidget):
             self.f = self.project.curFrame
             self.fps = self.project.fps
             self.project.playing = True
-            maxF = max([len(l) for l in self.project.timeline])
-            if self.project.curFrame+1 >= maxF:
+            if self.project.curFrame+1 >= self.project.timeline.frameVisibleCount():
                 self.project.curFrame = 0
                 self.timelineCanvas.update()
                 self.project.updateViewSign.emit()
@@ -586,9 +585,8 @@ class TimelineWidget(QtGui.QWidget):
         if self.fps != self.project.fps:
             self.fps = self.project.fps
             self.timer.setInterval(1000//self.fps)
-        maxF = max([len(l) for l in self.project.timeline])
         self.f = self.project.curFrame + 1
-        if self.f < maxF:
+        if self.f < self.project.timeline.frameVisibleCount():
             self.project.curFrame = self.f
             self.timelineCanvas.update()
             self.project.updateViewSign.emit()
