@@ -438,10 +438,10 @@ class Layer(list):
         self.visible = visible
                 
     def copy(self):
-        return Layer(self.project, self, self.name)
+        return Layer(self.project, self, self.name, self.visible)
         
     def deepCopy(self):
-        layer = Layer(self.project, self, self.name)
+        layer = Layer(self.project, self, self.name, self.visible)
         for n, i in enumerate(layer):
             if i:
                 layer[n] = layer[n].copy_()
