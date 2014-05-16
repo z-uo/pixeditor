@@ -402,7 +402,7 @@ class MainWindow(QtGui.QMainWindow):
         exportAction.setShortcut('Ctrl+E')
         
         exitAction = QtGui.QAction('Exit', self)
-        exitAction.triggered.connect(self.exitAction)
+        exitAction.triggered.connect(self.close)
         exitAction.setShortcut('Ctrl+Q')
         
         fileMenu = menubar.addMenu('File')
@@ -574,9 +574,7 @@ class MainWindow(QtGui.QMainWindow):
         export_png(self.project, self.project.dirUrl)
     
     def closeEvent(self, event):
-        self.exitAction()
-        
-    def exitAction(self):
+        ret = True
         if not self.project.saved:
             message = QtGui.QMessageBox()
             message.setWindowTitle("Quit?")
@@ -585,8 +583,6 @@ class MainWindow(QtGui.QMainWindow):
             message.addButton("Cancel", QtGui.QMessageBox.RejectRole)
             message.addButton("Yes", QtGui.QMessageBox.AcceptRole)
             ret = message.exec_();
-        else:
-            ret = True
         if ret:
             settings = QtCore.QSettings()
             settings.beginGroup("mainWindow")
@@ -594,7 +590,9 @@ class MainWindow(QtGui.QMainWindow):
             settings.setValue("windowState", self.saveState())
             settings.setValue("lock", int(self.lockLayoutWidget.isChecked()))
             settings.endGroup()
-            QtGui.qApp.quit()
+            event.accept()
+        else:
+            event.ignore()
         
     ######## Project menu ##############################################
     def newAction(self):
