@@ -82,6 +82,7 @@ class Scene(QtGui.QGraphicsView):
         QtGui.QGraphicsView.__init__(self)
         self.project = project
         self.zoomN = 1
+        self.setAcceptDrops(False)
         # scene
         self.scene = QtGui.QGraphicsScene(self)
         self.scene.setItemIndexMethod(QtGui.QGraphicsScene.NoIndex)
@@ -332,12 +333,15 @@ class Scene(QtGui.QGraphicsView):
 
     def leaveEvent(self, event):
         self.penItem.hide()
-
+        
 
 class MainWindow(QtGui.QMainWindow):
     """ Main windows of the application """
+    dropped = QtCore.pyqtSignal(list)
     def __init__(self):
         QtGui.QMainWindow.__init__(self)
+        self.setAcceptDrops(True)
+        self.dropped.connect(self.droppedImages)
         
         self.project = Project(self)
         self.toolsWidget = ToolsWidget(self.project)
@@ -549,8 +553,13 @@ class MainWindow(QtGui.QMainWindow):
             self.saveAsAction()
 
     def importAsNewAction(self):
-        size, frames, colorTable = import_img(self.project, 
-                                              self.project.dirUrl)
+        urls = QtGui.QFileDialog.getOpenFileNames(
+                    None, "Import PNG and GIF", 
+                    self.project.dirUrl or os.path.expanduser("~"), 
+                    "PNG and GIF files (*.png *.gif);;All files (*)")
+        if not urls:
+            return
+        size, frames, colorTable = import_img(self.project, urls)
         if size and frames and colorTable:
             self.project.saveToUndo("all")
             self.project.initProject(size, colorTable, frames)
@@ -559,8 +568,13 @@ class MainWindow(QtGui.QMainWindow):
             self.project.updateTimelineSign.emit()
             
     def importAsLayerAction(self):
-        size, frames, colorTable = import_img(self.project, 
-                                              self.project.dirUrl,
+        urls = QtGui.QFileDialog.getOpenFileNames(
+                    None, "Import PNG and GIF", 
+                    self.project.dirUrl or os.path.expanduser("~"), 
+                    "PNG and GIF files (*.png *.gif);;All files (*)")
+        if not urls:
+            return
+        size, frames, colorTable = import_img(self.project, urls,
                                               self.project.size,
                                               self.project.colorTable)
         if size and frames and colorTable:
@@ -569,7 +583,18 @@ class MainWindow(QtGui.QMainWindow):
             self.project.updateViewSign.emit()
             self.project.updatePaletteSign.emit()
             self.project.updateTimelineSign.emit()
-    
+            
+    def droppedImages(self, urls):
+        size, frames, colorTable = import_img(self.project, urls,
+                                              self.project.size,
+                                              self.project.colorTable)
+        if size and frames and colorTable:
+            self.project.saveToUndo("all")
+            self.project.importImg(size, colorTable, frames)
+            self.project.updateViewSign.emit()
+            self.project.updatePaletteSign.emit()
+            self.project.updateTimelineSign.emit()
+        
     def exportAction(self):
         export_png(self.project, self.project.dirUrl)
     
@@ -733,7 +758,22 @@ class MainWindow(QtGui.QMainWindow):
         if self.project.url:
             url = os.path.basename(self.project.url)
         self.setWindowTitle("%s%s - pixeditor" %(sav, url))
-        
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls:
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        if event.mimeData().hasUrls:
+            event.accept()
+            l = []
+            for url in event.mimeData().urls():
+                l.append(url.toLocalFile())
+            self.dropped.emit(l)
+        else:
+            event.ignore()
 
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)

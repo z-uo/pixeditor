@@ -75,28 +75,22 @@ def get_save_url(dirName=None, ext="pix"):
             return
 
 ######## import ########
-def import_img(project, dirName, size=QtCore.QSize(0, 0), colorTable=[0]):
-    if not dirName:
-        dirName = os.path.expanduser("~")
-    urls = QtGui.QFileDialog.getOpenFileNames(
-        None, "Import PNG and GIF", dirName, "PNG and GIF files (*.png *.gif);;All files (*)")
-    if not urls:
-        return None, None, None, None
+def import_img(project, urls, size=QtCore.QSize(0, 0), colorTable=[0]):
     imgs = []
     canceled = []
-    # open all img get the colortable and max size 
+    # open all img
     canvasList = []
     for url in urls:
-        if str(url).endswith("png") or str(url).endswith("PNG"):
+        if str(url).lower().endswith("png"):
             img = Canvas(project, str(url))
             canvasList.append((img, str(url)))
-        elif str(url).endswith("gif") or str(url).endswith("GIF"):
+        elif str(url).lower().endswith("gif"):
             mov = QtGui.QMovie(str(url))
             for i in range(mov.frameCount()):
                 mov.jumpToFrame(i)
                 img = Canvas(project, mov.currentImage())
                 canvasList.append((img, str(url)))
-                
+    # get the colortable and max size 
     for img, url in canvasList:
         if img.format() == QtGui.QImage.Format_Indexed8:
             colorMixed = img.mixColortable(colorTable)
@@ -108,7 +102,7 @@ def import_img(project, dirName, size=QtCore.QSize(0, 0), colorTable=[0]):
             size = size.expandedTo(img.size())
         else:
             canceled.append(url)
-            
+    # convert all image to the previously defined colortable and size
     for n, img in enumerate(imgs):
         img = Canvas(project, img.convertToFormat(QtGui.QImage.Format_Indexed8, colorTable))
         if img.size() != size:
@@ -117,7 +111,7 @@ def import_img(project, dirName, size=QtCore.QSize(0, 0), colorTable=[0]):
             img = Canvas(project, size, colorTable)
             img.loadFromList(li, width)
         imgs[n] = img
-    
+    # show an error and the list of canceled images
     if canceled:
         text = "Failed to import some files (too much colors):"
         for i in canceled:
