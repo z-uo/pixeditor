@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #-*- coding: utf-8 -*-
 
-# Copyright Nicolas Bougère (nicolas.bougere@z-uo.com), 2012-2013
+# Copyright Nicolas Bougère (nicolas.bougere@z-uo.com), 2012-2014
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,13 +15,6 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-# export spritesheet
-# export all canvas
-# watch copy paste
-
-# add camera layer
-# add rough layer with higher resolution
 
 import sys
 import os
@@ -341,7 +334,7 @@ class MainWindow(QtGui.QMainWindow):
     def __init__(self):
         QtGui.QMainWindow.__init__(self)
         self.setAcceptDrops(True)
-        self.dropped.connect(self.droppedImages)
+        self.dropped.connect(self.importAsLayer)
         
         self.project = Project(self)
         self.toolsWidget = ToolsWidget(self.project)
@@ -358,7 +351,7 @@ class MainWindow(QtGui.QMainWindow):
         self.setDockNestingEnabled(True)
         self.setCentralWidget(self.scene)
         
-        QtGui.QApplication.setOrganizationName("z-uo")
+        QtGui.QApplication.setOrganizationName("pixeditor")
         QtGui.QApplication.setApplicationName("pixeditor")
         settings = QtCore.QSettings()
         settings.beginGroup("mainWindow")
@@ -572,19 +565,10 @@ class MainWindow(QtGui.QMainWindow):
                     None, "Import PNG and GIF", 
                     self.project.dirUrl or os.path.expanduser("~"), 
                     "PNG and GIF files (*.png *.gif);;All files (*)")
-        if not urls:
-            return
-        size, frames, colorTable = import_img(self.project, urls,
-                                              self.project.size,
-                                              self.project.colorTable)
-        if size and frames and colorTable:
-            self.project.saveToUndo("all")
-            self.project.importImg(size, colorTable, frames)
-            self.project.updateViewSign.emit()
-            self.project.updatePaletteSign.emit()
-            self.project.updateTimelineSign.emit()
+        if urls:
+            self.importAsLayer(urls)
             
-    def droppedImages(self, urls):
+    def importAsLayer(self, urls):
         size, frames, colorTable = import_img(self.project, urls,
                                               self.project.size,
                                               self.project.colorTable)
