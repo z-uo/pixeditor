@@ -275,6 +275,10 @@ class ColorDialog(QtGui.QDialog):
             self.aW.setValue(255-self.color.alpha())
             self.aW.valueChanged.connect(self.a_changed)
         
+        self.nameW = QtGui.QLineEdit(self.color.name())
+        self.nameW.textChanged.connect(self.color_name_changed)
+        self.color_changed.connect(self.col_changed)
+        
         self.cancelW = QtGui.QPushButton('cancel', self)
         self.cancelW.clicked.connect(self.cancel_clicked)
         self.okW = QtGui.QPushButton('ok', self)
@@ -297,7 +301,8 @@ class ColorDialog(QtGui.QDialog):
         if alpha:
             grid.addWidget(self.aL, 4, 3)
             grid.addWidget(self.aW, 4, 4)
-        grid.setRowStretch(5, 4)
+        grid.addWidget(self.nameW, 5, 3, 1, 2)
+        grid.setRowStretch(6, 4)
 
         okBox = QtGui.QHBoxLayout()
         okBox.addStretch(0)
@@ -358,6 +363,18 @@ class ColorDialog(QtGui.QDialog):
         self.color.setAlpha(255-A)
         self.color_changed.emit(self.color)
         self.alpha.alpha_changed(A)
+        
+    def col_changed(self, col):
+        if not self.nameW.hasFocus():
+            self.nameW.setText(col.name())
+        
+    def color_name_changed(self, text):
+        col = QtGui.QColor(text)
+        if col.isValid():
+            self.color = col
+            self.sat_val_changed(col.saturation(), col.value())
+            self.hue_changed(col.hue())
+            self.alpha_changed(col.alpha()-255)
         
     def ok_clicked(self):
         self.accept()
