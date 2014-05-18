@@ -243,6 +243,8 @@ class ColorDialog(QtGui.QDialog):
         self.hue = Hue(self, getHue(self.color))
         if alpha:
             self.alpha = Alpha(self, 255-self.color.alpha())
+        else:
+            self.alpha = None
         self.color_changed.connect(self.colorPreview.color_changed)
         
         self.hL = QtGui.QLabel("Hue")
@@ -369,12 +371,14 @@ class ColorDialog(QtGui.QDialog):
             self.nameW.setText(col.name())
         
     def color_name_changed(self, text):
-        col = QtGui.QColor(text)
-        if col.isValid():
-            self.color = col
-            self.sat_val_changed(col.saturation(), col.value())
-            self.hue_changed(col.hue())
-            self.alpha_changed(col.alpha()-255)
+        if self.nameW.hasFocus():
+            col = QtGui.QColor(text)
+            if col.isValid():
+                self.color = col
+                self.sat_val_changed(col.saturation(), col.value())
+                self.hue_changed(col.hue())
+                if self.alpha:
+                    self.alpha_changed(col.alpha()-255)
         
     def ok_clicked(self):
         self.accept()
@@ -402,5 +406,5 @@ class ColorDialog(QtGui.QDialog):
             
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)
-    print(ColorDialog(True).getRgba())
+    print(ColorDialog(False).getRgb())
     sys.exit(app.exec_())
