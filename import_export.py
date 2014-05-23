@@ -104,12 +104,10 @@ def import_img(project, urls, size=QtCore.QSize(0, 0), colorTable=[0]):
             canceled.append(url)
     # convert all image to the previously defined colortable and size
     for n, img in enumerate(imgs):
-        img = Canvas(project, img.convertToFormat(QtGui.QImage.Format_Indexed8, colorTable))
         if img.size() != size:
-            li = img.returnAsList()
-            width = img.width()
-            img = Canvas(project, size, colorTable)
-            img.loadFromList(li, width)
+            img = Canvas(project, img.copy(0, 0, size.width(), size.height()).convertToFormat(QtGui.QImage.Format_Indexed8, colorTable))
+        else:
+            img = Canvas(project, img.convertToFormat(QtGui.QImage.Format_Indexed8, colorTable))
         imgs[n] = img
     # show an error and the list of canceled images
     if canceled:
