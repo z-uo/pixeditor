@@ -34,7 +34,6 @@ or 64 bit : http://sourceforge.net/projects/pyqt/files/PyQt4/PyQt-4.10.3/PyQt4-4
 
 then download the program : https://github.com/pops/pixeditor/archive/master.zip  
 extraxt the zip and run pixeditor.py  
-You can install imagemagick to enable a gif export.  
 
 
 Linux
