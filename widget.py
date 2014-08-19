@@ -33,6 +33,13 @@ class Dock(QtGui.QDockWidget):
             self.setAllowedAreas(QtCore.Qt.AllDockWidgetAreas)
             
     
+class Label(QtGui.QLabel):
+    """ Label """
+    def __init__(self, tooltip):
+        QtGui.QLabel.__init__(self)
+        self.setToolTip(tooltip)
+        
+    
 class Button(QtGui.QToolButton):
     """ button """
     def __init__(self, tooltip, icon, connection, checkable=False):
