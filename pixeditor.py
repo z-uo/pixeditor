@@ -169,6 +169,7 @@ class Scene(QtGui.QGraphicsView):
                 self.itemList[n].setVisible(True)
                 self.itemList[n].pixmap().convertFromImage(i)
                 self.itemList[n].update()
+                self.itemList[n].setOpacity(self.project.currentOpacity)
             else:
                 self.itemList[n].setVisible(False)
         # onionskin

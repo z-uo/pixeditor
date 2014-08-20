@@ -64,8 +64,9 @@ class OnionSkinWidget(QtGui.QWidget):
         self.currentSlider = QtGui.QSlider(QtCore.Qt.Vertical, self)
         self.currentSlider.setRange(0, 100)
         self.currentSlider.setValue(100)
-        self.currentSlider.setDisabled(True)
+        #self.currentSlider.setDisabled(True)
         self.currentSlider.setMinimumHeight(100)
+        self.currentSlider.valueChanged.connect(self.valueChanged)
         
         nex = self.project.onionSkin["next"]
         self.next1Slider = QtGui.QSlider(QtCore.Qt.Vertical, self)
@@ -125,6 +126,7 @@ class OnionSkinWidget(QtGui.QWidget):
         self.project.onionSkin["next"] = [[self.next1Check.isChecked(), self.next1Slider.value()/100],
                                           [self.next2Check.isChecked(), self.next2Slider.value()/100],
                                           [self.next3Check.isChecked(), self.next3Slider.value()/100]]
+        self.project.currentOpacity=self.currentSlider.value()/100.0
         self.project.updateViewSign.emit()
         
     def checkColor(self):

@@ -34,6 +34,7 @@ class Project(QtCore.QObject):
         self.moveMode = "no_wrap"
         self.selectMode = "cut"
         self.loop = False
+        self.currentOpacity = 1.0
         self.onionSkin = {"check"      : False,
                           "color"      : False,
                           "prev_color" : QtGui.QColor(255, 0, 0),
