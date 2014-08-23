@@ -654,9 +654,7 @@ class MainWindow(QtGui.QMainWindow):
             pal = import_palette(url, len(self.project.colorTable))
             if pal:
                 self.project.saveToUndo("colorTable_frames")
-                self.project.colorTable = pal
-                for i in self.project.timeline.getAllCanvas():
-                    i.setColorTable(self.project.colorTable)
+                self.project.changeColorTable(pal)
                 self.project.updateViewSign.emit()
                 self.project.updatePaletteSign.emit()
         
