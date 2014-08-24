@@ -393,15 +393,6 @@ class Project(QtCore.QObject):
                     if color in currentColorTable:
                         continue
                     currentColorTable.append(color)
-        #record images in index instead of color
-        canvasIndices=[]
-        for canvas in self.timeline.getAllCanvas():
-            canvasIndices.append([])
-            for y in range(canvas.height()):
-                for x in range(canvas.width()):
-                    color = canvas.pixel(x, y)
-                    canvasIndices[-1].append(currentColorTable.index(color))
-                    
         #find closest color in pal for each color
         colorsNewIndices=[]
         for currentI,currentColor in enumerate(currentColorTable):
@@ -436,13 +427,20 @@ class Project(QtCore.QObject):
             colorsNewIndices.append(bestIndex)
         #transform all canvas into new indices
         self.colorTable = pal
-        for i in self.timeline.getAllCanvas():
-            i.setColorTable(self.colorTable)
         for c,canvas in enumerate(self.timeline.getAllCanvas()):
             i=0
+            #record images in index instead of color
+            canvasIndices=[]
             for y in range(canvas.height()):
                 for x in range(canvas.width()):
-                    canvas.setPixel(x,y,colorsNewIndices[canvasIndices[c][i]])
+                    color = canvas.pixel(x, y)
+                    canvasIndices.append(currentColorTable.index(color))
+            #change palette
+            canvas.setColorTable(self.colorTable)
+            #update color index
+            for y in range(canvas.height()):
+                for x in range(canvas.width()):
+                    canvas.setPixel(x,y,colorsNewIndices[canvasIndices[i]])
                     i=i+1
         
         
