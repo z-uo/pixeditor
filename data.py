@@ -385,19 +385,20 @@ class Project(QtCore.QObject):
     def changeColorTable(self,pal):
         """ replace palette searching for best colors """
         #get current colors in picture
-        currentColorTable = []
+        currentColorIndexTable = []
         for canvas in self.timeline.getAllCanvas():
             for y in range(canvas.height()):
                 for x in range(canvas.width()):
-                    color = canvas.pixel(x, y)
-                    if color in currentColorTable:
+                    colorIndex = canvas.pixelIndex(x, y)
+                    if colorIndex in currentColorIndexTable:
                         continue
-                    currentColorTable.append(color)
+                    currentColorIndexTable.append(colorIndex)
         #find closest color in pal for each color
-        colorsNewIndices=[]
-        for currentI,currentColor in enumerate(currentColorTable):
+        colorsNewIndices=[0]*len(self.colorTable)
+        for currentColorIndex in currentColorIndexTable:
             bestIndex=0
-            bestDist=10000
+            bestDist=3*255*255+1
+            currentColor=self.colorTable[currentColorIndex]
             currentBlue=currentColor&0xFF
             currentColor=currentColor>>8
             currentGreen=currentColor&0xFF
@@ -424,24 +425,16 @@ class Project(QtCore.QObject):
                 if (dist<bestDist):
                     bestDist=dist
                     bestIndex=newI
-            colorsNewIndices.append(bestIndex)
+            colorsNewIndices[currentColorIndex]=bestIndex
         #transform all canvas into new indices
         self.colorTable = pal
-        for c,canvas in enumerate(self.timeline.getAllCanvas()):
-            i=0
-            #record images in index instead of color
-            canvasIndices=[]
-            for y in range(canvas.height()):
-                for x in range(canvas.width()):
-                    color = canvas.pixel(x, y)
-                    canvasIndices.append(currentColorTable.index(color))
+        for canvas in self.timeline.getAllCanvas():
             #change palette
             canvas.setColorTable(self.colorTable)
             #update color index
             for y in range(canvas.height()):
                 for x in range(canvas.width()):
-                    canvas.setPixel(x,y,colorsNewIndices[canvasIndices[i]])
-                    i=i+1
+                    canvas.setPixel(x,y,colorsNewIndices[canvas.pixelIndex(x,y)])
         
         
 class Timeline(list):
