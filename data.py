@@ -382,17 +382,22 @@ class Project(QtCore.QObject):
         elif type(layer) == list:
             return Layer(self, layer, name)
 
-    def changeColorTable(self,pal):
-        """ replace palette searching for best colors """
-        #get current colors in picture
-        currentColorIndexTable = []
+    def getUsedColorList(self):
+        """ Return the index of all used colors """
+        usedColorIndexTable = []
         for canvas in self.timeline.getAllCanvas():
             for y in range(canvas.height()):
                 for x in range(canvas.width()):
                     colorIndex = canvas.pixelIndex(x, y)
-                    if colorIndex in currentColorIndexTable:
+                    if colorIndex in usedColorIndexTable:
                         continue
-                    currentColorIndexTable.append(colorIndex)
+                    usedColorIndexTable.append(colorIndex)
+        return usedColorIndexTable
+
+    def changeColorTable(self,pal):
+        """ replace palette searching for best colors """
+        #get current colors in picture
+        currentColorIndexTable=self.getUsedColorList()
         #find closest color in pal for each color
         colorsNewIndices=[0]*len(self.colorTable)
         for currentColorIndex in currentColorIndexTable:
