@@ -656,6 +656,7 @@ class MainWindow(QtGui.QMainWindow):
                 self.project.saveToUndo("colorTable_frames")
                 self.project.changeColorTable(pal)
                 self.project.color = 1
+                self.project.currentColor = 1
                 self.project.updateViewSign.emit()
                 self.project.updatePaletteSign.emit()
                 self.project.colorChangedSign.emit()

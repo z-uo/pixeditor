@@ -62,7 +62,7 @@ class Background(QtGui.QPixmap):
         self.fill(QtGui.QColor(0, 0, 0, 0))
         if type(arg) is int and arg:
             p = QtGui.QPainter(self)
-            brush = QtGui.QBrush(QtGui.QColor(100, 100, 50, 255))
+            brush = QtGui.QBrush(QtGui.QColor(0, 0, 0, 30))
             bol = True
             for x in range(0, size.width(), arg):
                 for y in range(0, size.height(), arg*2):
