@@ -655,8 +655,10 @@ class MainWindow(QtGui.QMainWindow):
             if pal:
                 self.project.saveToUndo("colorTable_frames")
                 self.project.changeColorTable(pal)
+                self.project.color = 1
                 self.project.updateViewSign.emit()
                 self.project.updatePaletteSign.emit()
+                self.project.colorChangedSign.emit()
         
     def backgroundAction(self):
         color, pattern = BackgroundDialog(self.project.bgColor,
