@@ -220,7 +220,7 @@ def import_palette(url, nColor=0):
     pal = [QtGui.QColor(0, 0, 0, 0).rgba()]
     black = False
     for i in palette:
-        if len(i) == 3:
+        if len(i) == 3 and i[0] and i[1] and i[2]:
             # avoid to fill palette of black as in some pal files
             if i == ["0", "0", "0"]:
                 if black:
@@ -228,9 +228,6 @@ def import_palette(url, nColor=0):
                 black = True
             pal.append(QtGui.QColor(int(i[0]), int(i[1]), int(i[2])).rgb())
     save.close()
-    #don't have to fill the palette anymore, the image will be correctly converted
-    #while len(pal) < nColor: 
-    #    pal.append(QtGui.QColor(0, 0, 0).rgb())
     return pal
     
 def export_palette(pal):
