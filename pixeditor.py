@@ -86,6 +86,8 @@ class Scene(QtGui.QGraphicsView):
         self.setMinimumSize(400, 400)
         self.scene.setSceneRect(0, 0, 
                     self.project.size.width(), self.project.size.height())
+        # coords info
+        self.coords=None
         # background
         self.setBackgroundBrush(QtGui.QBrush(self.project.bgColor))
         self.bg = self.scene.addPixmap(
@@ -167,6 +169,7 @@ class Scene(QtGui.QGraphicsView):
                 self.itemList[n].setVisible(True)
                 self.itemList[n].pixmap().convertFromImage(i)
                 self.itemList[n].update()
+                self.itemList[n].setOpacity(self.project.currentOpacity)
             else:
                 self.itemList[n].setVisible(False)
         # onionskin
@@ -262,6 +265,15 @@ class Scene(QtGui.QGraphicsView):
     def mouseMoveEvent(self, event):
         self.penItem.show()
         self.penItem.setPos(self.pointToFloat(self.mapToScene(event.pos())))
+        # show cursor coordinates
+        pos = self.pointToInt(self.mapToScene(event.pos()))
+        if (pos.x()>=0 and pos.y()>=0 \
+          and pos.x()<self.project.size.width() \
+          and pos.y()<self.project.size.height()):
+          self.coords.setText("x %(x)03d\ny %(y)03d"%{"x":pos.x(),"y":pos.y()});
+        else:
+          self.coords.setText("x\ny");
+        
         l = self.project.curLayer
         # pan
         if event.buttons() == QtCore.Qt.MidButton:
@@ -363,6 +375,7 @@ class MainWindow(QtGui.QMainWindow):
         toolsDock = Dock(self.toolsWidget, "tools", lock)
         toolsDock.setObjectName("toolsDock")
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, toolsDock)
+        self.scene.coords=toolsDock.widget().coords
 
         optionsDock = Dock(self.optionsWidget, "options", lock)
         optionsDock.setObjectName("optionsDock")
@@ -641,9 +654,7 @@ class MainWindow(QtGui.QMainWindow):
             pal = import_palette(url, len(self.project.colorTable))
             if pal:
                 self.project.saveToUndo("colorTable_frames")
-                self.project.colorTable = pal
-                for i in self.project.timeline.getAllCanvas():
-                    i.setColorTable(self.project.colorTable)
+                self.project.changeColorTable(pal)
                 self.project.updateViewSign.emit()
                 self.project.updatePaletteSign.emit()
         

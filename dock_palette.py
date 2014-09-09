@@ -26,12 +26,15 @@ class PaletteCanvas(QtGui.QWidget):
     def paintEvent(self, ev=''):
         p = QtGui.QPainter(self)
         p.fillRect (0, 0, self.width(), self.height(), self.background)
+        usedColorIndexTable=self.parent.project.getUsedColorList()
         for n, i in enumerate(self.parent.project.colorTable):
             if n > 0:
                 y = (((n-1) // 8) * 20) + 2
                 x = (((n-1) % 8) * 20) + 2
                 if n == self.parent.project.color:
-                    p.fillRect (x, y, 20, 20, self.black)
+                    p.fillRect (x-1, y-1, 22, 22, self.white)
+                    p.fillRect (x+1, y+1, 18, 18, self.black)
+                if (n in usedColorIndexTable):
                     p.fillRect (x+1, y+1, 18, 18, self.white)
                 p.fillRect(x+2, y+2, 16, 16, QtGui.QBrush(QtGui.QColor().fromRgba(i)))
 

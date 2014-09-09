@@ -228,8 +228,9 @@ def import_palette(url, nColor=0):
                 black = True
             pal.append(QtGui.QColor(int(i[0]), int(i[1]), int(i[2])).rgb())
     save.close()
-    while len(pal) < nColor:
-        pal.append(QtGui.QColor(0, 0, 0).rgb())
+    #don't have to fill the palette anymore, the image will be correctly converted
+    #while len(pal) < nColor: 
+    #    pal.append(QtGui.QColor(0, 0, 0).rgb())
     return pal
     
 def export_palette(pal):

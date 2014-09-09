@@ -34,6 +34,7 @@ class Project(QtCore.QObject):
         self.moveMode = "no_wrap"
         self.selectMode = "cut"
         self.loop = False
+        self.currentOpacity = 1.0
         self.onionSkin = {"check"      : False,
                           "color"      : False,
                           "prev_color" : QtGui.QColor(255, 0, 0),
@@ -380,7 +381,66 @@ class Project(QtCore.QObject):
             return Layer(self, [self.makeCanvas()], name)
         elif type(layer) == list:
             return Layer(self, layer, name)
-            
+
+    def getUsedColorList(self):
+        """ Return the index of all used colors """
+        usedColorIndexTable = []
+        for canvas in self.timeline.getAllCanvas():
+            for y in range(canvas.height()):
+                for x in range(canvas.width()):
+                    colorIndex = canvas.pixelIndex(x, y)
+                    if colorIndex in usedColorIndexTable:
+                        continue
+                    usedColorIndexTable.append(colorIndex)
+        return usedColorIndexTable
+
+    def changeColorTable(self,pal):
+        """ replace palette searching for best colors """
+        #get current colors in picture
+        currentColorIndexTable=self.getUsedColorList()
+        #find closest color in pal for each color
+        colorsNewIndices=[0]*len(self.colorTable)
+        for currentColorIndex in currentColorIndexTable:
+            bestIndex=0
+            bestDist=3*255*255+1
+            currentColor=self.colorTable[currentColorIndex]
+            currentBlue=currentColor&0xFF
+            currentColor=currentColor>>8
+            currentGreen=currentColor&0xFF
+            currentColor=currentColor>>8
+            currentRed=currentColor&0xFF
+            currentColor=currentColor>>8
+            currentAlpha=currentColor&0xFF
+            for newI,newColor in enumerate(pal):
+                if (newI==0):
+                    if (currentAlpha==255) :
+                        #if currentAlpha==255, can't be replace with transparent
+                       continue
+                    else:
+                        #if currentAlpha<255, replace with transparent
+                        break
+                newBlue =newColor&0xFF
+                newColor=newColor>>8
+                newGreen=newColor&0xFF
+                newColor=newColor>>8
+                newRed  =newColor&0xFF
+                dist=(newBlue-currentBlue)*(newBlue-currentBlue) \
+                    +(newGreen-currentGreen)*(newGreen-currentGreen) \
+                    +(newRed-currentRed)*(newRed-currentRed)
+                if (dist<bestDist):
+                    bestDist=dist
+                    bestIndex=newI
+            colorsNewIndices[currentColorIndex]=bestIndex
+        #transform all canvas into new indices
+        self.colorTable = pal
+        for canvas in self.timeline.getAllCanvas():
+            #change palette
+            canvas.setColorTable(self.colorTable)
+            #update color index
+            for y in range(canvas.height()):
+                for x in range(canvas.width()):
+                    canvas.setPixel(x,y,colorsNewIndices[canvas.pixelIndex(x,y)])
+        
         
 class Timeline(list):
     def __init__(self, project, layers=[]):

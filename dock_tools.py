@@ -4,7 +4,7 @@
 from PyQt4 import QtCore
 from PyQt4 import QtGui
 
-from widget import Button
+from widget import Button, Label
 
 
 class ToolsWidget(QtGui.QWidget):
@@ -12,6 +12,9 @@ class ToolsWidget(QtGui.QWidget):
     def __init__(self, project):
         QtGui.QWidget.__init__(self)
         self.project = project
+        ### coordinates ###
+        self.coords = Label("Cursor coordinates")
+        self.coords.setText("x\ny");
         ### tools buttons ###
         self.penB = Button("pen (1)", "icons/tool_pen.png", self.penClicked, True)
         self.penB.setChecked(True)
@@ -23,6 +26,7 @@ class ToolsWidget(QtGui.QWidget):
         ### Layout ###
         layout = QtGui.QVBoxLayout()
         layout.setSpacing(0)
+        layout.addWidget(self.coords)
         layout.addWidget(self.penB)
         layout.addWidget(self.pipetteB)
         layout.addWidget(self.fillB)
