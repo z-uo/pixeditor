@@ -667,7 +667,10 @@ class MainWindow(QtGui.QMainWindow):
     def minimizePaletteAction(self):
         self.project.saveToUndo("colorTable_frames")
         usedColorsIndices = self.project.getUsedColorList()
-        newPalette = [0]+[self.project.colorTable[i] for i in usedColorsIndices]
+        newPalette = [self.project.colorTable[i] for i in usedColorsIndices]
+        if QtGui.qRgba(0, 0, 0, 0) in newPalette:
+            newPalette.remove(QtGui.qRgba(0, 0, 0, 0))
+        newPalette.insert(0, QtGui.qRgba(0, 0, 0, 0))
         self.project.changeColorTable(newPalette)
         self.project.color = 1
         self.project.currentColor = 1
