@@ -27,7 +27,6 @@ class LayersCanvas(QtGui.QWidget):
     def paintEvent(self, ev=''):
         lH, mH = self.layerH, self.margeH
         p = QtGui.QPainter(self)
-        p.setPen(QtGui.QPen(self.black))
         p.setBrush(QtGui.QBrush(self.white))
         p.setFont(self.font)
         self.visibleList = []
@@ -102,7 +101,6 @@ class TimelineCanvas(QtGui.QWidget):
         p = QtGui.QPainter(self)
         fontLight = QtGui.QFont('SansSerif', 7, QtGui.QFont.Light)
         fontBold = QtGui.QFont('SansSerif', 8, QtGui.QFont.Normal)
-        p.setPen(QtGui.QPen(self.grey))
         p.setBrush(self.whitea)
         
         # background
