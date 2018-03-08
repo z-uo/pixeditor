@@ -459,8 +459,10 @@ class MainWindow(QtGui.QMainWindow):
         cropAction.triggered.connect(self.cropAction)
         resizeAction = QtGui.QAction('Resize', self)
         resizeAction.triggered.connect(self.resizeAction)
-        replacePaletteAction = QtGui.QAction('replace palette', self)
+        replacePaletteAction = QtGui.QAction('Replace palette', self)
         replacePaletteAction.triggered.connect(self.replacePaletteAction)
+        minimizePaletteAction = QtGui.QAction('Minimize palette', self)
+        minimizePaletteAction.triggered.connect(self.minimizePaletteAction)
         prefAction = QtGui.QAction('Background', self)
         prefAction.triggered.connect(self.backgroundAction)
         
@@ -469,6 +471,7 @@ class MainWindow(QtGui.QMainWindow):
         projectMenu.addAction(cropAction)
         projectMenu.addAction(resizeAction)
         projectMenu.addAction(replacePaletteAction)
+        projectMenu.addAction(minimizePaletteAction)
         projectMenu.addAction(prefAction)
 
         ### resources menu ###
@@ -660,6 +663,17 @@ class MainWindow(QtGui.QMainWindow):
                 self.project.updateViewSign.emit()
                 self.project.updatePaletteSign.emit()
                 self.project.colorChangedSign.emit()
+            
+    def minimizePaletteAction(self):
+        self.project.saveToUndo("colorTable_frames")
+        usedColorsIndices = self.project.getUsedColorList()
+        newPalette = [0]+[self.project.colorTable[i] for i in usedColorsIndices]
+        self.project.changeColorTable(newPalette)
+        self.project.color = 1
+        self.project.currentColor = 1
+        self.project.updateViewSign.emit()
+        self.project.updatePaletteSign.emit()
+        self.project.colorChangedSign.emit()
         
     def backgroundAction(self):
         color, pattern = BackgroundDialog(self.project.bgColor,
