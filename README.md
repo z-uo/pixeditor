@@ -29,7 +29,7 @@ Install the compiled verion here:
 (link of release)
 
 First install python 3.7 :  
-32 bit : https://www.python.org/ftp/python/3.7.0/python-3.7.0.exe
+32 bit : https://www.python.org/ftp/python/3.7.0/python-3.7.0.exe  
 or 64 bit : https://www.python.org/ftp/python/3.7.0/python-3.7.0-amd64.exe
 
 Then install pyqt :  
