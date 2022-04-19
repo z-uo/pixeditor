@@ -67,5 +67,5 @@ Buid
 
 Windows
 -----
-install pyinstaller with `pip install pyinstaller`
+install pyinstaller with `pip install pyinstaller`  
 run : `pyinstaller --noconsole --onefile --hidden-import sip --distpath "dist/pixeleditor" --icon "icons/pixeditor.ico" pixeditor.py`
