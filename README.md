@@ -26,7 +26,7 @@ Windows
 ------
 
 Install the compiled verion here:
-(link of release)
+https://github.com/coco875/pixeditor/releases/tag/v0.1.1
 
 First install python 3.7 :  
 32 bit : https://www.python.org/ftp/python/3.7.0/python-3.7.0.exe  
