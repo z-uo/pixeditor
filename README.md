@@ -19,20 +19,25 @@ Right clic to draw with alpha
 ![alt screenshot](https://raw.github.com/pops/pixeditor/master/screenshot.png "screenshot")
 
 
-install
+Install
 ======
 
 Windows
 ------
-First install python 3 :  
-32 bit : http://www.python.org/ftp/python/3.3.2/python-3.3.2.msi  
-or 64 bit : http://www.python.org/ftp/python/3.3.2/python-3.3.2.amd64.msi
+
+Install the compiled verion here:
+(link of release)
+
+First install python 3.7 :  
+32 bit : https://www.python.org/ftp/python/3.7.0/python-3.7.0.exe
+or 64 bit : https://www.python.org/ftp/python/3.7.0/python-3.7.0-amd64.exe
 
 Then install pyqt :  
-32 bit : http://sourceforge.net/projects/pyqt/files/PyQt4/PyQt-4.10.3/PyQt4-4.10.3-gpl-Py3.3-Qt4.8.5-x32.exe  
-or 64 bit : http://sourceforge.net/projects/pyqt/files/PyQt4/PyQt-4.10.3/PyQt4-4.10.3-gpl-Py3.3-Qt4.8.5-x64.exe
+first download : https://download.lfd.uci.edu/pythonlibs/x6hvwk7i/PyQt4-4.11.4-cp37-cp37m-win_amd64.whl
+and execute in the same folder: `pip install PyQt4-4.11.4-cp37-cp37m-win_amd64.whl`
 
 then download the program : https://github.com/pops/pixeditor/archive/master.zip  
+or directly from the source
 extraxt the zip and run pixeditor.py  
 
 
@@ -57,3 +62,10 @@ MacOs
 It should work by installing python 3 an pyqt but apparently it didn't.  
 Help is welcome.
 
+Buid
+====
+
+Windows
+-----
+install pyinstaller with `pip install pyinstaller`
+run : `pyinstaller --noconsole --onefile --hidden-import sip --distpath "dist/pixeleditor" --icon "icons/pixeditor.ico" pixeditor.py`
